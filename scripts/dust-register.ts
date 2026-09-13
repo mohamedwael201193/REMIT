@@ -94,25 +94,43 @@ async function main() {
   await wallet.start(shieldedSecretKeys, dustSecretKey);
   console.log("wallet started; waiting for unshielded sync (can take a long time on Preprod)");
 
+  const nightRaw = unshieldedToken().raw;
   const synced = await Rx.firstValueFrom(
     wallet.state().pipe(
       Rx.throttleTime(15_000),
       Rx.tap((s) => {
-        const night = s.unshielded.balances[unshieldedToken().raw] ?? 0n;
+        const night = s.unshielded.balances[nightRaw] ?? 0n;
+        const coins = s.unshielded.availableCoins?.length ?? 0;
         const dustCoins = s.dust?.availableCoins?.length ?? 0;
-        console.log("sync tick night=", night.toString(), "dustCoins=", dustCoins, "synced=", s.isSynced);
+        const complete = s.unshielded.progress?.isStrictlyComplete?.() === true;
+        console.log(
+          "sync tick night=",
+          night.toString(),
+          "unshieldedCoins=",
+          coins,
+          "dustCoins=",
+          dustCoins,
+          "unshieldedComplete=",
+          complete,
+          "synced=",
+          s.isSynced,
+        );
       }),
-      Rx.filter((s) => s.unshielded.progress?.isStrictlyComplete?.() === true || s.isSynced === true),
+      Rx.filter((s) => {
+        const night = s.unshielded.balances[nightRaw] ?? 0n;
+        const coins = s.unshielded.availableCoins ?? [];
+        return s.unshielded.progress?.isStrictlyComplete?.() === true && coins.length > 0 && night > 0n;
+      }),
       Rx.timeout({ first: 3 * 60 * 60_000 }),
     ),
   );
 
-  const nightRaw = unshieldedToken().raw;
-  const unregistered = synced.unshielded.availableCoins.filter(
-    (c: { utxo: { type: string }; meta?: { registeredForDustGeneration?: boolean } }) =>
-      c.utxo.type === nightRaw && c.meta?.registeredForDustGeneration !== true,
-  );
-  console.log("unregistered NIGHT utxos:", unregistered.length);
+  const unregistered = synced.unshielded.availableCoins.filter((c: { utxo: { type: unknown }; meta?: { registeredForDustGeneration?: boolean } }) => {
+    const t = c.utxo.type;
+    const isNight = t === nightRaw || String(t) === String(nightRaw);
+    return isNight && c.meta?.registeredForDustGeneration !== true;
+  });
+  console.log("unshielded coins", synced.unshielded.availableCoins.length, "unregistered NIGHT utxos:", unregistered.length);
 
   if (unregistered.length > 0) {
     const recipe = await wallet.registerNightUtxosForDustGeneration(
