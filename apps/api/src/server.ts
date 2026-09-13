@@ -1,6 +1,6 @@
 import { buildApp } from "./app.js";
 
-const PORT = Number(process.env.REMIT_API_PORT ?? 8787);
+const PORT = Number(process.env.PORT ?? process.env.REMIT_API_PORT ?? 8787);
 
 const { app } = await buildApp({
   cors: process.env.REMIT_API_CORS_ORIGIN ?? "*",
