@@ -381,6 +381,20 @@ async function main() {
       });
     }
 
+    const priceBad = {
+      ...offer,
+      quoteAmount: 1n,
+      payNonce: randomBytes32(),
+    };
+    const priceRand = randomBytes32();
+    const priceChangeNonce = randomBytes32();
+    const priceChange = {
+      asset: 1n,
+      amount: overChange.amount - priceBad.quoteAmount,
+      owner: quoteNote.owner,
+      nonce: priceChangeNonce,
+    };
+
     try {
       const { ld } = await poolState();
       const placed = await submitStagedCircuit(poolProviders, {
@@ -389,7 +403,71 @@ async function main() {
         privateStateId: "remit-pool",
         circuitId: "placeOffer",
         circuitArgs: [],
-        pending: pendingPlaceOffer(ld, makerSk, overChange, offer, offerRand, randomBytes32()),
+        pending: pendingPlaceOffer(ld, makerSk, overChange, priceBad, priceRand, priceChangeNonce),
+        fallback: emptyPrivateState(ns),
+      });
+      const after = (await poolState()).hit;
+      record({
+        name: "pool-place-price-offer",
+        ok: true,
+        txHash: after.txHash,
+        block: after.blockHeight,
+        detail: placed.status,
+      });
+    } catch (e) {
+      record({
+        name: "pool-place-price-offer",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 180) : "place price offer failed",
+      });
+    }
+
+    try {
+      const { ld } = await poolState();
+      const built = constructFill({
+        ledger: ld,
+        esk,
+        mandate,
+        remaining: nightNote.amount,
+        nowBound,
+        revoked: false,
+        offer: priceBad,
+        mandateRand,
+        stateNonce,
+        offerRand: priceRand,
+        auditSeed: randomBytes32(),
+        getNonce: randomBytes32(),
+        nextStateNonce: randomBytes32(),
+        bypassLocalPrecheck: true,
+      });
+      await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "fill",
+        circuitArgs: [nowBound],
+        pending: built.pending,
+        fallback: emptyPrivateState(ns),
+      });
+      record({ name: "price-violation-compact", ok: false, detail: "Compact accepted a price-limit violation" });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "compact";
+      record({
+        name: "price-violation-compact",
+        ok: /circuit rejected|price outside mandate|POLICY_REJECT|price/i.test(msg),
+        detail: msg.slice(0, 180),
+      });
+    }
+
+    try {
+      const { ld } = await poolState();
+      const placed = await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "placeOffer",
+        circuitArgs: [],
+        pending: pendingPlaceOffer(ld, makerSk, priceChange, offer, offerRand, randomBytes32()),
         fallback: emptyPrivateState(ns),
       });
       const after = (await poolState()).hit;
@@ -571,23 +649,31 @@ async function main() {
     }
 
     mkdirSync(resolve(root, "deployments"), { recursive: true });
-    writeFileSync(
-      resolve(root, "deployments", "lifecycle.json"),
-      JSON.stringify(
-        {
-          network: "preprod",
-          protocolVersion: block.protocolVersion,
-          quote: deployed.quote,
-          pool: deployed.pool,
-          steps,
-          mpc: false,
-          frontend: false,
-        },
-        null,
-        2,
-      ),
-    );
+    const lifecycleBody = {
+      network: "preprod",
+      protocolVersion: block.protocolVersion,
+      quote: deployed.quote,
+      pool: deployed.pool,
+      steps,
+      mpc: false as const,
+      frontend: true,
+    };
+    writeFileSync(resolve(root, "deployments", "lifecycle.json"), JSON.stringify(lifecycleBody, null, 2));
     console.log("wrote deployments/lifecycle.json");
+    const apiUrl = (process.env.REMIT_API_PUBLIC_URL ?? process.env.RENDER_SERVICE_URL ?? "").replace(/\/health$/, "");
+    const admin = process.env.REMIT_API_ADMIN_TOKEN ?? "";
+    if (apiUrl && admin) {
+      const { publishPublicEvidence } = await import("./lib/public-evidence.ts");
+      const status = await publishPublicEvidence(apiUrl, admin, {
+        present: true,
+        network: "preprod",
+        pool: { address: deployed.pool.address, txHash: deployed.pool.txHash, block: deployed.pool.block },
+        quote: { address: deployed.quote.address, txHash: deployed.quote.txHash, block: deployed.quote.block },
+        steps,
+        mpc: false,
+      });
+      console.log("published public evidence", status);
+    }
     if (!steps.every((s) => s.ok)) process.exitCode = 1;
   } finally {
     await closeOperatorWallet(session);

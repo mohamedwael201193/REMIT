@@ -148,6 +148,9 @@ async function main() {
   };
   writeFileSync(resolve(root, "deployments", "preprod.json"), JSON.stringify(out, null, 2));
   console.log("wrote deployments/preprod.json");
+  const { writeFrontPublicEnv } = await import("./write-front-public-env.ts");
+  const frontEnv = writeFrontPublicEnv();
+  if (frontEnv) console.log("wrote supplied front public env", frontEnv);
   } finally {
     await closeOperatorWallet(session);
   }

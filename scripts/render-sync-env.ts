@@ -5,7 +5,7 @@
 import { config as loadEnv } from "dotenv";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../.env.preprod.local") });
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -18,11 +18,21 @@ const ids = [
 const key = process.env.RENDER_API_KEY;
 if (!key) throw new Error("RENDER_API_KEY missing");
 
+const preprodPath = resolve(root, "deployments/preprod.json");
+const preprod = existsSync(preprodPath)
+  ? (JSON.parse(readFileSync(preprodPath, "utf8")) as {
+      pool?: { address?: string };
+      quote?: { address?: string };
+    })
+  : null;
+
 const vars: { key: string; value: string }[] = [
   { key: "MIDNIGHT_NETWORK", value: "preprod" },
   { key: "MIDNIGHT_INDEXER_URL", value: process.env.MIDNIGHT_INDEXER_URL ?? "https://indexer.preprod.midnight.network/api/v4/graphql" },
   { key: "REMIT_API_CORS_ORIGIN", value: "*" },
 ];
+if (preprod?.pool?.address) vars.push({ key: "REMIT_POOL_CONTRACT_ADDRESS", value: preprod.pool.address });
+if (preprod?.quote?.address) vars.push({ key: "REMIT_TESTQUOTE_CONTRACT_ADDRESS", value: preprod.quote.address });
 const secrets = [
   "REMIT_AGENT_RFQ_BOX_SECRET_HEX",
   "REMIT_API_ADMIN_TOKEN",

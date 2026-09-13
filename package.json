@@ -23,6 +23,7 @@
     "deploy:preprod": "npx tsx scripts/preprod-deploy.ts",
     "lifecycle:preprod": "npx tsx scripts/preprod-lifecycle.ts",
     "render:smoke": "npx tsx scripts/render-smoke.ts",
+    "front:env": "npx tsx scripts/write-front-public-env.ts",
     "build": "npm run compile:skip-zk && npm run -ws --if-present build",
     "api": "npm run start -w @remit/api",
     "agent:keygen": "node scripts/agent-keygen.mjs",

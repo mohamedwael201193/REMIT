@@ -29,6 +29,45 @@ describe("api (no private openings stored in plaintext)", () => {
     expect(body.quote).toBe("");
     expect(contractsDeployed(body)).toBe(false);
 
+    const cfg = await app.inject({ method: "GET", url: "/config" });
+    expect(cfg.statusCode).toBe(200);
+    const cfgBody = cfg.json();
+    expect(cfgBody.live).toBe(false);
+    expect(cfgBody.mpc).toBe(false);
+    expect(JSON.stringify(cfgBody).includes(rec.secretHex)).toBe(false);
+
+    const chain = await app.inject({ method: "GET", url: "/chain" });
+    expect(chain.statusCode).toBe(200);
+    expect(chain.json().live).toBe(false);
+
+    const emptyEv = await app.inject({ method: "GET", url: "/evidence" });
+    expect(emptyEv.statusCode).toBe(200);
+    expect(emptyEv.json().present).toBe(false);
+
+    const unauthEv = await app.inject({
+      method: "POST",
+      url: "/evidence",
+      payload: { steps: [{ name: "pool-fill", ok: true, txHash: "aa", block: 1 }] },
+    });
+    expect(unauthEv.statusCode).toBe(401);
+
+    const pub = await app.inject({
+      method: "POST",
+      url: "/evidence",
+      headers: { authorization: "Bearer admin-token-not-for-prod" },
+      payload: {
+        network: "preprod",
+        pool: { address: "poolx", txHash: "aa", block: 2 },
+        quote: { address: "quotex", txHash: "bb", block: 1 },
+        steps: [{ name: "pool-fill", ok: true, txHash: "aa", block: 2 }],
+      },
+    });
+    expect(pub.statusCode).toBe(200);
+    const ev = await app.inject({ method: "GET", url: "/evidence" });
+    expect(ev.json().present).toBe(true);
+    expect(ev.json().steps[0].txHash).toBe("aa");
+    expect(JSON.stringify(ev.json()).includes(rec.secretHex)).toBe(false);
+
     const bad = await app.inject({ method: "POST", url: "/rfq/offer", payload: { box: "nope" } });
     expect(bad.statusCode).toBe(400);
 

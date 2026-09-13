@@ -215,4 +215,63 @@ describe("circuit is the final enforcement layer", () => {
     );
     expect(publicLedger(sim).fills).toBe(0n);
   });
+
+  it("bypassed local pre-check still fails Compact on a price-limit violation", () => {
+    const principalSk = randomBytes32();
+    const makerSk = randomBytes32();
+    const esk = randomBytes32();
+    let sim = bootPool();
+    const dP = deposit(sim, principalSk, 0n, 100n);
+    sim = dP.sim;
+    const dM = deposit(sim, makerSk, 1n, 5000n);
+    sim = dM.sim;
+    const badPrice = {
+      side: 1n,
+      baseAmount: 40n,
+      quoteAmount: 1n,
+      maker: pureCircuits.ownerKey(makerSk),
+      payNonce: randomBytes32(),
+    };
+    const placed = placeOffer(sim, makerSk, dM.note, badPrice);
+    sim = placed.sim;
+    const m = {
+      principal: pureCircuits.ownerKey(principalSk),
+      executor: pureCircuits.executorKey(esk),
+      side: 0n,
+      maxFillBase: 50n,
+      limitNum: 30n,
+      limitDen: 1000n,
+      cpRoot: 0n,
+      expiry: 4_000_000_000n,
+      mandateId: randomBytes32(),
+    };
+    const created = createMandate(sim, principalSk, dP.note, m);
+    sim = created.sim;
+    const bypass = decideFill({
+      esk,
+      mandate: m,
+      remaining: 100n,
+      nowBound: 1_800_000_000n,
+      revoked: false,
+      candidates: [{ id: "price", offer: badPrice, remaining: 100n, receivedAt: 0 }],
+      allowCounterparty: () => true,
+      bypassLocalPrecheck: true,
+    });
+    expect(bypass.action).toBe("fill");
+    expectCompactFail(
+      () =>
+        fill(sim, {
+          esk,
+          mandate: m,
+          mandateRand: created.mandateRand,
+          remaining: 100n,
+          stateNonce: created.stateNonce,
+          offer: badPrice,
+          offerRand: placed.offerRand,
+          nowBound: 1_800_000_000n,
+        }),
+      "price outside mandate limit",
+    );
+    expect(publicLedger(sim).fills).toBe(0n);
+  });
 });

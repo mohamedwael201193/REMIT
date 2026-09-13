@@ -3,7 +3,7 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import staticPlugin from "@fastify/static";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   EXECUTOR_VISIBILITY,
@@ -13,6 +13,8 @@ import {
   verifyDisclosure,
   fetchBlock,
   assertLedger8,
+  fetchContractAction,
+  poolLedgerFromStateHex,
 } from "@remit/core";
 
 export type ApiConfig = {
@@ -34,6 +36,41 @@ export async function buildApp(cfg: ApiConfig) {
   const mandates: InboxItem[] = [];
   const receipts = new Map<string, string>();
   const nonces = new Set<string>();
+  let publicEvidence: {
+    present: boolean;
+    network: string;
+    pool?: { address: string; txHash?: string; block?: number };
+    quote?: { address: string; txHash?: string; block?: number };
+    steps: { name: string; ok: boolean; txHash?: string; block?: number; detail?: string }[];
+    mpc: false;
+  } | null = null;
+
+  const fileDeploy = (): { pool?: string; quote?: string } => {
+    const candidates = [
+      resolve(process.cwd(), "deployments/preprod.json"),
+      resolve(process.cwd(), "../../deployments/preprod.json"),
+    ];
+    for (const p of candidates) {
+      if (!existsSync(p)) continue;
+      try {
+        const j = JSON.parse(readFileSync(p, "utf8")) as {
+          pool?: { address?: string };
+          quote?: { address?: string };
+        };
+        return { pool: j.pool?.address, quote: j.quote?.address };
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  };
+
+  const liveAddresses = () => {
+    const fromFile = fileDeploy();
+    const pool = cfg.pool || fromFile.pool || "";
+    const quote = cfg.quote || fromFile.quote || "";
+    return { pool, quote, live: Boolean(pool && quote) };
+  };
 
   const app = Fastify({ logger: false });
   await app.register(helmet, { global: true, contentSecurityPolicy: false });
@@ -82,11 +119,12 @@ export async function buildApp(cfg: ApiConfig) {
     } catch {
       block = null;
     }
+    const { pool, quote } = liveAddresses();
     return {
       ok: true,
       network: cfg.network,
-      pool: cfg.pool,
-      quote: cfg.quote,
+      pool,
+      quote,
       indexer: cfg.indexer,
       rfqPublic: cfg.rfqSk ? rfqPublicFromSecret(cfg.rfqSk) : null,
       inbox: { offers: offers.length, mandates: mandates.length },
@@ -97,12 +135,135 @@ export async function buildApp(cfg: ApiConfig) {
     };
   });
 
-  app.get("/stats", async () => ({
-    network: cfg.network,
-    pool: cfg.pool,
-    offersQueued: offers.length,
-    mandatesQueued: mandates.length,
-  }));
+  app.get("/config", async () => {
+    const { pool, quote, live } = liveAddresses();
+    return {
+      ok: true,
+      live,
+      network: cfg.network,
+      pool,
+      quote,
+      indexer: cfg.indexer,
+      rfqPublic: cfg.rfqSk ? rfqPublicFromSecret(cfg.rfqSk) : null,
+      mpc: false,
+      dustGate: "availableCoins>=1",
+      keysUrl: "/keys",
+      explorerTx: "https://preprod.midnightexplorer.com/tx/",
+      visibility: EXECUTOR_VISIBILITY.model,
+    };
+  });
+
+  app.get("/chain", async () => {
+    const { pool, quote, live } = liveAddresses();
+    let protocolVersion: number | undefined;
+    try {
+      const b = await fetchBlock(cfg.indexer);
+      assertLedger8(b);
+      protocolVersion = b.protocolVersion;
+    } catch {
+      protocolVersion = undefined;
+    }
+    const snapshot: {
+      live: boolean;
+      network: string;
+      protocolVersion?: number;
+      pool?: {
+        address: string;
+        txHash?: string;
+        block?: number;
+        fills: number;
+        openOffers: number;
+        activeMandates: number;
+      };
+      quote?: { address: string; txHash?: string; block?: number };
+    } = { live, network: cfg.network, protocolVersion };
+    if (pool) {
+      try {
+        const hit = await fetchContractAction(cfg.indexer, pool);
+        let fills = 0;
+        let openOffers = 0;
+        let activeMandates = 0;
+        if (hit?.stateHex) {
+          try {
+            const ld = poolLedgerFromStateHex(hit.stateHex);
+            fills = Number(ld.fills);
+            openOffers = Number(ld.openOffers);
+            activeMandates = Number(ld.activeMandates);
+          } catch {
+            // public counters unavailable until state deserializes
+          }
+        }
+        snapshot.pool = {
+          address: pool,
+          txHash: hit?.txHash,
+          block: hit?.blockHeight,
+          fills,
+          openOffers,
+          activeMandates,
+        };
+      } catch {
+        snapshot.pool = { address: pool, fills: 0, openOffers: 0, activeMandates: 0 };
+      }
+    }
+    if (quote) {
+      try {
+        const hit = await fetchContractAction(cfg.indexer, quote);
+        snapshot.quote = { address: quote, txHash: hit?.txHash, block: hit?.blockHeight };
+      } catch {
+        snapshot.quote = { address: quote };
+      }
+    }
+    return snapshot;
+  });
+
+  app.get("/evidence", async () => {
+    if (publicEvidence) return publicEvidence;
+    return { present: false, steps: [], mpc: false as const, network: cfg.network };
+  });
+
+  app.post("/evidence", async (req, reply) => {
+    const token = String((req.headers.authorization ?? "").replace(/^Bearer\s+/i, ""));
+    if (!cfg.admin || token !== cfg.admin) return reply.code(401).send({ error: "unauthorized" });
+    const body = req.body as {
+      network?: string;
+      pool?: { address?: string; txHash?: string; block?: number };
+      quote?: { address?: string; txHash?: string; block?: number };
+      steps?: { name?: string; ok?: boolean; txHash?: string; block?: number; detail?: string }[];
+    };
+    publicEvidence = {
+      present: true,
+      network: body.network ?? cfg.network,
+      pool: body.pool?.address
+        ? { address: body.pool.address, txHash: body.pool.txHash, block: body.pool.block }
+        : undefined,
+      quote: body.quote?.address
+        ? { address: body.quote.address, txHash: body.quote.txHash, block: body.quote.block }
+        : undefined,
+      steps: Array.isArray(body.steps)
+        ? body.steps
+            .filter((s) => typeof s?.name === "string")
+            .map((s) => ({
+              name: String(s.name),
+              ok: Boolean(s.ok),
+              txHash: s.txHash,
+              block: s.block,
+              detail: typeof s.detail === "string" ? s.detail.slice(0, 240) : undefined,
+            }))
+        : [],
+      mpc: false,
+    };
+    return { ok: true, steps: publicEvidence.steps.length };
+  });
+
+  app.get("/stats", async () => {
+    const { pool } = liveAddresses();
+    return {
+      network: cfg.network,
+      pool,
+      offersQueued: offers.length,
+      mandatesQueued: mandates.length,
+    };
+  });
 
   app.post("/rfq/offer", async (req, reply) => {
     const body = req.body as { box?: string };
