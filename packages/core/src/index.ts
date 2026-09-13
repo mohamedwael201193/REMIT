@@ -19,4 +19,7 @@ export * from "./stage-call.js";
 export * from "./paths.js";
 export * from "./pending.js";
 export * from "./http-zk.js";
+export * from "./memory-state.js";
+export * from "./browser-providers.js";
+export * from "./compiled-http.js";
 export { witnesses } from "./witnesses.js";

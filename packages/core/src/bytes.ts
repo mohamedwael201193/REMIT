@@ -7,13 +7,15 @@ export function randomBytes32(): Uint8Array {
 }
 
 export function toHex(b: Uint8Array): string {
-  return Buffer.from(b).toString("hex");
+  return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 }
 
 export function fromHex(hex: string): Uint8Array {
   const h = hex.startsWith("0x") ? hex.slice(2) : hex;
   if (h.length % 2 !== 0) throw new Error("odd hex");
-  return Uint8Array.from(Buffer.from(h, "hex"));
+  const out = new Uint8Array(h.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = Number.parseInt(h.slice(i * 2, i * 2 + 2), 16);
+  return out;
 }
 
 export function bytesEq(a: Uint8Array, b: Uint8Array): boolean {

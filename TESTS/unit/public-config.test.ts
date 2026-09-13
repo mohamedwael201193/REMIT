@@ -25,6 +25,7 @@ describe("public Preprod config for the supplied frontend", () => {
     const text = serializeFrontPublicEnv(env!);
     expect(text).toContain("NEXT_PUBLIC_REMIT_POOL_CONTRACT_ADDRESS=pooladdr");
     expect(text).toContain("NEXT_PUBLIC_REMIT_QUOTE_CONTRACT_ADDRESS=quoteaddr");
+    expect(text).toContain("NEXT_PUBLIC_REMIT_ZKIR_URL=");
     const keys = text
       .split(/\r?\n/)
       .filter((l) => l.includes("="))

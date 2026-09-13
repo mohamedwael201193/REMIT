@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256 } from "@noble/hashes/sha256";
 import { fromHex, toHex } from "./bytes.js";
 
 export const ASSET_NIGHT = 0n;
@@ -103,7 +103,7 @@ export function emptyPrivateState(namespace: string): RemitPrivateState {
 }
 
 export function walletNamespace(network: string, address: string, contract: string): string {
-  return createHash("sha256").update(`${network}|${address}|${contract}`).digest("hex");
+  return toHex(sha256(new TextEncoder().encode(`${network}|${address}|${contract}`)));
 }
 
 export function requirePending<T>(v: T | undefined, name: string): T {

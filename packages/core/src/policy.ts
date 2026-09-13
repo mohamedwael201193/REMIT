@@ -1,6 +1,7 @@
 import { pureCircuits } from "@remit/contracts/pool";
 import type { Mandate, Offer } from "@remit/contracts/pool";
 import { RemitError } from "./errors.js";
+import { fromHex, toHex } from "./bytes.js";
 
 export type PolicyFail =
   | "wrong-executor"
@@ -51,4 +52,15 @@ export function assertFillPolicy(args: Parameters<typeof checkFillPolicy>[0]): v
 export function scoreCompliantOffer(o: Offer, m: Mandate): bigint {
   if (m.side === 0n) return o.quoteAmount * m.limitDen - o.baseAmount * m.limitNum;
   return o.baseAmount * m.limitNum - o.quoteAmount * m.limitDen;
+}
+
+/** Public executor identity. Never returns the executor secret. */
+export function publicExecutorKeyHex(execSkHex: string): string | undefined {
+  if (!/^[0-9a-fA-F]{64}$/.test(execSkHex)) return undefined;
+  return toHex(pureCircuits.executorKey(fromHex(execSkHex)));
+}
+
+export function indexerWsFromHttp(httpUrl: string): string {
+  const ws = httpUrl.replace(/^http:/i, "ws:").replace(/^https:/i, "wss:");
+  return ws.endsWith("/ws") ? ws : `${ws.replace(/\/$/, "")}/ws`;
 }

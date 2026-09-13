@@ -16,6 +16,7 @@ export type FrontPublicEnv = {
   network: string;
   explorerTx: string;
   keysUrl: string;
+  zkirUrl: string;
 };
 
 export function frontPublicEnvFromDeploy(deploy: {
@@ -35,6 +36,7 @@ export function frontPublicEnvFromDeploy(deploy: {
     network: deploy.network ?? "preprod",
     explorerTx: "https://preprod.midnightexplorer.com/tx/",
     keysUrl: `${apiUrl.replace(/\/health$/, "").replace(/\/$/, "")}/keys`,
+    zkirUrl: `${apiUrl.replace(/\/health$/, "").replace(/\/$/, "")}/zkir`,
   };
 }
 
@@ -48,6 +50,7 @@ export function serializeFrontPublicEnv(env: FrontPublicEnv): string {
     `NEXT_PUBLIC_REMIT_POOL_CONTRACT_ADDRESS=${env.pool}`,
     `NEXT_PUBLIC_REMIT_QUOTE_CONTRACT_ADDRESS=${env.quote}`,
     `NEXT_PUBLIC_REMIT_KEYS_URL=${env.keysUrl}`,
+    `NEXT_PUBLIC_REMIT_ZKIR_URL=${env.zkirUrl}`,
     "",
   ].join("\n");
 }

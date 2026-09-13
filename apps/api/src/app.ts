@@ -15,6 +15,8 @@ import {
   assertLedger8,
   fetchContractAction,
   poolLedgerFromStateHex,
+  publicExecutorKeyHex,
+  indexerWsFromHttp,
 } from "@remit/core";
 
 export type ApiConfig = {
@@ -128,6 +130,21 @@ export async function buildApp(cfg: ApiConfig) {
     }
   }
 
+  const browserRoots = [
+    resolve(process.cwd(), "dist/browser"),
+    resolve(process.cwd(), "../../dist/browser"),
+    resolve(process.cwd(), "../dist/browser"),
+  ];
+  const browserRoot = browserRoots.find((p) => existsSync(p));
+  if (browserRoot) {
+    await app.register(staticPlugin, {
+      root: browserRoot,
+      prefix: "/browser/",
+      decorateReply: false,
+      setHeaders: keyHeaders,
+    });
+  }
+
   app.get("/health", async () => {
     let block: { height: number; protocolVersion: number } | null = null;
     try {
@@ -155,6 +172,7 @@ export async function buildApp(cfg: ApiConfig) {
 
   app.get("/config", async () => {
     const { pool, quote, live } = liveAddresses();
+    const executorKey = publicExecutorKeyHex(cfg.execSk);
     return {
       ok: true,
       live,
@@ -162,7 +180,9 @@ export async function buildApp(cfg: ApiConfig) {
       pool,
       quote,
       indexer: cfg.indexer,
+      indexerWs: indexerWsFromHttp(cfg.indexer),
       rfqPublic: cfg.rfqSk ? rfqPublicFromSecret(cfg.rfqSk) : null,
+      executorKey: executorKey ?? null,
       mpc: false,
       dustGate: "availableCoins>=1",
       keysUrl: "/keys",

@@ -18,11 +18,13 @@ export type RemitPublicConfig = {
   quote: string;
   indexer: string;
   rfqPublic: string | null;
+  executorKey?: string | null;
   mpc: false;
   dustGate: string;
   keysUrl: string;
   explorerTx: string;
   zkirUrl?: string;
+  indexerWs?: string;
   visibility: string;
 };
 

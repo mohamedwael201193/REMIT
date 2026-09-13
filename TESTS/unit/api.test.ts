@@ -11,7 +11,7 @@ describe("api (no private openings stored in plaintext)", () => {
       cors: "*",
       admin: "admin-token-not-for-prod",
       rfqSk: rec.secretHex,
-      execSk: "00".repeat(32),
+      execSk: "ab".repeat(32),
       pool: "",
       quote: "",
       network: "preprod",
@@ -35,7 +35,11 @@ describe("api (no private openings stored in plaintext)", () => {
     expect(cfgBody.live).toBe(false);
     expect(cfgBody.mpc).toBe(false);
     expect(cfgBody.zkirUrl).toBe("/zkir");
+    expect(cfgBody.indexerWs).toContain("wss://");
+    expect(typeof cfgBody.executorKey).toBe("string");
+    expect(cfgBody.executorKey.length).toBe(64);
     expect(JSON.stringify(cfgBody).includes(rec.secretHex)).toBe(false);
+    expect(JSON.stringify(cfgBody).includes("ab".repeat(32))).toBe(false);
 
     const chain = await app.inject({ method: "GET", url: "/chain" });
     expect(chain.statusCode).toBe(200);

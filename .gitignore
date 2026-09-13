@@ -52,6 +52,18 @@ RESEARCH/spikes/**/out-*/
 deployments/
 .midnight/
 wallet-cache/
-front/
+dist/browser/
 *.generated.env
 agent-keys.generated.env
+
+# ---- supplied frontend: track source, never secrets / nested git / deps ----
+front/.git/
+front/.git.nested/
+front/node_modules/
+front/.next/
+front/.env
+front/.env.*
+!front/.env.example
+front/*.log
+front/.zscripts/
+front/download/

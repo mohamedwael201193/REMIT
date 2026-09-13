@@ -158,11 +158,19 @@ describe("DApp connector v4 + DUST honesty", () => {
   });
 
   it("wraps connector v4 as a WalletProvider without opening a WalletFacade", async () => {
-    const connected = fakeConnected();
+    let seen = "";
+    const connected = fakeConnected({
+      balanceUnsealedTransaction: async (tx: string) => {
+        seen = tx;
+        return { tx };
+      },
+    });
     const provider = await connectorAsWalletProvider(connected);
-    expect(provider.coinPublicKey).toBe("x");
+    expect(provider.getCoinPublicKey?.()).toBe("x");
     expect(provider.encryptionPublicKey).toBe("y");
-    const balanced = await provider.balanceTx("raw" as never);
-    expect(balanced).toBe("00");
+    await expect(
+      provider.balanceTx({ serialize: () => Uint8Array.from([0xab, 0xcd]) } as never),
+    ).rejects.toThrow();
+    expect(seen).toBe("abcd");
   });
 });
