@@ -29,6 +29,8 @@ Compact compile runs in WSL Ubuntu on Windows (`compact compile --version` must 
 
 Backend image is the repo-root `Dockerfile` (Render looks for `./Dockerfile`).
 
+Public API (Preprod health/stats only; no private state): https://remit-api-node.onrender.com/health
+
 Secrets live only in `.env.preprod.local` (gitignored). Copy `.env.example`. Never put secrets in `VITE_*`.
 
 ## Honest limits
