@@ -19,15 +19,47 @@ export type ConnectionPhase =
   | "done"
   | "error";
 
+export type ConnectorDustView = {
+  balance: bigint;
+  cap: bigint;
+  /** Connector API has no availableCoins. A positive balance is display-only. */
+  spendableKnown: false;
+};
+
 export type RemitClientState = {
   phase: ConnectionPhase;
   kind: WalletKind;
   networkId?: string;
   unshieldedAddress?: string;
-  dust?: { balance: bigint; cap: bigint };
+  dustAddress?: string;
+  dust?: ConnectorDustView;
   capabilities: WalletCapabilities;
   lastError?: string;
 };
+
+export function requireConnectorV4(apiVersion: string | undefined): void {
+  if (!/^4\./.test(String(apiVersion ?? ""))) {
+    throw new RemitError("WALLET", "DApp connector must be v4", "apiVersion");
+  }
+}
+
+/**
+ * Official spendable gate is Wallet SDK `availableCoins >= 1`.
+ * `getDustBalance().balance` (1AM header / connector) is not that gate.
+ */
+export function assertSpendableDust(gate: { availableCoins?: number }): void {
+  if (typeof gate.availableCoins === "number") {
+    if (gate.availableCoins < 1) {
+      throw new RemitError("DUST", "no spendable DUST coin", "availableCoins=0");
+    }
+    return;
+  }
+  throw new RemitError(
+    "DUST",
+    "getDustBalance is not a spendable-coin gate",
+    "connector cannot prove spendable DUST",
+  );
+}
 
 export function capabilitiesOf(api: {
   getProvingProvider?: unknown;

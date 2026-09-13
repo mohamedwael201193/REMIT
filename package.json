@@ -29,6 +29,7 @@
     "wallet:status": "npx tsx scripts/wallet-status.ts",
     "wallet:identity": "npx tsx scripts/prove-wallet-identity.ts",
     "wallet:register-dust": "npx tsx scripts/dust-register.ts",
+    "audit:verify": "npx tsx scripts/audit-verify.ts",
     "indexer:utxos": "npx tsx scripts/indexer-utxo.ts",
     "proof:up": "docker compose -f infra/proof-server.yml up -d",
     "proof:down": "docker compose -f infra/proof-server.yml down"

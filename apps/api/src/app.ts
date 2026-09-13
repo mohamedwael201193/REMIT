@@ -40,17 +40,37 @@ export async function buildApp(cfg: ApiConfig) {
   await app.register(cors, { origin: cfg.cors === "*" ? true : cfg.cors.split(",") });
   await app.register(rateLimit, { max: 60, timeWindow: "1 minute" });
 
-  const keysDir = cfg.keysDir ?? resolve(process.cwd(), "../../CONTRACT/managed/remit_pool/keys");
-  if (existsSync(keysDir)) {
-    await app.register(staticPlugin, {
-      root: keysDir,
-      prefix: "/keys/",
-      decorateReply: false,
-      setHeaders: (res) => {
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-      },
-    });
+  const managedRoots = [
+    resolve(process.cwd(), "CONTRACT/managed"),
+    resolve(process.cwd(), "../../CONTRACT/managed"),
+    resolve(process.cwd(), "../CONTRACT/managed"),
+  ];
+  const managedRoot = cfg.keysDir
+    ? resolve(cfg.keysDir, "..")
+    : managedRoots.find((p) => existsSync(p));
+  const keyHeaders = (res: { setHeader: (k: string, v: string) => void }) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  };
+  if (managedRoot) {
+    const poolKeys = resolve(managedRoot, "remit_pool/keys");
+    const quoteKeys = resolve(managedRoot, "remit_quote/keys");
+    if (existsSync(poolKeys)) {
+      await app.register(staticPlugin, {
+        root: poolKeys,
+        prefix: "/keys/",
+        decorateReply: false,
+        setHeaders: keyHeaders,
+      });
+    }
+    if (existsSync(quoteKeys)) {
+      await app.register(staticPlugin, {
+        root: quoteKeys,
+        prefix: "/keys/quote/",
+        decorateReply: false,
+        setHeaders: keyHeaders,
+      });
+    }
   }
 
   app.get("/health", async () => {
@@ -72,6 +92,7 @@ export async function buildApp(cfg: ApiConfig) {
       inbox: { offers: offers.length, mandates: mandates.length },
       visibility: EXECUTOR_VISIBILITY.model,
       mpc: false,
+      dustGate: "availableCoins>=1",
       block,
     };
   });

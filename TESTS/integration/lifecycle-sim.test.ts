@@ -165,4 +165,51 @@ describe("local compact-runtime lifecycle (not a Midnight node, not a mock of Pr
       "mandate revoked",
     );
   });
+
+  it("wrong executor secret cannot fill", () => {
+    const principalSk = randomBytes32();
+    const makerSk = randomBytes32();
+    const esk = randomBytes32();
+    let sim = bootPool();
+    const dP = deposit(sim, principalSk, 0n, 100n);
+    sim = dP.sim;
+    const dM = deposit(sim, makerSk, 1n, 5000n);
+    sim = dM.sim;
+    const offer = {
+      side: 1n,
+      baseAmount: 40n,
+      quoteAmount: 1280n,
+      maker: pureCircuits.ownerKey(makerSk),
+      payNonce: randomBytes32(),
+    };
+    const placed = placeOffer(sim, makerSk, dM.note, offer);
+    sim = placed.sim;
+    const mandate = {
+      principal: pureCircuits.ownerKey(principalSk),
+      executor: pureCircuits.executorKey(esk),
+      side: 0n,
+      maxFillBase: 50n,
+      limitNum: 30n,
+      limitDen: 1000n,
+      cpRoot: 0n,
+      expiry: 4_000_000_000n,
+      mandateId: randomBytes32(),
+    };
+    const created = createMandate(sim, principalSk, dP.note, mandate);
+    sim = created.sim;
+    expectCompactFail(
+      () =>
+        fill(sim, {
+          esk: randomBytes32(),
+          mandate,
+          mandateRand: created.mandateRand,
+          remaining: 100n,
+          stateNonce: created.stateNonce,
+          offer,
+          offerRand: placed.offerRand,
+          nowBound: 1_800_000_000n,
+        }),
+      "not the mandated executor",
+    );
+  });
 });
