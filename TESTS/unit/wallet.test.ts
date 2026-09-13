@@ -12,7 +12,7 @@ import {
   requireConnectorV4,
   assertSpendableDust,
 } from "../../packages/sdk/src/wallet.ts";
-import { assertNoPrivateStateMixing, connectWallet, discoverWallets } from "../../packages/sdk/src/adapter.ts";
+import { assertNoPrivateStateMixing, connectWallet, discoverWallets, reconnectWallet, assertDisconnected } from "../../packages/sdk/src/adapter.ts";
 
 function fakeConnected(over: Partial<ConnectedAPI> = {}): ConnectedAPI {
   return {
@@ -138,6 +138,17 @@ describe("DApp connector v4 + DUST honesty", () => {
   it("refuses to treat Lace as in-tab proving", async () => {
     const lace = fakeInitial({ name: "Lace", rdns: "io.lace" });
     await expect(connectWallet(lace, "preprod", { fromClickHandler: true })).rejects.toThrow(/in-tab proving/);
+  });
+
+  it("requires a fresh user gesture to reconnect and accepts a disconnected status", async () => {
+    const api = fakeInitial();
+    const first = await connectWallet(api, "preprod", { fromClickHandler: true });
+    expect(first.state.phase).toBe("connected");
+    await expect(reconnectWallet(api, "preprod", { fromClickHandler: false })).rejects.toThrow(/click handler/);
+    const second = await reconnectWallet(api, "preprod", { fromClickHandler: true });
+    expect(second.state.phase).toBe("connected");
+    expect(() => assertDisconnected({ status: "connected" })).toThrow(/still connected/);
+    assertDisconnected({ status: "disconnected" });
   });
 
   it("discovers injected InitialAPI entries", async () => {

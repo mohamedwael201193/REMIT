@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { buildApp } from "../../apps/api/src/app.ts";
 import { rfqKeyPair } from "../../packages/core/src/box.ts";
 import { makeMandateBox, makeOfferBox as makeTyped } from "../../packages/core/src/rfq.ts";
+import { contractsDeployed } from "../../packages/sdk/src/health.ts";
 
 describe("api (no private openings stored in plaintext)", () => {
   it("health omits secrets; RFQ rejects garbage; replay is rejected", async () => {
@@ -24,6 +25,9 @@ describe("api (no private openings stored in plaintext)", () => {
     expect(body.mpc).toBe(false);
     expect(body.dustGate).toBe("availableCoins>=1");
     expect(health.headers["x-content-type-options"]).toBe("nosniff");
+    expect(body.pool).toBe("");
+    expect(body.quote).toBe("");
+    expect(contractsDeployed(body)).toBe(false);
 
     const bad = await app.inject({ method: "POST", url: "/rfq/offer", payload: { box: "nope" } });
     expect(bad.statusCode).toBe(400);

@@ -24,6 +24,11 @@ describe("selective audit", () => {
     const badVal = { ...pkg, openings: pkg.openings.map((o) => ({ ...o, valueDec: "999" })) };
     expect(verifyDisclosure(badVal, root).ok).toBe(false);
     expect(verifyDisclosure(pkg, randomBytes32()).ok).toBe(false);
+    const fillB = makeDisclosure(1, seed, values, [1]);
+    expect(verifyDisclosure(pkg, root, { expectedFillIndex: 1 }).ok).toBe(false);
+    expect(verifyDisclosure(fillB, Uint8Array.from(Buffer.from(fillB.auditRootHex, "hex")), { expectedFillIndex: 1 }).ok).toBe(true);
+    expect(verifyDisclosure(pkg, root, { allowedFields: ["quoteAmount"] }).failed.some((f) => f.startsWith("unauthorized-"))).toBe(true);
+    expect(verifyDisclosure(pkg, root, { allowedFields: ["baseAmount"] }).ok).toBe(true);
   });
 });
 

@@ -4,7 +4,9 @@
 
 A principal gives an executor a private mandate. The chain proves every fill obeyed a mandate it never saw. Settlement uses **tNIGHT** (native unshielded) plus **REMIT-Q**, a contract-minted **testnet-only** quote token. REMIT-Q is **not a stablecoin** — Preprod has no official usable stablecoin.
 
-Status: Wave 1 implementation in progress. Product frontend is not in this repo.
+Status: Wave 1 in progress. Operator DUST/deploy uses one WalletFacade plus a gitignored `serializeState` cache (`availableCoins >= 1`). Product UI is the supplied `front/` tree — integrate only after Preprod contracts and lifecycle are real. Do not treat connector/header DUST as spendable.
+
+Local iteration uses official `midnight-local-dev` (`npm run local:up` prints the clone command; `npm run local:health` probes :9944/:8088/:6300). Do not start that stack while Preprod deploy holds proof-server `:6300`.
 
 ## Stack pin (Preprod)
 

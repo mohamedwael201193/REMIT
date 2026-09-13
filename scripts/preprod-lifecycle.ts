@@ -7,6 +7,7 @@ import { config as loadEnv } from "dotenv";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { pureCircuits } from "../CONTRACT/managed/remit_pool/contract/index.js";
 import {
   bindDeployed,
   compiledPool,
@@ -15,20 +16,28 @@ import {
   emptyPrivateState,
   fetchBlock,
   fetchContractAction,
+  fromHex,
+  makeDisclosure,
   managedDir,
+  pendingCreateMandate,
+  pendingDeposit,
+  pendingPlaceOffer,
+  poolLedgerFromStateHex,
+  randomBytes32,
   requireContractAction,
   submitCircuit,
+  submitStagedCircuit,
+  verifyDisclosure,
   walletNamespace,
   type QuotePrivateState,
 } from "../packages/core/src/index.ts";
-import { randomBytes32, toArray } from "../packages/core/src/bytes.ts";
+import { constructFill } from "../packages/agent/src/fill-circuit.ts";
 import {
+  closeOperatorWallet,
+  ensureOperatorDust,
   openOperatorWallet,
   waitForPreprodDeployFile,
-  waitSpendableDust,
-  waitUnshieldedReady,
 } from "./lib/operator-wallet.ts";
-import { unshieldedToken } from "@midnight-ntwrk/midnight-js-protocol/ledger";
 
 loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../.env.preprod.local") });
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -40,6 +49,12 @@ function userAddressBytes(keystore: { getPublicKey: () => unknown }): Uint8Array
   if (pk instanceof Uint8Array && pk.length === 32) return pk;
   if (pk && typeof pk === "object" && pk.bytes instanceof Uint8Array && pk.bytes.length === 32) return pk.bytes;
   throw new Error("cannot derive 32-byte UserAddress from unshielded keystore");
+}
+
+function envSk(name: string): Uint8Array {
+  const h = process.env[name];
+  if (h && /^[0-9a-fA-F]{64}$/.test(h)) return fromHex(h);
+  return randomBytes32();
 }
 
 async function main() {
@@ -64,99 +79,403 @@ async function main() {
   if (!password || password.length < 16) throw new Error("private-state password missing or too short");
 
   const session = await openOperatorWallet();
-  await waitUnshieldedReady(session.wallet, unshieldedToken().raw);
-  await waitSpendableDust(session.wallet);
-
-  const ns = walletNamespace("preprod", session.addr, "lifecycle");
-  const quoteProviders = createNodeProviders({
-    indexerHttp: session.indexerHttpUrl,
-    indexerWs: process.env.MIDNIGHT_INDEXER_WS!,
-    proofServer: session.proofServer,
-    zkConfigDir: managedDir("remit_quote"),
-    privateStateDir: resolve(root, "private-state", ns, "quote"),
-    accountId: `${ns}:quote`,
-    password,
-    walletProvider: session.provider,
-  });
-  const quotePs: QuotePrivateState = { version: 1, callerSk: Array.from(randomBytes32()) };
-  const quote = await bindDeployed(quoteProviders, {
-    contractAddress: deployed.quote.address,
-    compiledContract: compiledQuote(),
-    privateStateId: "remit-quote",
-    initialPrivateState: quotePs,
-  });
-
-  void quote;
-  const dayBucket = BigInt(Math.floor(Date.now() / 86_400_000));
-  const to = {
-    is_left: false,
-    left: { bytes: new Uint8Array(32) },
-    right: { bytes: userAddressBytes(session.unshieldedKeystore) },
-  };
   try {
-    const claim = await submitCircuit(quoteProviders, {
+    await ensureOperatorDust(session);
+
+    const ns = walletNamespace("preprod", session.addr, "lifecycle");
+    const quoteProviders = createNodeProviders({
+      indexerHttp: session.indexerHttpUrl,
+      indexerWs: process.env.MIDNIGHT_INDEXER_WS!,
+      proofServer: session.proofServer,
+      zkConfigDir: managedDir("remit_quote"),
+      privateStateDir: resolve(root, "private-state", ns, "quote"),
+      accountId: `${ns}:quote`,
+      password,
+      walletProvider: session.provider,
+    });
+    const quotePs: QuotePrivateState = { version: 1, callerSk: Array.from(randomBytes32()) };
+    await bindDeployed(quoteProviders, {
       contractAddress: deployed.quote.address,
       compiledContract: compiledQuote(),
-      circuitId: "claim",
-      args: [1_000_000n, dayBucket, to],
-    } as never);
-    if (!claim.txId) throw new Error("claim submit missing tx id");
-    const after = requireContractAction(
-      await fetchContractAction(session.indexerHttpUrl, deployed.quote.address),
-      "quote after claim",
-    );
-    record({ name: "quote-claim", ok: true, txHash: after.txHash, block: after.blockHeight, detail: claim.status });
-  } catch (e) {
-    record({
-      name: "quote-claim",
-      ok: false,
-      detail: e instanceof Error ? e.message.slice(0, 180) : "claim failed",
+      privateStateId: "remit-quote",
+      initialPrivateState: quotePs,
     });
+
+    const dayBucket = BigInt(Math.floor(Date.now() / 86_400_000));
+    const to = {
+      is_left: false,
+      left: { bytes: new Uint8Array(32) },
+      right: { bytes: userAddressBytes(session.unshieldedKeystore) },
+    };
+    try {
+      const claim = await submitCircuit(quoteProviders, {
+        contractAddress: deployed.quote.address,
+        compiledContract: compiledQuote(),
+        circuitId: "claim",
+        args: [1_000_000n, dayBucket, to],
+      } as never);
+      if (!claim.txId) throw new Error("claim submit missing tx id");
+      const after = requireContractAction(
+        await fetchContractAction(session.indexerHttpUrl, deployed.quote.address),
+        "quote after claim",
+      );
+      record({ name: "quote-claim", ok: true, txHash: after.txHash, block: after.blockHeight, detail: claim.status });
+    } catch (e) {
+      record({
+        name: "quote-claim",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 180) : "claim failed",
+      });
+    }
+
+    const poolProviders = createNodeProviders({
+      indexerHttp: session.indexerHttpUrl,
+      indexerWs: process.env.MIDNIGHT_INDEXER_WS!,
+      proofServer: session.proofServer,
+      zkConfigDir: managedDir("remit_pool"),
+      privateStateDir: resolve(root, "private-state", ns, "pool"),
+      accountId: `${ns}:pool`,
+      password,
+      walletProvider: session.provider,
+    });
+    await bindDeployed(poolProviders, {
+      contractAddress: deployed.pool.address,
+      compiledContract: compiledPool(),
+      privateStateId: "remit-pool",
+      initialPrivateState: emptyPrivateState(ns),
+    });
+    record({ name: "pool-bound", ok: true, detail: "bound via findDeployedContract" });
+
+    const principalSk = randomBytes32();
+    const makerSk = randomBytes32();
+    const esk = envSk("REMIT_EXECUTOR_SECRET_HEX");
+    const nightNonce = randomBytes32();
+    const quoteNonce = randomBytes32();
+    const nightNote = {
+      asset: 0n,
+      amount: 5_000_000n,
+      owner: pureCircuits.ownerKey(principalSk),
+      nonce: nightNonce,
+    };
+    const quoteNote = {
+      asset: 1n,
+      amount: 1_000_000n,
+      owner: pureCircuits.ownerKey(makerSk),
+      nonce: quoteNonce,
+    };
+
+    async function poolState() {
+      const hit = requireContractAction(
+        await fetchContractAction(session.indexerHttpUrl, deployed.pool.address),
+        "pool",
+      );
+      if (!hit.stateHex) throw new Error("indexer contractAction missing state");
+      return { hit, ld: poolLedgerFromStateHex(hit.stateHex) };
+    }
+
+    try {
+      const deposited = await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "deposit",
+        circuitArgs: [0n, nightNote.amount],
+        pending: pendingDeposit(principalSk, nightNonce),
+        fallback: emptyPrivateState(ns),
+      });
+      if (!deposited.txId) throw new Error("deposit missing tx id");
+      const afterDep = (await poolState()).hit;
+      record({
+        name: "pool-deposit-night",
+        ok: true,
+        txHash: afterDep.txHash,
+        block: afterDep.blockHeight,
+        detail: deposited.status,
+      });
+    } catch (e) {
+      record({
+        name: "pool-deposit-night",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 180) : "deposit failed",
+      });
+    }
+
+    try {
+      const deposited = await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "deposit",
+        circuitArgs: [1n, quoteNote.amount],
+        pending: pendingDeposit(makerSk, quoteNonce),
+        fallback: emptyPrivateState(ns),
+      });
+      const afterDep = (await poolState()).hit;
+      record({
+        name: "pool-deposit-quote",
+        ok: true,
+        txHash: afterDep.txHash,
+        block: afterDep.blockHeight,
+        detail: deposited.status,
+      });
+    } catch (e) {
+      record({
+        name: "pool-deposit-quote",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 180) : "quote deposit failed",
+      });
+    }
+
+    const mandate = {
+      principal: nightNote.owner,
+      executor: pureCircuits.executorKey(esk),
+      side: 0n,
+      maxFillBase: 50n,
+      limitNum: 30n,
+      limitDen: 1000n,
+      cpRoot: 0n,
+      expiry: 4_000_000_000n,
+      mandateId: randomBytes32(),
+    };
+    const offer = {
+      side: 1n,
+      baseAmount: 40n,
+      quoteAmount: 1280n,
+      maker: quoteNote.owner,
+      payNonce: randomBytes32(),
+    };
+    const over = {
+      ...offer,
+      baseAmount: 60n,
+      quoteAmount: 1920n,
+      payNonce: randomBytes32(),
+    };
+    const offerRand = randomBytes32();
+    const overRand = randomBytes32();
+    const overChangeNonce = randomBytes32();
+    const mandateRand = randomBytes32();
+    const stateNonce = randomBytes32();
+    const nowBound = BigInt(Math.floor(Date.now() / 1000) + 3600);
+    const overChange = {
+      asset: 1n,
+      amount: quoteNote.amount - over.quoteAmount,
+      owner: quoteNote.owner,
+      nonce: overChangeNonce,
+    };
+
+    try {
+      const { ld } = await poolState();
+      const placed = await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "placeOffer",
+        circuitArgs: [],
+        pending: pendingPlaceOffer(ld, makerSk, quoteNote, over, overRand, overChangeNonce),
+        fallback: emptyPrivateState(ns),
+      });
+      const after = (await poolState()).hit;
+      record({ name: "pool-place-over-offer", ok: true, txHash: after.txHash, block: after.blockHeight, detail: placed.status });
+    } catch (e) {
+      record({
+        name: "pool-place-over-offer",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 180) : "place over offer failed",
+      });
+    }
+
+    try {
+      const { ld } = await poolState();
+      const created = await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "createMandate",
+        circuitArgs: [],
+        pending: pendingCreateMandate(ld, principalSk, nightNote, mandate, mandateRand, stateNonce),
+        fallback: emptyPrivateState(ns),
+      });
+      const after = (await poolState()).hit;
+      record({
+        name: "pool-create-mandate",
+        ok: true,
+        txHash: after.txHash,
+        block: after.blockHeight,
+        detail: created.status,
+      });
+    } catch (e) {
+      record({
+        name: "pool-create-mandate",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 180) : "createMandate failed",
+      });
+    }
+
+    try {
+      const { ld } = await poolState();
+      constructFill({
+        ledger: ld,
+        esk,
+        mandate,
+        remaining: nightNote.amount,
+        nowBound,
+        revoked: false,
+        offer: over,
+        mandateRand,
+        stateNonce,
+        offerRand: overRand,
+        auditSeed: randomBytes32(),
+        getNonce: randomBytes32(),
+        nextStateNonce: randomBytes32(),
+      });
+      record({ name: "overreach-precheck", ok: false, detail: "local pre-check allowed X+20%" });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "precheck";
+      record({
+        name: "overreach-precheck",
+        ok: /rejected fill|over-cap/i.test(msg),
+        detail: msg.slice(0, 180),
+      });
+    }
+
+    try {
+      const { ld } = await poolState();
+      const built = constructFill({
+        ledger: ld,
+        esk,
+        mandate,
+        remaining: nightNote.amount,
+        nowBound,
+        revoked: false,
+        offer: over,
+        mandateRand,
+        stateNonce,
+        offerRand: overRand,
+        auditSeed: randomBytes32(),
+        getNonce: randomBytes32(),
+        nextStateNonce: randomBytes32(),
+        bypassLocalPrecheck: true,
+      });
+      await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "fill",
+        circuitArgs: [nowBound],
+        pending: built.pending,
+        fallback: emptyPrivateState(ns),
+      });
+      record({ name: "overreach-compact", ok: false, detail: "Compact accepted X+20% fill" });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "compact";
+      record({
+        name: "overreach-compact",
+        ok: /circuit rejected|per-fill cap|POLICY_REJECT/i.test(msg),
+        detail: msg.slice(0, 180),
+      });
+    }
+
+    try {
+      const { ld } = await poolState();
+      const placed = await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "placeOffer",
+        circuitArgs: [],
+        pending: pendingPlaceOffer(ld, makerSk, overChange, offer, offerRand, randomBytes32()),
+        fallback: emptyPrivateState(ns),
+      });
+      const after = (await poolState()).hit;
+      record({ name: "pool-place-offer", ok: true, txHash: after.txHash, block: after.blockHeight, detail: placed.status });
+    } catch (e) {
+      record({
+        name: "pool-place-offer",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 180) : "placeOffer failed",
+      });
+    }
+
+    const auditSeed = randomBytes32();
+    try {
+      const { ld } = await poolState();
+      const built = constructFill({
+        ledger: ld,
+        esk,
+        mandate,
+        remaining: nightNote.amount,
+        nowBound,
+        revoked: false,
+        offer,
+        mandateRand,
+        stateNonce,
+        offerRand,
+        auditSeed,
+        getNonce: randomBytes32(),
+        nextStateNonce: randomBytes32(),
+      });
+      const filled = await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "fill",
+        circuitArgs: [nowBound],
+        pending: built.pending,
+        fallback: emptyPrivateState(ns),
+      });
+      const after = await poolState();
+      record({
+        name: "pool-fill",
+        ok: after.ld.fills >= 1n,
+        txHash: after.hit.txHash,
+        block: after.hit.blockHeight,
+        detail: filled.status,
+      });
+      const root = after.ld.auditRoots.head();
+      if (root.is_some) {
+        const pkg = makeDisclosure(0, auditSeed, {
+          side: offer.side,
+          baseAmount: offer.baseAmount,
+          quoteAmount: offer.quoteAmount,
+          principal: mandate.principal,
+          counterparty: offer.maker,
+          mandateId: mandate.mandateId,
+        }, [1]);
+        const verified = verifyDisclosure(pkg, root.value, { allowedFields: ["baseAmount"], expectedFillIndex: 0 });
+        record({ name: "selective-audit", ok: verified.ok, detail: verified.failed.join(",") || "pass" });
+      } else {
+        record({ name: "selective-audit", ok: false, detail: "no auditRoot on ledger" });
+      }
+    } catch (e) {
+      record({
+        name: "pool-fill",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 180) : "fill failed",
+      });
+    }
+
+    mkdirSync(resolve(root, "deployments"), { recursive: true });
+    writeFileSync(
+      resolve(root, "deployments", "lifecycle.json"),
+      JSON.stringify(
+        {
+          network: "preprod",
+          protocolVersion: block.protocolVersion,
+          quote: deployed.quote,
+          pool: deployed.pool,
+          steps,
+          mpc: false,
+          frontend: false,
+        },
+        null,
+        2,
+      ),
+    );
+    console.log("wrote deployments/lifecycle.json");
+    if (!steps.every((s) => s.ok)) process.exitCode = 1;
+  } finally {
+    await closeOperatorWallet(session);
   }
-
-  const poolProviders = createNodeProviders({
-    indexerHttp: session.indexerHttpUrl,
-    indexerWs: process.env.MIDNIGHT_INDEXER_WS!,
-    proofServer: session.proofServer,
-    zkConfigDir: managedDir("remit_pool"),
-    privateStateDir: resolve(root, "private-state", ns, "pool"),
-    accountId: `${ns}:pool`,
-    password,
-    walletProvider: session.provider,
-  });
-  await bindDeployed(poolProviders, {
-    contractAddress: deployed.pool.address,
-    compiledContract: compiledPool(),
-    privateStateId: "remit-pool",
-    initialPrivateState: emptyPrivateState(ns),
-  });
-  record({
-    name: "pool-bound",
-    ok: true,
-    detail: "bound via findDeployedContract; deposit/fill continue as witness-staged circuit calls",
-  });
-  void toArray;
-
-  mkdirSync(resolve(root, "deployments"), { recursive: true });
-  writeFileSync(
-    resolve(root, "deployments", "lifecycle.json"),
-    JSON.stringify(
-      {
-        network: "preprod",
-        protocolVersion: block.protocolVersion,
-        quote: deployed.quote,
-        pool: deployed.pool,
-        steps,
-        mpc: false,
-        frontend: false,
-      },
-      null,
-      2,
-    ),
-  );
-  console.log("wrote deployments/lifecycle.json");
-  if (!steps.every((s) => s.ok)) process.exitCode = 1;
-  await session.wallet.stop();
 }
 
 main().catch((e) => {

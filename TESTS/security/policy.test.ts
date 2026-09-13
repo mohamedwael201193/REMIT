@@ -3,7 +3,7 @@ import { randomBytes32 } from "../../packages/core/src/bytes.ts";
 import { checkFillPolicy } from "../../packages/core/src/policy.ts";
 import { pickBest, rankOffers } from "../../packages/agent/src/strategy.ts";
 import { decideFill } from "../../packages/agent/src/executor.ts";
-import { expectCompactFail, bootPool, createMandate, deposit, fill, placeOffer } from "../../packages/core/src/sim.ts";
+import { expectCompactFail, bootPool, createMandate, deposit, fill, placeOffer, publicLedger } from "../../packages/core/src/sim.ts";
 import { pureCircuits } from "../../CONTRACT/managed/remit_pool/contract/index.js";
 import type { Mandate, Offer } from "../../CONTRACT/managed/remit_pool/contract/index.js";
 
@@ -154,5 +154,65 @@ describe("circuit is the final enforcement layer", () => {
         }),
       "fill exceeds per-fill cap",
     );
+  });
+
+  it("killer demo: mandate max X, agent attempts X+20%, Compact rejects, no fill", () => {
+    const principalSk = randomBytes32();
+    const makerSk = randomBytes32();
+    const esk = randomBytes32();
+    let sim = bootPool();
+    const dP = deposit(sim, principalSk, 0n, 100n);
+    sim = dP.sim;
+    const dM = deposit(sim, makerSk, 1n, 5000n);
+    sim = dM.sim;
+    const cap = 50n;
+    const over = {
+      side: 1n,
+      baseAmount: (cap * 120n) / 100n,
+      quoteAmount: 1920n,
+      maker: pureCircuits.ownerKey(makerSk),
+      payNonce: randomBytes32(),
+    };
+    const placedOver = placeOffer(sim, makerSk, dM.note, over);
+    sim = placedOver.sim;
+    const m = {
+      principal: pureCircuits.ownerKey(principalSk),
+      executor: pureCircuits.executorKey(esk),
+      side: 0n,
+      maxFillBase: cap,
+      limitNum: 30n,
+      limitDen: 1000n,
+      cpRoot: 0n,
+      expiry: 4_000_000_000n,
+      mandateId: randomBytes32(),
+    };
+    const created = createMandate(sim, principalSk, dP.note, m);
+    sim = created.sim;
+    const bypass = decideFill({
+      esk,
+      mandate: m,
+      remaining: 100n,
+      nowBound: 1_800_000_000n,
+      revoked: false,
+      candidates: [{ id: "plus20", offer: over, remaining: 100n, receivedAt: 0 }],
+      allowCounterparty: () => true,
+      bypassLocalPrecheck: true,
+    });
+    expect(bypass.action).toBe("fill");
+    expectCompactFail(
+      () =>
+        fill(sim, {
+          esk,
+          mandate: m,
+          mandateRand: created.mandateRand,
+          remaining: 100n,
+          stateNonce: created.stateNonce,
+          offer: over,
+          offerRand: placedOver.offerRand,
+          nowBound: 1_800_000_000n,
+        }),
+      "fill exceeds per-fill cap",
+    );
+    expect(publicLedger(sim).fills).toBe(0n);
   });
 });

@@ -39,3 +39,5 @@ jobs:
       - name: Integration (compact-runtime lifecycle)
         run: npm run test:integration
       - run: node scripts/inspect-managed.mjs
+      - name: API build
+        run: npm run build -w @remit/api

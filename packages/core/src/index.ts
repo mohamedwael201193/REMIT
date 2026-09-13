@@ -15,4 +15,7 @@ export * from "./rfq.js";
 export * from "./quote-witnesses.js";
 export * from "./providers.js";
 export * from "./compiled.js";
+export * from "./stage-call.js";
+export * from "./paths.js";
+export * from "./pending.js";
 export { witnesses } from "./witnesses.js";

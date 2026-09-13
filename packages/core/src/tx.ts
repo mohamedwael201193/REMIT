@@ -35,6 +35,9 @@ export type FinalizedEvidence = {
   protocolVersion?: number;
 };
 
+// midnight-js Contract.Any is an Effect namespace constraint; keep this façade unparameterized.
+type Providers = ContractProviders<any>;
+
 function asEvidence(data: Record<string, unknown>, contractAddress?: string): FinalizedEvidence {
   const publicData = (data.public as Record<string, unknown> | undefined) ?? data;
   const status = String(publicData.status ?? data.status ?? "unknown");
@@ -52,29 +55,40 @@ function asEvidence(data: Record<string, unknown>, contractAddress?: string): Fi
   };
 }
 
-export async function deployCompiled<C>(
-  providers: ContractProviders<C>,
-  options: Parameters<typeof deployContract<C>>[1],
-): Promise<{ contractAddress: string; evidence: FinalizedEvidence; deployed: Awaited<ReturnType<typeof deployContract<C>>> }> {
+export async function deployCompiled(
+  providers: Providers,
+  options: Parameters<typeof deployContract>[1],
+): Promise<{
+  contractAddress: string;
+  evidence: FinalizedEvidence;
+  deployed: Awaited<ReturnType<typeof deployContract>>;
+}> {
   try {
     const deployed = await deployContract(providers, options);
     const publicData = deployed.deployTxData.public as unknown as Record<string, unknown>;
     const contractAddress = String(publicData.contractAddress ?? "");
     if (!contractAddress) throw new RemitError("FINALIZE", "deploy missing contract address");
-    return { contractAddress, evidence: asEvidence(deployed.deployTxData as unknown as Record<string, unknown>, contractAddress), deployed };
+    return {
+      contractAddress,
+      evidence: asEvidence(deployed.deployTxData as unknown as Record<string, unknown>, contractAddress),
+      deployed,
+    };
   } catch (e) {
     if (e instanceof RemitError) throw e;
     throw mapLedgerFailure(e instanceof Error ? e.message : "deploy failed");
   }
 }
 
-export async function submitCircuit<C>(
-  providers: ContractProviders<C>,
-  options: Parameters<typeof submitCallTx<C>>[1],
+export async function submitCircuit(
+  providers: Providers,
+  options: Parameters<typeof submitCallTx>[1],
 ): Promise<FinalizedEvidence> {
   try {
     const result = await submitCallTx(providers, options);
-    return asEvidence(result as unknown as Record<string, unknown>, String((options as { contractAddress?: string }).contractAddress ?? ""));
+    return asEvidence(
+      result as unknown as Record<string, unknown>,
+      String((options as { contractAddress?: string }).contractAddress ?? ""),
+    );
   } catch (e) {
     if (e instanceof RemitError) throw e;
     const msg = e instanceof Error ? e.message : "call failed";
@@ -85,9 +99,9 @@ export async function submitCircuit<C>(
   }
 }
 
-export async function bindDeployed<C>(
-  providers: ContractProviders<C>,
-  options: Parameters<typeof findDeployedContract<C>>[1],
+export async function bindDeployed(
+  providers: Providers,
+  options: Parameters<typeof findDeployedContract>[1],
 ) {
   return findDeployedContract(providers, options);
 }

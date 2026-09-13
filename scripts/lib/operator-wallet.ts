@@ -19,7 +19,7 @@ import {
   PublicKey,
   NoOpTransactionHistoryStorage,
 } from "@midnightntwrk/wallet-sdk";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { RemitNodeWallet } from "../../packages/core/src/node-wallet.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -27,15 +27,57 @@ loadEnv({ path: resolve(repoRoot, ".env.preprod.local") });
 
 export const DUST_READY_FILE = resolve(repoRoot, "deployments", "dust-ready.json");
 export const PREPROD_DEPLOY_FILE = resolve(repoRoot, "deployments", "preprod.json");
+const WALLET_LOCK_FILE = resolve(repoRoot, "deployments", "operator-wallet.lock");
 const WALLET_CACHE_DIR = resolve(repoRoot, "wallet-cache", "operator");
 const WALLET_CACHE = {
   shielded: resolve(WALLET_CACHE_DIR, "shielded.state"),
   unshielded: resolve(WALLET_CACHE_DIR, "unshielded.state"),
   dust: resolve(WALLET_CACHE_DIR, "dust.state"),
+  meta: resolve(WALLET_CACHE_DIR, "meta.json"),
 };
 
 function cachePresent() {
   return existsSync(WALLET_CACHE.shielded) && existsSync(WALLET_CACHE.unshielded) && existsSync(WALLET_CACHE.dust);
+}
+
+function dustOffsetOf(serialized: string): string {
+  try {
+    const parsed = JSON.parse(serialized) as { offset?: unknown };
+    return parsed.offset == null ? "?" : String(parsed.offset);
+  } catch {
+    return "?";
+  }
+}
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** One Node WalletFacade for the operator. A second open would cold-replay DUST from genesis. */
+export function acquireOperatorWalletLock() {
+  mkdirSync(resolve(repoRoot, "deployments"), { recursive: true });
+  if (existsSync(WALLET_LOCK_FILE)) {
+    const pid = Number(readFileSync(WALLET_LOCK_FILE, "utf8").trim());
+    if (Number.isInteger(pid) && pid > 0 && pid !== process.pid && pidAlive(pid)) {
+      throw new Error(`operator WalletFacade already held by pid ${pid}`);
+    }
+  }
+  writeFileSync(WALLET_LOCK_FILE, String(process.pid));
+}
+
+export function releaseOperatorWalletLock() {
+  try {
+    if (existsSync(WALLET_LOCK_FILE) && readFileSync(WALLET_LOCK_FILE, "utf8").trim() === String(process.pid)) {
+      unlinkSync(WALLET_LOCK_FILE);
+    }
+  } catch {
+    /* ignore stale lock cleanup */
+  }
 }
 
 let persistBusy = false;
@@ -54,7 +96,12 @@ export async function persistOperatorWallet(wallet: WalletFacade) {
     writeFileSync(WALLET_CACHE.shielded, shielded);
     writeFileSync(WALLET_CACHE.unshielded, unshielded);
     writeFileSync(WALLET_CACHE.dust, dust);
-    console.log("persisted operator wallet serializeState cache");
+    const dustOffset = dustOffsetOf(dust);
+    writeFileSync(
+      WALLET_CACHE.meta,
+      JSON.stringify({ at: new Date().toISOString(), dustOffset, bytes: { shielded: shielded.length, unshielded: unshielded.length, dust: dust.length } }, null, 2),
+    );
+    console.log("persisted operator wallet serializeState cache dustOffset", dustOffset);
   } catch (e) {
     console.log("wallet cache persist skipped:", e instanceof Error ? e.message : "error");
   } finally {
@@ -167,17 +214,19 @@ function deriveKeys(seed: Buffer) {
 }
 
 export async function openOperatorWallet() {
-  const mnemonic = process.env.REMIT_OPERATOR_MNEMONIC;
-  const expect = process.env.REMIT_OPERATOR_UNSHIELDED_ADDR;
-  if (!mnemonic || !expect) throw new Error("missing operator mnemonic or expected address");
-  setNetworkId("preprod");
-  const seed = Buffer.from(mnemonicToSeedSync(mnemonic));
-  const keys = deriveKeys(seed);
-  const shieldedSecretKeys = ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
-  const dustSecretKey = DustSecretKey.fromSeed(keys[Roles.Dust]);
-  const unshieldedKeystore = createKeystore(keys[Roles.NightExternal], "preprod");
-  const addr = unshieldedKeystore.getBech32Address().asString();
-  if (addr !== expect) throw new Error("address mismatch — refusing to operate");
+  acquireOperatorWalletLock();
+  try {
+    const mnemonic = process.env.REMIT_OPERATOR_MNEMONIC;
+    const expect = process.env.REMIT_OPERATOR_UNSHIELDED_ADDR;
+    if (!mnemonic || !expect) throw new Error("missing operator mnemonic or expected address");
+    setNetworkId("preprod");
+    const seed = Buffer.from(mnemonicToSeedSync(mnemonic));
+    const keys = deriveKeys(seed);
+    const shieldedSecretKeys = ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
+    const dustSecretKey = DustSecretKey.fromSeed(keys[Roles.Dust]);
+    const unshieldedKeystore = createKeystore(keys[Roles.NightExternal], "preprod");
+    const addr = unshieldedKeystore.getBech32Address().asString();
+    if (addr !== expect) throw new Error("address mismatch — refusing to operate");
 
   const indexerHttpUrl = process.env.MIDNIGHT_INDEXER_URL!;
   const indexerWsUrl = process.env.MIDNIGHT_INDEXER_WS!;
@@ -222,15 +271,26 @@ export async function openOperatorWallet() {
         unshielded: () => UnshieldedWallet(unshieldedConfig).restore(unshieldedState),
         dust: () => DustWallet(dustConfig).restore(dustState),
       });
-      console.log("restored operator wallet from serializeState cache (same wallet)");
+      const restoredOffset = dustOffsetOf(dustState);
+      console.log("restored operator wallet from serializeState cache (same wallet) dustOffset", restoredOffset);
     } catch (e) {
       console.log("wallet cache restore failed, cold start:", e instanceof Error ? e.message : "error");
       wallet = await coldStart();
     }
   } else {
+    console.log("no serializeState cache — cold DUST ledger replay from genesis (id: null)");
     wallet = await coldStart();
   }
   await wallet.start(shieldedSecretKeys, dustSecretKey);
+  const persistTimer = setInterval(() => {
+    void persistOperatorWallet(wallet);
+  }, 90_000);
+  persistTimer.unref?.();
+  const onHalt = () => {
+    void persistOperatorWallet(wallet);
+  };
+  process.once("SIGINT", onHalt);
+  process.once("SIGTERM", onHalt);
   const provider = new RemitNodeWallet(wallet, shieldedSecretKeys, dustSecretKey, unshieldedKeystore);
   return {
     wallet,
@@ -242,7 +302,82 @@ export async function openOperatorWallet() {
     nightRaw: unshieldedToken().raw,
     indexerHttpUrl,
     proofServer,
+    persistTimer,
+    onHalt,
   };
+  } catch (e) {
+    releaseOperatorWalletLock();
+    throw e;
+  }
+}
+
+export async function closeOperatorWallet(session: OperatorSession) {
+  if (session.persistTimer) clearInterval(session.persistTimer);
+  try {
+    await persistOperatorWallet(session.wallet);
+  } catch {
+    /* persist best-effort before stop */
+  }
+  await session.wallet.stop();
+  releaseOperatorWalletLock();
+}
+
+/**
+ * Same-wallet DUST path: wait unshielded complete, register only if the SDK
+ * still shows unregistered NIGHT, then wait availableCoins >= 1. Persists
+ * serializeState so a later open of this wallet resumes at appliedIndex.
+ */
+export async function ensureOperatorDust(session: OperatorSession, timeoutMs = 3 * 60 * 60_000) {
+  const nightRaw = unshieldedToken().raw;
+  const synced = await waitUnshieldedReady(session.wallet, nightRaw, timeoutMs);
+  const coins = synced.unshielded.availableCoins ?? [];
+  const flags = coins.map((c: { meta?: { registeredForDustGeneration?: boolean }; utxo?: { type?: unknown } }) => ({
+    typeIsNight: String(c.utxo?.type) === String(nightRaw),
+    registered: c.meta?.registeredForDustGeneration === true,
+  }));
+  console.log("coin registration flags", JSON.stringify(flags));
+
+  const unregistered = coins.filter((c: { utxo: { type: unknown }; meta?: { registeredForDustGeneration?: boolean } }) => {
+    const t = c.utxo.type;
+    const isNight = t === nightRaw || String(t) === String(nightRaw);
+    return isNight && c.meta?.registeredForDustGeneration !== true;
+  });
+  console.log("unshielded coins", coins.length, "unregistered NIGHT utxos:", unregistered.length);
+
+  const force = process.env.REMIT_FORCE_DUST_REGISTER === "1";
+  const toRegister = unregistered.length > 0
+    ? unregistered
+    : force
+      ? coins.filter((c: { utxo: { type: unknown } }) => String(c.utxo.type) === String(nightRaw))
+      : [];
+
+  if (toRegister.length > 0) {
+    try {
+      const estimate = await session.wallet.estimateRegistration(toRegister);
+      console.log("registration fee estimate present", Boolean(estimate?.fee));
+      if (estimate?.fee && estimate.fee > 0n && typeof session.wallet.waitForGeneratedDust === "function") {
+        console.log("waiting for projected DUST to cover registration fee");
+        await session.wallet.waitForGeneratedDust(toRegister, estimate.fee, { timeoutMs: 30 * 60_000 });
+      }
+    } catch (e) {
+      console.log("estimateRegistration skipped:", e instanceof Error ? e.message : "error");
+    }
+    const recipe = await session.wallet.registerNightUtxosForDustGeneration(
+      toRegister,
+      session.unshieldedKeystore.getPublicKey(),
+      (payload: Uint8Array) => session.unshieldedKeystore.signData(payload),
+    );
+    const finalized = await session.wallet.finalizeRecipe(recipe);
+    const txId = await session.wallet.submitTransaction(finalized);
+    console.log("dust registration submitted", txId);
+  } else {
+    console.log("all NIGHT already registered according to wallet meta");
+  }
+
+  console.log("waiting for spendable DUST (availableCoins >= 1); restoring serializeState skips genesis replay");
+  const state = await waitSpendableDust(session.wallet, timeoutMs);
+  writeDustReady({ source: "ensureOperatorDust", coins: state.dust?.availableCoins?.length ?? 0 });
+  return state;
 }
 
 export async function waitUnshieldedReady(wallet: WalletFacade, nightRaw: string, timeoutMs = 3 * 60 * 60_000) {
@@ -301,7 +436,7 @@ export async function waitSpendableDust(wallet: WalletFacade, timeoutMs = 3 * 60
           "dustProgress",
           fmtSyncProgress(s.dust?.progress),
         );
-        if (ticks % 20 === 0) void persistOperatorWallet(wallet);
+        if (ticks % 8 === 0) void persistOperatorWallet(wallet);
       }),
       Rx.filter((s) => (s.dust?.availableCoins?.length ?? 0) >= 1),
       Rx.timeout({ first: timeoutMs }),

@@ -6,6 +6,14 @@ export const ASSET_QUOTE = 1n;
 export const SIDE_SELL_BASE = 0n;
 export const SIDE_BUY_BASE = 1n;
 
+export type OwnedNoteLike = {
+  asset: bigint;
+  amount: bigint;
+  owner: Uint8Array;
+};
+
+export type OwnedNote = OwnedNoteLike & { nonce: Uint8Array };
+
 export type JsonNote = {
   asset: string;
   amount: string;

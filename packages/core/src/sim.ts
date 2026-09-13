@@ -9,18 +9,12 @@ import { Contract, ledger, pureCircuits, type Mandate, type Offer } from "@remit
 import { toArray, randomBytes32 } from "./bytes.js";
 import { RemitError } from "./errors.js";
 import { dumpPublicLedger } from "./privacy.js";
-import { emptyPrivateState, type JsonPath, type RemitPrivateState } from "./state.js";
+import { emptyPrivateState, type JsonPath, type OwnedNote, type RemitPrivateState } from "./state.js";
+import { jsonPath } from "./paths.js";
 import { stage, witnesses } from "./witnesses.js";
 
 const CPK = "11".repeat(32);
 const ADDR = dummyContractAddress();
-
-export type OwnedNote = {
-  asset: bigint;
-  amount: bigint;
-  owner: Uint8Array;
-  nonce: Uint8Array;
-};
 
 export type Sim = {
   contract: Contract<RemitPrivateState>;
@@ -29,15 +23,8 @@ export type Sim = {
   quoteColor: Uint8Array;
 };
 
-export function jsonPath(p: {
-  leaf: Uint8Array;
-  path: { sibling: { field: bigint }; goes_left: boolean }[];
-}): JsonPath {
-  return {
-    leaf: toArray(p.leaf),
-    path: p.path.map((e) => ({ sibling: { field: e.sibling.field.toString() }, goes_left: e.goes_left })),
-  };
-}
+export { jsonPath } from "./paths.js";
+export type { OwnedNote };
 
 export function bootPool(quoteColor = randomBytes32()): Sim {
   const contract = new Contract(witnesses);

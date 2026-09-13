@@ -52,5 +52,6 @@ RESEARCH/spikes/**/out-*/
 deployments/
 .midnight/
 wallet-cache/
+front/
 *.generated.env
 agent-keys.generated.env

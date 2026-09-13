@@ -97,8 +97,18 @@ function fromHex(h: string): Uint8Array {
   return Uint8Array.from(Buffer.from(h.replace(/^0x/, ""), "hex"));
 }
 
-export function verifyDisclosure(pkg: DisclosurePackage, onChainRoot: Uint8Array): { ok: boolean; failed: string[] } {
+export function verifyDisclosure(
+  pkg: DisclosurePackage,
+  onChainRoot: Uint8Array,
+  opts?: { allowedFields?: readonly AuditField[]; expectedFillIndex?: number },
+): { ok: boolean; failed: string[] } {
   const failed: string[] = [];
+  if (opts?.expectedFillIndex != null && pkg.fillIndex !== opts.expectedFillIndex) failed.push("fill-index");
+  if (opts?.allowedFields) {
+    for (const o of pkg.openings) {
+      if (!opts.allowedFields.includes(o.field)) failed.push(`unauthorized-${o.field}`);
+    }
+  }
   if (pkg.commitmentsHex.length !== 6) failed.push("commit-count");
   const commits = pkg.commitmentsHex.map(fromHex);
   let root: Uint8Array | undefined;

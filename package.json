@@ -32,7 +32,9 @@
     "audit:verify": "npx tsx scripts/audit-verify.ts",
     "indexer:utxos": "npx tsx scripts/indexer-utxo.ts",
     "proof:up": "docker compose -f infra/proof-server.yml up -d",
-    "proof:down": "docker compose -f infra/proof-server.yml down"
+    "proof:down": "docker compose -f infra/proof-server.yml down",
+    "local:health": "npx tsx scripts/local-health.ts",
+    "local:up": "node scripts/local-up.mjs"
   },
   "overrides": {
     "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",

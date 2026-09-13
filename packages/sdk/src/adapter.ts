@@ -126,3 +126,17 @@ export async function connectWallet(
 export function assertNoPrivateStateMixing(nsA: string, nsB: string): void {
   if (nsA === nsB) throw new RemitError("UNAUTHORIZED", "wallet private-state namespaces collided");
 }
+
+export async function reconnectWallet(
+  api: InitialAPI,
+  expectedNetwork: string,
+  gesture: { fromClickHandler: boolean },
+): Promise<{ wallet: ConnectedAPI; state: RemitClientState }> {
+  return connectWallet(api, expectedNetwork, gesture);
+}
+
+export function assertDisconnected(status: { status: string }): void {
+  if (status.status !== "disconnected") {
+    throw new RemitError("WALLET", "wallet is still connected", "expected disconnected");
+  }
+}

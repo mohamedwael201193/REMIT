@@ -7,7 +7,6 @@ import { config as loadEnv } from "dotenv";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { unshieldedToken } from "@midnight-ntwrk/midnight-js-protocol/ledger";
 import {
   CIRCUIT_CALL_PATH,
   compiledPool,
@@ -23,10 +22,10 @@ import {
 } from "../packages/core/src/index.ts";
 import { randomBytes32 } from "../packages/core/src/bytes.ts";
 import {
+  closeOperatorWallet,
+  ensureOperatorDust,
   openOperatorWallet,
-  waitForDustReadyFile,
-  waitSpendableDust,
-  waitUnshieldedReady,
+  persistOperatorWallet,
 } from "./lib/operator-wallet.ts";
 import { requireContractAction } from "../packages/core/src/indexer.ts";
 
@@ -56,14 +55,12 @@ async function main() {
   const password = process.env.REMIT_AGENT_PRIVATE_STATE_PASSWORD;
   if (!password || password.length < 16) throw new Error("private-state password missing or too short");
 
-  console.log("waiting for spendable DUST handshake before opening a WalletFacade");
-  await waitForDustReadyFile();
-
+  console.log("opening the SAME operator wallet; DUST wait and deploy share one WalletFacade");
   const session = await openOperatorWallet();
-  const nightRaw = unshieldedToken().raw;
-  await waitUnshieldedReady(session.wallet, nightRaw);
-  const state = await waitSpendableDust(session.wallet);
+  try {
+  const state = await ensureOperatorDust(session);
   console.log("spendable DUST coins", state.dust?.availableCoins?.length ?? 0);
+  await persistOperatorWallet(session.wallet);
 
   await proofServerOk(session.proofServer);
   const block = await fetchBlock(session.indexerHttpUrl);
@@ -151,7 +148,9 @@ async function main() {
   };
   writeFileSync(resolve(root, "deployments", "preprod.json"), JSON.stringify(out, null, 2));
   console.log("wrote deployments/preprod.json");
-  await session.wallet.stop();
+  } finally {
+    await closeOperatorWallet(session);
+  }
 }
 
 main().catch((e) => {
