@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildApp } from "../../apps/api/src/app.ts";
 import { rfqKeyPair } from "../../packages/core/src/box.ts";
-import { makeOfferBox as makeTyped } from "../../packages/core/src/rfq.ts";
+import { makeMandateBox, makeOfferBox as makeTyped } from "../../packages/core/src/rfq.ts";
 
 describe("api (no private openings stored in plaintext)", () => {
   it("health omits secrets; RFQ rejects garbage; replay is rejected", async () => {
@@ -41,6 +41,12 @@ describe("api (no private openings stored in plaintext)", () => {
 
     const unauth = await app.inject({ method: "POST", url: "/disclose", payload: { package: {}, rootHex: "00" } });
     expect(unauth.statusCode).toBe(401);
+
+    const { boxed: mandateBox } = makeMandateBox(rec.publicHex, Array.from({ length: 32 }, () => 4));
+    const mOk = await app.inject({ method: "POST", url: "/mandate", payload: { box: mandateBox } });
+    expect(mOk.statusCode).toBe(200);
+    const mReplay = await app.inject({ method: "POST", url: "/mandate", payload: { box: mandateBox } });
+    expect(mReplay.statusCode).toBe(409);
     await app.close();
   });
 });

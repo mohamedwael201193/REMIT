@@ -182,7 +182,80 @@ export type FillArgs = {
   auditSeed?: Uint8Array;
   getNonce?: Uint8Array;
   nextStateNonce?: Uint8Array;
+  /** Test-only: a path that does not match this offer (Compact must reject). */
+  offerPathOverride?: JsonPath;
 };
+
+export function revokeMandate(
+  sim: Sim,
+  ownerSk: Uint8Array,
+  mandate: Mandate,
+  mandateRand: Uint8Array,
+  remaining: bigint,
+  stateNonce: Uint8Array,
+  refundNonce = randomBytes32(),
+): Sim {
+  return callCircuit(sim, (ctx) => sim.contract.impureCircuits.revokeMandate(ctx), {
+    ownerSecret: toArray(ownerSk),
+    mandateData: {
+      principal: toArray(mandate.principal),
+      executor: toArray(mandate.executor),
+      side: mandate.side.toString(),
+      maxFillBase: mandate.maxFillBase.toString(),
+      limitNum: mandate.limitNum.toString(),
+      limitDen: mandate.limitDen.toString(),
+      cpRoot: mandate.cpRoot.toString(),
+      expiry: mandate.expiry.toString(),
+      mandateId: toArray(mandate.mandateId),
+    },
+    mandateRand: toArray(mandateRand),
+    mandatePath: mandatePath(sim, mandate, mandateRand),
+    mandateStateData: { mandateId: toArray(mandate.mandateId), remaining: remaining.toString() },
+    mandateStateNonce: toArray(stateNonce),
+    mandateStatePath: mandateStatePath(sim, mandate.mandateId, remaining, stateNonce),
+    freshNonce: toArray(refundNonce),
+  });
+}
+
+export function cancelOffer(
+  sim: Sim,
+  ownerSk: Uint8Array,
+  offer: Offer,
+  offerRand: Uint8Array,
+  refundNonce = randomBytes32(),
+): Sim {
+  return callCircuit(sim, (ctx) => sim.contract.impureCircuits.cancelOffer(ctx), {
+    ownerSecret: toArray(ownerSk),
+    offerData: {
+      side: offer.side.toString(),
+      baseAmount: offer.baseAmount.toString(),
+      quoteAmount: offer.quoteAmount.toString(),
+      maker: toArray(offer.maker),
+      payNonce: toArray(offer.payNonce),
+    },
+    offerRand: toArray(offerRand),
+    offerPath: offerPath(sim, offer, offerRand),
+    freshNonce: toArray(refundNonce),
+  });
+}
+
+export function withdraw(
+  sim: Sim,
+  ownerSk: Uint8Array,
+  note: OwnedNote,
+  amount: bigint,
+  recipient = randomBytes32(),
+  changeNonce = randomBytes32(),
+): Sim {
+  return callCircuit(sim, (ctx) => sim.contract.impureCircuits.withdraw(ctx, note.asset, amount), {
+    ownerSecret: toArray(ownerSk),
+    spendNote: { asset: note.asset.toString(), amount: note.amount.toString(), owner: toArray(note.owner) },
+    spendNoteNonce: toArray(note.nonce),
+    spendNotePath: notePath(sim, note),
+    freshNonce: toArray(changeNonce),
+    withdrawTo: { is_left: false, left: Array.from({ length: 32 }, () => 0), right: Array.from(recipient) },
+  });
+}
 
 export function fill(sim: Sim, args: FillArgs): Sim {
   const seed = args.auditSeed ?? randomBytes32();
@@ -214,7 +287,7 @@ export function fill(sim: Sim, args: FillArgs): Sim {
       payNonce: toArray(args.offer.payNonce),
     },
     offerRand: toArray(args.offerRand),
-    offerPath: offerPath(sim, args.offer, args.offerRand),
+    offerPath: args.offerPathOverride ?? offerPath(sim, args.offer, args.offerRand),
     auditSeed: toArray(seed),
     freshNonce: toArray(getNonce),
     freshNonce2: toArray(nextStateNonce),

@@ -30,5 +30,12 @@ jobs:
           else
             echo "compact not installed; using committed skip-zk artifacts if present"
           fi
-      - run: npm test
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Security tests
+        run: npm run test:security
+      - name: Privacy tests
+        run: npm run test:privacy
+      - name: Integration (compact-runtime lifecycle)
+        run: npm run test:integration
       - run: node scripts/inspect-managed.mjs

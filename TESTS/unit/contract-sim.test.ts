@@ -4,13 +4,17 @@ import { pureCircuits } from "../../CONTRACT/managed/remit_pool/contract/index.j
 import { randomBytes32 } from "../../packages/core/src/bytes.ts";
 import {
   bootPool,
+  cancelOffer,
   createMandate,
   deposit,
   expectCompactFail,
   fill,
+  offerPath,
   placeOffer,
   publicLedger,
+  revokeMandate,
   serializedPublicState,
+  withdraw,
 } from "../../packages/core/src/sim.ts";
 import { assertAbsent } from "../../packages/core/src/privacy.ts";
 import { decideFill } from "../../packages/agent/src/executor.ts";
@@ -255,6 +259,73 @@ describe("pool compact-runtime simulator", () => {
       () => fill(sim, { ...base, esk: k.esk, nowBound }),
       "state already consumed",
     );
+  });
+
+  it("rejects unauthorized revoke, unauthorized cancel, and a wrong Merkle path", () => {
+    const k = keys();
+    let sim = bootPool();
+    const dP = deposit(sim, k.principalSk, 0n, 100n);
+    sim = dP.sim;
+    const dM = deposit(sim, k.makerSk, 1n, 5000n);
+    sim = dM.sim;
+    const offer = {
+      side: 1n,
+      baseAmount: 40n,
+      quoteAmount: 1280n,
+      maker: k.maker,
+      payNonce: randomBytes32(),
+    };
+    const placed = placeOffer(sim, k.makerSk, dM.note, offer);
+    sim = placed.sim;
+    const mandate = {
+      principal: k.principal,
+      executor: k.executor,
+      side: 0n,
+      maxFillBase: 50n,
+      limitNum: 30n,
+      limitDen: 1000n,
+      cpRoot: 0n,
+      expiry: 4_000_000_000n,
+      mandateId: randomBytes32(),
+    };
+    const created = createMandate(sim, k.principalSk, dP.note, mandate);
+    sim = created.sim;
+    expectCompactFail(
+      () => revokeMandate(sim, k.makerSk, mandate, created.mandateRand, 100n, created.stateNonce),
+      "not your mandate",
+    );
+    expectCompactFail(() => cancelOffer(sim, k.principalSk, offer, placed.offerRand), "not your offer");
+    const decoy = {
+      side: 1n,
+      baseAmount: 10n,
+      quoteAmount: 320n,
+      maker: k.maker,
+      payNonce: randomBytes32(),
+    };
+    const dDecoy = deposit(sim, k.makerSk, 1n, 5000n);
+    sim = dDecoy.sim;
+    const placedDecoy = placeOffer(sim, k.makerSk, dDecoy.note, decoy);
+    sim = placedDecoy.sim;
+    expectCompactFail(
+      () =>
+        fill(sim, {
+          esk: k.esk,
+          mandate,
+          mandateRand: created.mandateRand,
+          remaining: 100n,
+          stateNonce: created.stateNonce,
+          offer,
+          offerRand: placed.offerRand,
+          nowBound: 1_800_000_000n,
+          offerPathOverride: offerPath(sim, decoy, placedDecoy.offerRand),
+        }),
+      "offer path mismatch",
+    );
+    sim = revokeMandate(sim, k.principalSk, mandate, created.mandateRand, 100n, created.stateNonce);
+    expect(publicLedger(sim).activeMandates).toBe(0n);
+    sim = cancelOffer(sim, k.makerSk, offer, placed.offerRand);
+    expect(publicLedger(sim).openOffers).toBe(1n);
+    expectCompactFail(() => withdraw(sim, k.principalSk, dM.note, 1n), "not your note");
   });
 
   it("CompactError is the enforcement layer, not a TypeScript pre-check", () => {

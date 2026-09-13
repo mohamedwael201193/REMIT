@@ -34,5 +34,7 @@ describe("REMIT-Q quote contract (testnet-only, not a stablecoin)", () => {
     expect(ledger(ctx.currentQueryContext.state).minted).toBe(1n);
     expect(() => contract.impureCircuits.claim(ctx, 1_000_000n, day, to)).toThrow(/already claimed/i);
     expect(pureCircuits.claimTag(sk, day).length).toBe(32);
+    expect(() => contract.impureCircuits.claim(ctx, 0n, day + 1n, to)).toThrow(/zero amount/);
+    expect(() => contract.impureCircuits.claim(ctx, 1_000_000_001n, day + 1n, to)).toThrow(/max 1000/);
   });
 });

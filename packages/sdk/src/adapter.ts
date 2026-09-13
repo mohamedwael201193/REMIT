@@ -1,6 +1,6 @@
 import type { DAppConnectorAPI, DAppConnectorWalletAPI } from "@midnight-ntwrk/dapp-connector-api";
 import { RemitError } from "@remit/core";
-import { capabilitiesOf, classifyWallet, type RemitClientState, type WalletKind } from "./wallet.js";
+import { capabilitiesOf, classifyWallet, requireClickHandler, type RemitClientState, type WalletKind } from "./wallet.js";
 
 export type MidnightWindow = Window & {
   midnight?: { [rdns: string]: DAppConnectorAPI };
@@ -19,7 +19,9 @@ export async function discoverWallets(win: MidnightWindow): Promise<{ rdns: stri
 export async function connectWallet(
   api: DAppConnectorAPI,
   expectedNetwork: string,
+  gesture: { fromClickHandler: boolean },
 ): Promise<{ wallet: DAppConnectorWalletAPI; state: RemitClientState }> {
+  requireClickHandler(gesture);
   const service = await api.enable();
   const status = await api.service.connectorAPI().then((c) => c.getConnectionStatus?.()).catch(() => undefined);
   const wallet = (service as { wallet?: DAppConnectorWalletAPI }).wallet ?? (service as unknown as DAppConnectorWalletAPI);

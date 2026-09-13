@@ -19,9 +19,102 @@ import {
   PublicKey,
   NoOpTransactionHistoryStorage,
 } from "@midnightntwrk/wallet-sdk";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { RemitNodeWallet } from "../../packages/core/src/node-wallet.ts";
 
-loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../../.env.preprod.local") });
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+loadEnv({ path: resolve(repoRoot, ".env.preprod.local") });
+
+export const DUST_READY_FILE = resolve(repoRoot, "deployments", "dust-ready.json");
+export const PREPROD_DEPLOY_FILE = resolve(repoRoot, "deployments", "preprod.json");
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+export function writeDustReady(info: Record<string, unknown> = {}) {
+  mkdirSync(resolve(repoRoot, "deployments"), { recursive: true });
+  writeFileSync(
+    DUST_READY_FILE,
+    JSON.stringify(
+      {
+        ready: true,
+        gate: "availableCoins>=1",
+        at: new Date().toISOString(),
+        ...info,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+function dustLogStatus(logPath: string | undefined): "ready" | "failed" | "wait" {
+  if (!logPath || !existsSync(logPath)) return "wait";
+  const text = readFileSync(logPath, "utf8");
+  if (text.includes("spendable DUST ready")) return "ready";
+  if (/dust-register failed|Timeout has occurred/i.test(text) && /status:\s*running/i.test(text.slice(0, 900)) === false) {
+    return "failed";
+  }
+  return "wait";
+}
+
+function logProcessRunning(logPath: string): boolean {
+  const head = readFileSync(logPath, "utf8").slice(0, 1200);
+  return /status:\s*running/i.test(head);
+}
+
+/**
+ * Do not open a second WalletFacade while dust-register holds the first one.
+ * Wait for deployments/dust-ready.json, or for the running register log to
+ * report spendable coins and then exit.
+ */
+export async function waitForDustReadyFile(timeoutMs = 3 * 60 * 60_000) {
+  const logPath = process.env.REMIT_DUST_LOG;
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (existsSync(DUST_READY_FILE)) {
+      console.log("dust-ready.json present — first wallet may now be stopped");
+      return;
+    }
+    const status = dustLogStatus(logPath);
+    if (status === "failed") throw new Error("dust-register failed; refusing to deploy");
+    if (status === "ready") {
+      const waitStopUntil = Date.now() + 60_000;
+      while (logPath && logProcessRunning(logPath) && Date.now() < waitStopUntil) {
+        console.log("spendable DUST reported; waiting for dust-register wallet.stop()");
+        await sleep(5_000);
+      }
+      writeDustReady({ source: "dust-register-log" });
+      return;
+    }
+    console.log("waiting for dust-ready.json — not opening a second WalletFacade");
+    await sleep(10_000);
+  }
+  throw new Error("timed out waiting for spendable DUST (availableCoins >= 1)");
+}
+
+export async function waitForPreprodDeployFile(timeoutMs = 3 * 60 * 60_000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (existsSync(PREPROD_DEPLOY_FILE)) {
+      const raw = JSON.parse(readFileSync(PREPROD_DEPLOY_FILE, "utf8")) as {
+        quote?: { address?: string; txHash?: string; block?: number };
+        pool?: { address?: string; txHash?: string; block?: number };
+      };
+      if (raw.quote?.address && raw.quote.txHash && raw.quote.block != null && raw.pool?.address && raw.pool.txHash && raw.pool.block != null) {
+        return raw as {
+          quote: { address: string; txHash: string; block: number };
+          pool: { address: string; txHash: string; block: number };
+        };
+      }
+      throw new Error("deployments/preprod.json exists but is missing indexer tx hash + block");
+    }
+    console.log("waiting for deployments/preprod.json (indexer-backed)");
+    await sleep(15_000);
+  }
+  throw new Error("timed out waiting for Preprod deploy evidence");
+}
 
 export type OperatorSession = Awaited<ReturnType<typeof openOperatorWallet>>;
 

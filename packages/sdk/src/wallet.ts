@@ -1,3 +1,5 @@
+import { RemitError } from "@remit/core";
+
 export type WalletKind = "1am" | "lace" | "cli" | "unknown";
 
 export type WalletCapabilities = {
@@ -48,4 +50,36 @@ export function classifyWallet(name: string, rdns?: string): WalletKind {
 
 export function isConnected(state: RemitClientState): boolean {
   return state.phase !== "disconnected" && state.phase !== "detecting" && state.phase !== "error";
+}
+
+export function requireClickHandler(ctx: { fromClickHandler: boolean }): void {
+  if (ctx.fromClickHandler !== true) {
+    throw new RemitError("WALLET", "connect() must run synchronously in the click handler", "popup would be blocked");
+  }
+}
+
+export type GestureGate = { approved: boolean };
+
+export function pauseForUserGesture(): GestureGate {
+  return { approved: false };
+}
+
+export function markUserApproved(gate: GestureGate): void {
+  gate.approved = true;
+}
+
+export function assertApproved(gate: GestureGate): void {
+  if (!gate.approved) {
+    throw new RemitError("WALLET", "user gesture required before wallet connect/sign", "waiting for wallet approval");
+  }
+}
+
+export async function assertLaceProofServer(url = "http://localhost:6300"): Promise<void> {
+  try {
+    const res = await fetch(new URL("/health", url));
+    if (!res.ok) throw new RemitError("WALLET", "Lace local proof server unhealthy", "lace needs proof server");
+  } catch (e) {
+    if (e instanceof RemitError) throw e;
+    throw new RemitError("WALLET", "Lace local proof server unreachable", "lace needs proof server");
+  }
 }

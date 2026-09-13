@@ -22,7 +22,13 @@ import {
   type QuotePrivateState,
 } from "../packages/core/src/index.ts";
 import { randomBytes32 } from "../packages/core/src/bytes.ts";
-import { openOperatorWallet, waitSpendableDust, waitUnshieldedReady } from "./lib/operator-wallet.ts";
+import {
+  openOperatorWallet,
+  waitForDustReadyFile,
+  waitSpendableDust,
+  waitUnshieldedReady,
+} from "./lib/operator-wallet.ts";
+import { requireContractAction } from "../packages/core/src/indexer.ts";
 
 loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../.env.preprod.local") });
 
@@ -49,6 +55,9 @@ async function main() {
 
   const password = process.env.REMIT_AGENT_PRIVATE_STATE_PASSWORD;
   if (!password || password.length < 16) throw new Error("private-state password missing or too short");
+
+  console.log("waiting for spendable DUST handshake before opening a WalletFacade");
+  await waitForDustReadyFile();
 
   const session = await openOperatorWallet();
   const nightRaw = unshieldedToken().raw;
@@ -83,8 +92,10 @@ async function main() {
     initialPrivateState: quotePs,
   });
   console.log("quote address", quote.contractAddress, "tx", quote.evidence.txId, "status", quote.evidence.status);
-  const quoteAction = await fetchContractAction(session.indexerHttpUrl, quote.contractAddress);
-  if (!quoteAction) throw new Error("quote deploy missing from indexer");
+  const quoteAction = requireContractAction(
+    await fetchContractAction(session.indexerHttpUrl, quote.contractAddress),
+    "quote deploy",
+  );
   console.log("quote indexer tx", quoteAction.txHash, "block", quoteAction.blockHeight);
 
   const colorCall = await quote.deployed.callTx.quoteColor();
@@ -114,8 +125,10 @@ async function main() {
     args: [color],
   } as never);
   console.log("pool address", pool.contractAddress, "tx", pool.evidence.txId, "status", pool.evidence.status);
-  const poolAction = await fetchContractAction(session.indexerHttpUrl, pool.contractAddress);
-  if (!poolAction) throw new Error("pool deploy missing from indexer");
+  const poolAction = requireContractAction(
+    await fetchContractAction(session.indexerHttpUrl, pool.contractAddress),
+    "pool deploy",
+  );
   console.log("pool indexer tx", poolAction.txHash, "block", poolAction.blockHeight);
 
   mkdirSync(resolve(root, "deployments"), { recursive: true });

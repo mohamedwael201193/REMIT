@@ -53,6 +53,33 @@ export function makeOfferBox(
   return { boxed: sealJson(recipientPubHex, payload), nonce };
 }
 
+export function makeMandateBox(
+  recipientPubHex: string,
+  mandateId: number[],
+  ttlMs = 15 * 60_000,
+): { boxed: string; nonce: string } {
+  const nonce = toHex(randomBytes32());
+  const payload: SealedMandateHint = {
+    v: 1,
+    kind: "mandate",
+    nonce,
+    expiresAt: Date.now() + ttlMs,
+    recipientBinding: recipientPubHex,
+    mandateId,
+  };
+  return { boxed: sealJson(recipientPubHex, payload), nonce };
+}
+
+export function openMandateBox(secretHex: string, boxed: string, expectedPubHex: string): SealedMandateHint {
+  const obj = openJson<SealedMandateHint>(secretHex, boxed);
+  if (obj.v !== 1 || obj.kind !== "mandate") throw new RemitError("SEALED_BOX", "not a mandate box");
+  if (obj.expiresAt < Date.now()) throw new RemitError("SEALED_BOX", "expired box");
+  if (obj.recipientBinding !== expectedPubHex) throw new RemitError("SEALED_BOX", "recipient mismatch");
+  if (seen.has(obj.nonce)) throw new RemitError("SEALED_BOX", "replayed nonce");
+  seen.add(obj.nonce);
+  return obj;
+}
+
 export function openOfferBox(secretHex: string, boxed: string, expectedPubHex: string): SealedRfqOffer {
   const obj = openJson<SealedRfqOffer>(secretHex, boxed);
   if (obj.v !== 1 || obj.kind !== "offer") throw new RemitError("SEALED_BOX", "not an offer box");

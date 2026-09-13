@@ -111,6 +111,19 @@ export async function buildApp(cfg: ApiConfig) {
     if (!body?.box || typeof body.box !== "string" || body.box.length > 16_384) {
       return reply.code(400).send({ error: "invalid box" });
     }
+    if (cfg.rfqSk) {
+      try {
+        const opened = openJson<{ nonce?: string; expiresAt?: number; kind?: string }>(cfg.rfqSk, body.box);
+        if (opened.kind && opened.kind !== "mandate") return reply.code(400).send({ error: "not a mandate" });
+        if (opened.expiresAt && opened.expiresAt < Date.now()) return reply.code(400).send({ error: "expired" });
+        if (opened.nonce) {
+          if (nonces.has(opened.nonce)) return reply.code(409).send({ error: "replay" });
+          nonces.add(opened.nonce);
+        }
+      } catch {
+        return reply.code(400).send({ error: "unseal failed" });
+      }
+    }
     const id = `m-${Date.now()}`;
     mandates.push({ id, boxed: body.box, receivedAt: Date.now() });
     return { id };

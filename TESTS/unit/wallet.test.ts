@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { walletNamespace } from "../../packages/core/src/state.ts";
-import { classifyWallet, capabilitiesOf } from "../../packages/sdk/src/wallet.ts";
+import {
+  classifyWallet,
+  capabilitiesOf,
+  requireClickHandler,
+  pauseForUserGesture,
+  markUserApproved,
+  assertApproved,
+  assertLaceProofServer,
+} from "../../packages/sdk/src/wallet.ts";
 import { assertNoPrivateStateMixing } from "../../packages/sdk/src/adapter.ts";
 
 describe("wallet isolation + capability detection", () => {
@@ -25,5 +33,15 @@ describe("wallet isolation + capability detection", () => {
     const b = walletNamespace("preprod", "mn_addr_preprod1bbb", "contract");
     expect(() => assertNoPrivateStateMixing(a, a)).toThrow();
     expect(() => assertNoPrivateStateMixing(a, b)).not.toThrow();
+  });
+
+  it("does not proceed without a user gesture and does not fake Lace proving", async () => {
+    expect(() => requireClickHandler({ fromClickHandler: false })).toThrow(/click handler/);
+    requireClickHandler({ fromClickHandler: true });
+    const gate = pauseForUserGesture();
+    expect(() => assertApproved(gate)).toThrow(/user gesture required/);
+    markUserApproved(gate);
+    assertApproved(gate);
+    await expect(assertLaceProofServer("http://127.0.0.1:1")).rejects.toThrow(/Lace local proof server/);
   });
 });

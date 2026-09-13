@@ -10,7 +10,7 @@
  * availableCoins as "already registered".
  */
 import { unshieldedToken } from "@midnight-ntwrk/midnight-js-protocol/ledger";
-import { openOperatorWallet, waitSpendableDust, waitUnshieldedReady } from "./lib/operator-wallet.ts";
+import { openOperatorWallet, waitSpendableDust, waitUnshieldedReady, writeDustReady } from "./lib/operator-wallet.ts";
 
 async function main() {
   const session = await openOperatorWallet();
@@ -62,6 +62,8 @@ async function main() {
   console.log("waiting for spendable DUST (availableCoins >= 1); DUST ledger sync can exceed 60 min");
   await waitSpendableDust(session.wallet);
   console.log("spendable DUST ready");
+  writeDustReady({ source: "dust-register" });
+  console.log("wrote deployments/dust-ready.json");
   await session.wallet.stop();
 }
 

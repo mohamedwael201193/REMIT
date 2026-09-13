@@ -49,6 +49,13 @@ export type ContractActionHit = {
   blockHeight?: number;
 };
 
+export function requireContractAction(hit: ContractActionHit | null, label: string): ContractActionHit {
+  if (!hit?.address || !hit.txHash || hit.blockHeight == null) {
+    throw new RemitError("FINALIZE", `${label} missing indexer contractAction evidence (tx hash + block)`);
+  }
+  return hit;
+}
+
 export async function fetchContractAction(httpUrl: string, address: string): Promise<ContractActionHit | null> {
   const data = await graphql<{
     contractAction?: { address: string; state: string; transaction?: { hash: string; block?: { height: number } } };

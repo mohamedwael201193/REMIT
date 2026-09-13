@@ -4,7 +4,7 @@ import { encryptPrivateState, decryptPrivateState } from "../../packages/core/sr
 import { emptyPrivateState } from "../../packages/core/src/state.ts";
 import { redact } from "../../packages/core/src/redact.ts";
 import { encodingsOfBigint, encodingsOfBytes } from "../../packages/core/src/bytes.ts";
-import { makeOfferBox, openOfferBox } from "../../packages/core/src/rfq.ts";
+import { makeOfferBox, makeMandateBox, openOfferBox, openMandateBox } from "../../packages/core/src/rfq.ts";
 import { CIRCUIT_CALL_PATH } from "../../packages/core/src/tx.ts";
 import { publicErrorMessage, RemitError } from "../../packages/core/src/errors.ts";
 
@@ -30,6 +30,10 @@ describe("RFQ sealed box", () => {
     const once = openOfferBox(rec.secretHex, boxed, rec.publicHex);
     expect(once.kind).toBe("offer");
     expect(() => openOfferBox(rec.secretHex, boxed, rec.publicHex)).toThrow();
+    const { boxed: mbox } = makeMandateBox(rec.publicHex, Array.from({ length: 32 }, () => 9));
+    const onceM = openMandateBox(rec.secretHex, mbox, rec.publicHex);
+    expect(onceM.kind).toBe("mandate");
+    expect(() => openMandateBox(rec.secretHex, mbox, rec.publicHex)).toThrow();
   });
 });
 
