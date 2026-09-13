@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { randomBytes32 } from "../../packages/core/src/bytes.ts";
 import { walletNamespace } from "../../packages/core/src/state.ts";
 import { classifyWallet, capabilitiesOf } from "../../packages/sdk/src/wallet.ts";
+import { assertNoPrivateStateMixing } from "../../packages/sdk/src/adapter.ts";
 
 describe("wallet isolation + capability detection", () => {
   it("namespaces differ across wallets and networks", () => {
@@ -18,5 +18,12 @@ describe("wallet isolation + capability detection", () => {
     expect(capabilitiesOf({ getProvingProvider: () => undefined }).getProvingProvider).toBe(true);
     expect(capabilitiesOf({}).getProvingProvider).toBe(false);
     expect(capabilitiesOf({}).localProofServer).toBe(true);
+  });
+
+  it("refuses colliding private-state namespaces", () => {
+    const a = walletNamespace("preprod", "mn_addr_preprod1aaa", "contract");
+    const b = walletNamespace("preprod", "mn_addr_preprod1bbb", "contract");
+    expect(() => assertNoPrivateStateMixing(a, a)).toThrow();
+    expect(() => assertNoPrivateStateMixing(a, b)).not.toThrow();
   });
 });

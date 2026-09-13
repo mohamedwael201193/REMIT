@@ -31,4 +31,4 @@ jobs:
             echo "compact not installed; using committed skip-zk artifacts if present"
           fi
       - run: npm test
-      - run: node scripts/inspect-managed.mjs || true
+      - run: node scripts/inspect-managed.mjs

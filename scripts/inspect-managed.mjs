@@ -20,6 +20,14 @@ function keysOf(name) {
   return { count: verifiers.length, verifiers, provers };
 }
 
+for (const name of ["remit_pool", "remit_quote"]) {
+  const js = join(managed, name, "contract", "index.js");
+  if (!existsSync(js)) {
+    console.error("missing compiled contract JS", js);
+    process.exit(1);
+  }
+}
+
 const report = {
   pool: keysOf("remit_pool"),
   quote: keysOf("remit_quote"),

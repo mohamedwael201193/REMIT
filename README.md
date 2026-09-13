@@ -27,6 +27,8 @@ npm run api               # Fastify :8787
 
 Compact compile runs in WSL Ubuntu on Windows (`compact compile --version` must be 0.31.1).
 
+Backend image is the repo-root `Dockerfile` (Render looks for `./Dockerfile`).
+
 Secrets live only in `.env.preprod.local` (gitignored). Copy `.env.example`. Never put secrets in `VITE_*`.
 
 ## Honest limits

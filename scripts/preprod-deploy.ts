@@ -1,41 +1,147 @@
 /**
- * Preprod deploy: quote contract then pool. Requires spendable DUST.
- * Does not wait idle in the main agent loop — run as its own tracked process.
+ * Preprod deploy: quote contract then pool.
+ * Requires spendable DUST, local proof-server 8.1.0, and compiled ZK keys.
+ * Success is indexer contractAction, not submitTx resolving.
  */
 import { config as loadEnv } from "dotenv";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeFileSync, mkdirSync } from "node:fs";
-import { CIRCUIT_CALL_PATH } from "../packages/core/src/tx.ts";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { unshieldedToken } from "@midnight-ntwrk/midnight-js-protocol/ledger";
+import {
+  CIRCUIT_CALL_PATH,
+  compiledPool,
+  compiledQuote,
+  createNodeProviders,
+  deployCompiled,
+  emptyPrivateState,
+  fetchBlock,
+  fetchContractAction,
+  managedDir,
+  walletNamespace,
+  type QuotePrivateState,
+} from "../packages/core/src/index.ts";
+import { randomBytes32 } from "../packages/core/src/bytes.ts";
+import { openOperatorWallet, waitSpendableDust, waitUnshieldedReady } from "./lib/operator-wallet.ts";
 
 loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../.env.preprod.local") });
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-console.log("preprod deploy gate");
-console.log("circuit-call path", CIRCUIT_CALL_PATH.join(" → "));
-console.log("network", process.env.MIDNIGHT_NETWORK);
-console.log("pool address set", Boolean(process.env.REMIT_POOL_CONTRACT_ADDRESS));
-console.log("quote address set", Boolean(process.env.REMIT_TESTQUOTE_CONTRACT_ADDRESS));
-
-if (!process.env.REMIT_OPERATOR_MNEMONIC) {
-  console.error("missing operator mnemonic in env");
-  process.exit(1);
+function requireKeys(name: "remit_pool" | "remit_quote") {
+  const dir = managedDir(name);
+  const sample = name === "remit_pool" ? "fill.prover" : "claim.prover";
+  const p = resolve(dir, "keys", sample);
+  if (!existsSync(p)) throw new Error(`missing ZK key ${p} — run compact compile with keys first`);
 }
 
-mkdirSync(resolve(root, "deployments"), { recursive: true });
-writeFileSync(
-  resolve(root, "deployments", "preprod-status.json"),
-  JSON.stringify(
-    {
-      network: process.env.MIDNIGHT_NETWORK,
-      indexer: process.env.MIDNIGHT_INDEXER_URL,
-      waitingFor: "spendable DUST then deployContract(quote) then deployContract(pool)",
-      quote: process.env.REMIT_TESTQUOTE_CONTRACT_ADDRESS || null,
-      pool: process.env.REMIT_POOL_CONTRACT_ADDRESS || null,
+async function proofServerOk(url: string) {
+  const res = await fetch(new URL("/health", url));
+  if (!res.ok) throw new Error(`proof server unhealthy ${res.status}`);
+}
+
+async function main() {
+  console.log("preprod deploy gate");
+  console.log("circuit-call path", CIRCUIT_CALL_PATH.join(" → "));
+  console.log("network", process.env.MIDNIGHT_NETWORK);
+  requireKeys("remit_quote");
+  requireKeys("remit_pool");
+
+  const password = process.env.REMIT_AGENT_PRIVATE_STATE_PASSWORD;
+  if (!password || password.length < 16) throw new Error("private-state password missing or too short");
+
+  const session = await openOperatorWallet();
+  const nightRaw = unshieldedToken().raw;
+  await waitUnshieldedReady(session.wallet, nightRaw);
+  const state = await waitSpendableDust(session.wallet);
+  console.log("spendable DUST coins", state.dust?.availableCoins?.length ?? 0);
+
+  await proofServerOk(session.proofServer);
+  const block = await fetchBlock(session.indexerHttpUrl);
+  console.log("indexer head", block.height, "protocol", block.protocolVersion);
+
+  const ns = walletNamespace("preprod", session.addr, "deploy");
+  const privateDir = resolve(root, "private-state", ns);
+  mkdirSync(privateDir, { recursive: true });
+
+  const quotePs: QuotePrivateState = { version: 1, callerSk: Array.from(randomBytes32()) };
+  const quoteProviders = createNodeProviders({
+    indexerHttp: session.indexerHttpUrl,
+    indexerWs: process.env.MIDNIGHT_INDEXER_WS!,
+    proofServer: session.proofServer,
+    zkConfigDir: managedDir("remit_quote"),
+    privateStateDir: resolve(privateDir, "quote"),
+    accountId: `${ns}:quote`,
+    password,
+    walletProvider: session.provider,
+  });
+
+  console.log("deploying remit_quote");
+  const quote = await deployCompiled(quoteProviders, {
+    compiledContract: compiledQuote(),
+    privateStateId: "remit-quote",
+    initialPrivateState: quotePs,
+  });
+  console.log("quote address", quote.contractAddress, "tx", quote.evidence.txId, "status", quote.evidence.status);
+  const quoteAction = await fetchContractAction(session.indexerHttpUrl, quote.contractAddress);
+  if (!quoteAction) throw new Error("quote deploy missing from indexer");
+  console.log("quote indexer tx", quoteAction.txHash, "block", quoteAction.blockHeight);
+
+  const colorCall = await quote.deployed.callTx.quoteColor();
+  const color = (colorCall as { private?: { result?: Uint8Array } }).private?.result
+    ?? (colorCall as { result?: Uint8Array }).result;
+  if (!(color instanceof Uint8Array) || color.length !== 32) {
+    throw new Error("quoteColor did not return 32 bytes");
+  }
+  console.log("quoteColor obtained (32 bytes)");
+
+  const poolProviders = createNodeProviders({
+    indexerHttp: session.indexerHttpUrl,
+    indexerWs: process.env.MIDNIGHT_INDEXER_WS!,
+    proofServer: session.proofServer,
+    zkConfigDir: managedDir("remit_pool"),
+    privateStateDir: resolve(privateDir, "pool"),
+    accountId: `${ns}:pool`,
+    password,
+    walletProvider: session.provider,
+  });
+
+  console.log("deploying remit_pool");
+  const pool = await deployCompiled(poolProviders, {
+    compiledContract: compiledPool(),
+    privateStateId: "remit-pool",
+    initialPrivateState: emptyPrivateState(ns),
+    args: [color],
+  } as never);
+  console.log("pool address", pool.contractAddress, "tx", pool.evidence.txId, "status", pool.evidence.status);
+  const poolAction = await fetchContractAction(session.indexerHttpUrl, pool.contractAddress);
+  if (!poolAction) throw new Error("pool deploy missing from indexer");
+  console.log("pool indexer tx", poolAction.txHash, "block", poolAction.blockHeight);
+
+  mkdirSync(resolve(root, "deployments"), { recursive: true });
+  const out = {
+    network: "preprod",
+    protocolVersion: block.protocolVersion,
+    quote: {
+      address: quote.contractAddress,
+      txId: quote.evidence.txId,
+      txHash: quoteAction.txHash,
+      block: quoteAction.blockHeight,
     },
-    null,
-    2,
-  ),
-);
-console.log("wrote deployments/preprod-status.json; run dust-register first if DUST coins == 0");
+    pool: {
+      address: pool.contractAddress,
+      txId: pool.evidence.txId,
+      txHash: poolAction.txHash,
+      block: poolAction.blockHeight,
+    },
+    asset: { base: "tNIGHT", quote: "REMIT-Q", stablecoin: false },
+  };
+  writeFileSync(resolve(root, "deployments", "preprod.json"), JSON.stringify(out, null, 2));
+  console.log("wrote deployments/preprod.json");
+  await session.wallet.stop();
+}
+
+main().catch((e) => {
+  console.error("preprod deploy failed:", e instanceof Error ? e.message : "error");
+  process.exit(1);
+});

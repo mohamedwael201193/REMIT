@@ -24,6 +24,8 @@
     "agent:keygen": "node scripts/agent-keygen.mjs",
     "wallet:status": "npx tsx scripts/wallet-status.ts",
     "wallet:register-dust": "npx tsx scripts/dust-register.ts",
+    "indexer:utxos": "npx tsx scripts/indexer-utxo.ts",
+    "deploy:preprod": "npx tsx scripts/preprod-deploy.ts",
     "proof:up": "docker compose -f infra/proof-server.yml up -d",
     "proof:down": "docker compose -f infra/proof-server.yml down"
   },

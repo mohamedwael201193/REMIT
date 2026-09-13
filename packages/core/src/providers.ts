@@ -41,8 +41,6 @@ export function createNodeProviders(opts: NodeProviderOpts) {
     zkConfigProvider,
     proofProvider: httpClientProofProvider(opts.proofServer, zkConfigProvider),
     walletProvider: opts.walletProvider,
-    midnightProvider: {
-      submitTx: (tx: unknown) => (opts.walletProvider as { submitTx: (t: unknown) => Promise<unknown> }).submitTx(tx),
-    },
+    midnightProvider: opts.walletProvider as { submitTx: (tx: unknown) => Promise<unknown> },
   };
 }

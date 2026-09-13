@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: remit-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm run api
+    healthCheckPath: /health
+    envVars:
+      - key: MIDNIGHT_NETWORK
+        value: preprod
+      - key: MIDNIGHT_INDEXER_URL
+        value: https://indexer.preprod.midnight.network/api/v4/graphql
+      - key: REMIT_API_CORS_ORIGIN
+        value: "*"

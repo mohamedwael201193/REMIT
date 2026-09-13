@@ -22,6 +22,7 @@ describe("api (no private openings stored in plaintext)", () => {
     expect(body.ok).toBe(true);
     expect(JSON.stringify(body).includes(rec.secretHex)).toBe(false);
     expect(body.mpc).toBe(false);
+    expect(health.headers["x-content-type-options"]).toBe("nosniff");
 
     const bad = await app.inject({ method: "POST", url: "/rfq/offer", payload: { box: "nope" } });
     expect(bad.statusCode).toBe(400);
