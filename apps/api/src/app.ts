@@ -92,6 +92,8 @@ export async function buildApp(cfg: ApiConfig) {
   if (managedRoot) {
     const poolKeys = resolve(managedRoot, "remit_pool/keys");
     const quoteKeys = resolve(managedRoot, "remit_quote/keys");
+    const poolZkir = resolve(managedRoot, "remit_pool/zkir");
+    const quoteZkir = resolve(managedRoot, "remit_quote/zkir");
     if (existsSync(poolKeys)) {
       await app.register(staticPlugin, {
         root: poolKeys,
@@ -104,6 +106,22 @@ export async function buildApp(cfg: ApiConfig) {
       await app.register(staticPlugin, {
         root: quoteKeys,
         prefix: "/keys/quote/",
+        decorateReply: false,
+        setHeaders: keyHeaders,
+      });
+    }
+    if (existsSync(poolZkir)) {
+      await app.register(staticPlugin, {
+        root: poolZkir,
+        prefix: "/zkir/",
+        decorateReply: false,
+        setHeaders: keyHeaders,
+      });
+    }
+    if (existsSync(quoteZkir)) {
+      await app.register(staticPlugin, {
+        root: quoteZkir,
+        prefix: "/zkir/quote/",
         decorateReply: false,
         setHeaders: keyHeaders,
       });
@@ -148,6 +166,7 @@ export async function buildApp(cfg: ApiConfig) {
       mpc: false,
       dustGate: "availableCoins>=1",
       keysUrl: "/keys",
+      zkirUrl: "/zkir",
       explorerTx: "https://preprod.midnightexplorer.com/tx/",
       visibility: EXECUTOR_VISIBILITY.model,
     };

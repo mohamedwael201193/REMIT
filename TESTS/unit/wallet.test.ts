@@ -13,6 +13,7 @@ import {
   assertSpendableDust,
 } from "../../packages/sdk/src/wallet.ts";
 import { assertNoPrivateStateMixing, connectWallet, discoverWallets, reconnectWallet, assertDisconnected } from "../../packages/sdk/src/adapter.ts";
+import { connectorAsWalletProvider } from "../../packages/sdk/src/connector-wallet.ts";
 
 function fakeConnected(over: Partial<ConnectedAPI> = {}): ConnectedAPI {
   return {
@@ -154,5 +155,14 @@ describe("DApp connector v4 + DUST honesty", () => {
   it("discovers injected InitialAPI entries", async () => {
     const found = await discoverWallets({ midnight: { "xyz.1am": fakeInitial() } } as never);
     expect(found).toEqual([{ rdns: "xyz.1am", name: "1AM", kind: "1am", apiVersion: "4.0.1" }]);
+  });
+
+  it("wraps connector v4 as a WalletProvider without opening a WalletFacade", async () => {
+    const connected = fakeConnected();
+    const provider = await connectorAsWalletProvider(connected);
+    expect(provider.coinPublicKey).toBe("x");
+    expect(provider.encryptionPublicKey).toBe("y");
+    const balanced = await provider.balanceTx("raw" as never);
+    expect(balanced).toBe("00");
   });
 });

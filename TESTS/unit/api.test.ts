@@ -34,6 +34,7 @@ describe("api (no private openings stored in plaintext)", () => {
     const cfgBody = cfg.json();
     expect(cfgBody.live).toBe(false);
     expect(cfgBody.mpc).toBe(false);
+    expect(cfgBody.zkirUrl).toBe("/zkir");
     expect(JSON.stringify(cfgBody).includes(rec.secretHex)).toBe(false);
 
     const chain = await app.inject({ method: "GET", url: "/chain" });

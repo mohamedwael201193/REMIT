@@ -22,6 +22,7 @@ export type RemitPublicConfig = {
   dustGate: string;
   keysUrl: string;
   explorerTx: string;
+  zkirUrl?: string;
   visibility: string;
 };
 

@@ -18,4 +18,5 @@ export * from "./compiled.js";
 export * from "./stage-call.js";
 export * from "./paths.js";
 export * from "./pending.js";
+export * from "./http-zk.js";
 export { witnesses } from "./witnesses.js";
