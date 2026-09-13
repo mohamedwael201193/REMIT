@@ -27,6 +27,45 @@ loadEnv({ path: resolve(repoRoot, ".env.preprod.local") });
 
 export const DUST_READY_FILE = resolve(repoRoot, "deployments", "dust-ready.json");
 export const PREPROD_DEPLOY_FILE = resolve(repoRoot, "deployments", "preprod.json");
+const WALLET_CACHE_DIR = resolve(repoRoot, "wallet-cache", "operator");
+const WALLET_CACHE = {
+  shielded: resolve(WALLET_CACHE_DIR, "shielded.state"),
+  unshielded: resolve(WALLET_CACHE_DIR, "unshielded.state"),
+  dust: resolve(WALLET_CACHE_DIR, "dust.state"),
+};
+
+function cachePresent() {
+  return existsSync(WALLET_CACHE.shielded) && existsSync(WALLET_CACHE.unshielded) && existsSync(WALLET_CACHE.dust);
+}
+
+let persistBusy = false;
+
+/** Official Wallet SDK serializeState cache so the next open of the SAME wallet does not cold-replay DUST history. */
+export async function persistOperatorWallet(wallet: WalletFacade) {
+  if (persistBusy) return;
+  persistBusy = true;
+  try {
+    mkdirSync(WALLET_CACHE_DIR, { recursive: true });
+    const [shielded, unshielded, dust] = await Promise.all([
+      wallet.shielded.serializeState(),
+      wallet.unshielded.serializeState(),
+      wallet.dust.serializeState(),
+    ]);
+    writeFileSync(WALLET_CACHE.shielded, shielded);
+    writeFileSync(WALLET_CACHE.unshielded, unshielded);
+    writeFileSync(WALLET_CACHE.dust, dust);
+    console.log("persisted operator wallet serializeState cache");
+  } catch (e) {
+    console.log("wallet cache persist skipped:", e instanceof Error ? e.message : "error");
+  } finally {
+    persistBusy = false;
+  }
+}
+
+function fmtSyncProgress(p: { appliedIndex?: bigint; highestIndex?: bigint; isStrictlyComplete?: () => boolean } | undefined) {
+  if (!p) return "n/a";
+  return `${p.appliedIndex?.toString?.() ?? "?"}/${p.highestIndex?.toString?.() ?? "?"} complete=${p.isStrictlyComplete?.() === true}`;
+}
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -162,12 +201,35 @@ export async function openOperatorWallet() {
     costParameters: { additionalFeeOverhead: 300_000_000_000_000n, feeBlocksMargin: 5 },
   };
 
-  const wallet = await WalletFacade.init({
-    configuration: { ...shieldedConfig, ...unshieldedConfig, ...dustConfig },
-    shielded: (cfg) => ShieldedWallet(cfg).startWithSecretKeys(shieldedSecretKeys),
-    unshielded: (cfg) => UnshieldedWallet(cfg).startWithPublicKey(PublicKey.fromKeyStore(unshieldedKeystore)),
-    dust: (cfg) => DustWallet(cfg).startWithSecretKey(dustSecretKey, LedgerParameters.initialParameters().dust),
-  });
+  const configuration = { ...shieldedConfig, ...unshieldedConfig, ...dustConfig };
+  const coldStart = () =>
+    WalletFacade.init({
+      configuration,
+      shielded: (cfg) => ShieldedWallet(cfg).startWithSecretKeys(shieldedSecretKeys),
+      unshielded: (cfg) => UnshieldedWallet(cfg).startWithPublicKey(PublicKey.fromKeyStore(unshieldedKeystore)),
+      dust: (cfg) => DustWallet(cfg).startWithSecretKey(dustSecretKey, LedgerParameters.initialParameters().dust),
+    });
+
+  let wallet: WalletFacade;
+  if (cachePresent()) {
+    try {
+      const shieldedState = readFileSync(WALLET_CACHE.shielded, "utf8");
+      const unshieldedState = readFileSync(WALLET_CACHE.unshielded, "utf8");
+      const dustState = readFileSync(WALLET_CACHE.dust, "utf8");
+      wallet = await WalletFacade.init({
+        configuration,
+        shielded: () => ShieldedWallet(shieldedConfig).restore(shieldedState),
+        unshielded: () => UnshieldedWallet(unshieldedConfig).restore(unshieldedState),
+        dust: () => DustWallet(dustConfig).restore(dustState),
+      });
+      console.log("restored operator wallet from serializeState cache (same wallet)");
+    } catch (e) {
+      console.log("wallet cache restore failed, cold start:", e instanceof Error ? e.message : "error");
+      wallet = await coldStart();
+    }
+  } else {
+    wallet = await coldStart();
+  }
   await wallet.start(shieldedSecretKeys, dustSecretKey);
   const provider = new RemitNodeWallet(wallet, shieldedSecretKeys, dustSecretKey, unshieldedKeystore);
   return {
@@ -213,7 +275,8 @@ export async function waitUnshieldedReady(wallet: WalletFacade, nightRaw: string
 }
 
 export async function waitSpendableDust(wallet: WalletFacade, timeoutMs = 3 * 60 * 60_000) {
-  return Rx.firstValueFrom(
+  let ticks = 0;
+  const state = await Rx.firstValueFrom(
     wallet.state().pipe(
       Rx.throttleTime(15_000),
       Rx.tap((s) => {
@@ -223,10 +286,27 @@ export async function waitSpendableDust(wallet: WalletFacade, timeoutMs = 3 * 60
         } catch {
           balance = "0";
         }
-        console.log("dust coins", s.dust?.availableCoins?.length ?? 0, "balance", balance, "synced", s.isSynced);
+        ticks += 1;
+        console.log(
+          "dust coins",
+          s.dust?.availableCoins?.length ?? 0,
+          "pending",
+          s.dust?.pendingCoins?.length ?? 0,
+          "total",
+          s.dust?.totalCoins?.length ?? 0,
+          "balance",
+          balance,
+          "synced",
+          s.isSynced,
+          "dustProgress",
+          fmtSyncProgress(s.dust?.progress),
+        );
+        if (ticks % 20 === 0) void persistOperatorWallet(wallet);
       }),
       Rx.filter((s) => (s.dust?.availableCoins?.length ?? 0) >= 1),
       Rx.timeout({ first: timeoutMs }),
     ),
   );
+  await persistOperatorWallet(wallet);
+  return state;
 }

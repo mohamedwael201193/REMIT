@@ -72,15 +72,19 @@ function subscribe(): Promise<void> {
       const ev = msg.payload?.data?.unshieldedTransactions;
       if (!ev) return;
       hits.push(ev);
-      const created = ev.createdUtxos as unknown[] | undefined;
+      const created = ev.createdUtxos as
+        | { registeredForDustGeneration?: boolean; intentHash?: string; value?: string }[]
+        | undefined;
       if (Array.isArray(created) && created.length > 0) {
         console.log("unshielded utxos", JSON.stringify(created));
-        const flags = created.map((u) => (u as { registeredForDustGeneration?: boolean }).registeredForDustGeneration);
+        const flags = created.map((u) => u.registeredForDustGeneration);
         console.log("registeredForDustGeneration", flags);
-        clearTimeout(timer);
-        ws.send(JSON.stringify({ id: "1", type: "complete" }));
-        ws.close();
-        resolve();
+        if (created.some((u) => u.registeredForDustGeneration === true)) {
+          clearTimeout(timer);
+          ws.send(JSON.stringify({ id: "1", type: "complete" }));
+          ws.close();
+          resolve();
+        }
       }
     });
     ws.on("close", () => {
