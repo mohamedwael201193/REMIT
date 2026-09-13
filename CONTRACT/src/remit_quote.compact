@@ -1,0 +1,39 @@
+pragma language_version >= 0.22 && <= 0.23;
+
+import CompactStandardLibrary;
+
+// ============================================================================
+// REMIT-Q — testnet-only unshielded quote token.
+//
+// NOT a stablecoin. NOT USDM. NOT redeemable. Colour is
+//   tokenType(pad(32, "remit:quote"), kernel.self())
+// so it is unique to this deployed instance.
+//
+// Wave-1 quote asset because Preprod has no official usable stablecoin
+// (protocol-issued transferable token = NIGHT only).
+// Max 1,000 units per (caller-secret, UTC-day) claim; 6 decimal places
+// (1 unit = 1_000_000 base). Ledger 8: separate contract, no cross-calls.
+// ============================================================================
+
+export ledger minted: Counter;
+export ledger claims: Set<Bytes<32>>;
+
+witness callerSecret(): Bytes<32>;
+
+export pure circuit claimTag(sk: Bytes<32>, dayBucket: Uint<64>): Bytes<32> {
+  return persistentHash<[Bytes<32>, Bytes<32>, Uint<64>]>([pad(32, "remit:faucet"), sk, dayBucket]);
+}
+
+export circuit quoteColor(): Bytes<32> {
+  return tokenType(pad(32, "remit:quote"), kernel.self());
+}
+
+export circuit claim(amount: Uint<64>, dayBucket: Uint<64>, to: Either<ContractAddress, UserAddress>): [] {
+  assert(amount > 0, "zero amount");
+  assert(amount <= 1000000000, "max 1000 REMIT-Q per claim");
+  const tag = claimTag(callerSecret(), dayBucket);
+  assert(!claims.member(disclose(tag)), "already claimed this bucket");
+  claims.insert(disclose(tag));
+  mintUnshieldedToken(pad(32, "remit:quote"), disclose(amount), disclose(to));
+  minted.increment(1);
+}

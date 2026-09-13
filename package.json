@@ -1,0 +1,49 @@
+{
+  "name": "remit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "REMIT — mandate-bound dark RFQ desk on Midnight Preprod. Quote asset REMIT-Q is a testnet-only contract-minted token, not a stablecoin.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": { "node": ">=22.0.0" },
+  "packageManager": "npm@10",
+  "workspaces": ["CONTRACT", "packages/*", "apps/*"],
+  "scripts": {
+    "compile": "node scripts/compile.mjs",
+    "compile:skip-zk": "node scripts/compile.mjs --skip-zk",
+    "inspect:managed": "node scripts/inspect-managed.mjs",
+    "secret-scan": "node scripts/secret-scan.mjs",
+    "runtime-tree": "node scripts/runtime-tree.mjs",
+    "test": "vitest run",
+    "test:unit": "vitest run TESTS/unit packages/core packages/agent packages/sdk",
+    "test:security": "vitest run TESTS/security",
+    "test:privacy": "vitest run TESTS/privacy",
+    "test:contract": "vitest run TESTS/unit/contract TESTS/security TESTS/privacy",
+    "build": "npm run compile:skip-zk && npm run -ws --if-present build",
+    "api": "npm run start -w @remit/api",
+    "agent:keygen": "node scripts/agent-keygen.mjs",
+    "wallet:status": "npx tsx scripts/wallet-status.ts",
+    "wallet:register-dust": "npx tsx scripts/dust-register.ts",
+    "proof:up": "docker compose -f infra/proof-server.yml up -d",
+    "proof:down": "docker compose -f infra/proof-server.yml down"
+  },
+  "overrides": {
+    "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
+    "@midnight-ntwrk/wallet-sdk": "1.2.0",
+    "@midnightntwrk/wallet-sdk": "1.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4",
+    "tsx": "^4.19.0",
+    "ws": "^8.18.0",
+    "rxjs": "^7.8.2",
+    "dotenv": "^16.4.7",
+    "@scure/bip39": "^1.4.0",
+    "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
+    "@midnight-ntwrk/midnight-js-protocol": "4.1.1",
+    "@midnightntwrk/wallet-sdk": "1.2.0"
+  }
+}

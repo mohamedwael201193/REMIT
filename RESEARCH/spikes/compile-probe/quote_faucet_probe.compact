@@ -1,0 +1,34 @@
+pragma language_version >= 0.22 && <= 0.23;
+
+import CompactStandardLibrary;
+
+// ============================================================================
+// REMIT quote-asset faucet — compile probe (RESEARCH ONLY).
+// Mints a contract-defined UNSHIELDED test token ("rUSD") to the caller so the
+// pool can be exercised with two real, on-ledger assets on Preprod.
+// Ledger 8 has no cross-contract calls, so this is a separate contract; users
+// deposit rUSD into the pool with their own wallet afterwards.
+// ============================================================================
+
+export ledger minted: Counter;
+export ledger claims: Set<Bytes<32>>;   // one claim per caller key per day-bucket (anti-spam)
+
+witness callerSecret(): Bytes<32>;
+
+export pure circuit claimTag(sk: Bytes<32>, dayBucket: Uint<64>): Bytes<32> {
+  return persistentHash<[Bytes<32>, Bytes<32>, Uint<64>]>([pad(32, "remit:faucet"), sk, dayBucket]);
+}
+
+// The token colour is deterministic: tokenType(pad(32,"remit:rusd"), kernel.self()).
+export circuit quoteColor(): Bytes<32> {
+  return tokenType(pad(32, "remit:rusd"), kernel.self());
+}
+
+export circuit claim(amount: Uint<64>, dayBucket: Uint<64>, to: Either<ContractAddress, UserAddress>): [] {
+  assert(amount <= 1000000000, "max 1,000 rUSD per claim");
+  const tag = claimTag(callerSecret(), dayBucket);
+  assert(!claims.member(disclose(tag)), "already claimed this bucket");
+  claims.insert(disclose(tag));
+  mintUnshieldedToken(pad(32, "remit:rusd"), disclose(amount), disclose(to));
+  minted.increment(1);
+}

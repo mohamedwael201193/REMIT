@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "index.js",
+  "sourceRoot": "../../../src/",
+  "sources": ["remit_quote.compact", "compiler/standard-library.compact"],
+  "names": [],
+  "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAAA;;;;;;;;;;;;;MAsBA,AAAA,QAEC;;OAAA;MAED,AAAA,UAEC;;;;;;;;;;;;;;;;;;;;;;OAAA;MAED,AAAA,KAQC;;;;;cARoB,QAAgB;cAAE,WAAmB;cAAE,IAAwC;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;yCAA/E,QAAgB,+BAAE,WAAmB,+BAAE,IAAwC;;;;;;;;;uCAA/E,QAAgB;uCAAE,WAAmB;uCAAE,IAAwC;;;OAQnG;;;;;;;;;;GACA;EAvCD;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;IAiBA;;;;;;;;;yEAA8B;IAC9B;;;;;;;;;;yEAAqC;;;;;;;GAqBpC;ECFD,AAAA,QAA0B;kCACkB;;EAkF5C,AAAA,aAAyB,cAAuB;qCACC,cAAY;;;EAiL7D,AAAA;;yBACE;yBACA;yBACA;;IAEA;;;;;;;;;;;2HAAsB;;;;;;2HAAW;;;;;;;;;;;;;UAC3B,4BAAkB;8DAAW;;;;;;;;;;;;UACnC,qBAA2D;UAA3D,QAA8E;IAA9E;;;;;;;;;;;;6HAAA;;6HAAmE;;;;;;;2HAAnE;;;;;;;;;;;;;QAEI;;sBAAqB;8CAAwB;;;;;;;;;;;;;YAC/C,qBAAsD;YAAtD,QAA8D;MAA9D;;;;;;;;;;;6HAAA;;;;;;6HAAA;;;;;;;;;;;;;;WAEK;;EAtTT,AAAA,kBAAA;qEAAA;;;EAAA,AAAA,oBAAA,SAAA;;uDAAA;uDAAA;;;EDoBA,AAAA,eAAkC;;0DAAlC,YAAkC;;;;;;;;;;;;;;GAAA;EAElC,AAAA,WAEC,CAF4B,IAAa,EAAE,WAAmB;;mCACqB,IAAE;mCAAE,WAAS;GAChG;EAED,AAAA,aAEC;;qDAD0C;;;;;;;;;;;0HAAM;GAChD;EAED,AAAA,QAQC,4BARoB,QAAgB,EAAE,WAAmB,EAAE,IAAwC;4BAC3F,QAAM;4BACN,QAAM;;UACP,KAAyC;;mCAAV,WAAS;qDACtC;;;;;;;;;;;4KAAuB,KAAG;;;;0HAApB;;IACd;;;;;;;;;;2HAAuB,KAAG;;;;;wEAApB;;;;gCAC+C,QAAM;gCAAY,IAAE;UACzE,KAAM;IAAN;;;;;;;;;;6FAAA,KAAM;;;;wEAAA;;GACP;;;;;;;;;;;;;;;;;;;;IArBD;qCAAA;;;;;;;;;;;0GAA8B;KAAA;IAC9B;;;;;uCAAA;;;;;;;;;;;;;;;;4GAAqC;;;;;;uCAArC;;;;;;;;;;;;4GAAqC;;;;;;;;;;;;;;uCAArC;;;;;;;;;;;;;;;4GAAqC;;;;;;;;;KAAA;;;;;;;;EAIrC,AAAA,QAEC;;;;UAF4B,IAAa;UAAE,WAAmB;;;;;;;;;;;;;;;sCAAlC,IAAa,EAAE,WAAmB;GAE9D;;;;"
+}

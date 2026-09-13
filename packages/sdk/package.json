@@ -1,0 +1,12 @@
+{
+  "name": "@remit/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@remit/core": "0.1.0",
+    "@midnight-ntwrk/dapp-connector-api": "4.0.1"
+  }
+}

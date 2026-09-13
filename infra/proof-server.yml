@@ -1,0 +1,7 @@
+services:
+  proof-server:
+    image: midnightntwrk/proof-server:8.1.0
+    ports:
+      - "6300:6300"
+    environment:
+      - RUST_LOG=info

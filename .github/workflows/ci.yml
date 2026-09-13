@@ -1,0 +1,34 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install Compact 0.31.1
+        run: |
+          curl -fsSL https://docs.midnight.network/compact.sh | bash || true
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          compact update 0.31 || compact update 0.31.1 || true
+          compact compile --version || echo "compact missing on runner — skip-zk artifacts must be present"
+      - run: npm ci || npm install
+      - run: node scripts/secret-scan.mjs
+      - run: node scripts/runtime-tree.mjs
+      - name: Compile Compact
+        run: |
+          if command -v compact >/dev/null; then
+            compact compile --skip-zk CONTRACT/src/remit_pool.compact CONTRACT/managed/remit_pool
+            compact compile --skip-zk CONTRACT/src/remit_quote.compact CONTRACT/managed/remit_quote
+          else
+            echo "compact not installed; using committed skip-zk artifacts if present"
+          fi
+      - run: npm test
+      - run: node scripts/inspect-managed.mjs || true

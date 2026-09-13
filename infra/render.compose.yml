@@ -1,0 +1,12 @@
+services:
+  remit-api:
+    build:
+      context: ../
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "8787:8787"
+    environment:
+      - MIDNIGHT_NETWORK=preprod
+      - MIDNIGHT_INDEXER_URL=https://indexer.preprod.midnight.network/api/v4/graphql
+      - REMIT_API_PORT=8787
+      - REMIT_API_CORS_ORIGIN=*

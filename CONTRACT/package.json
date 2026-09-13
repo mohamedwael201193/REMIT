@@ -1,0 +1,10 @@
+{
+  "name": "@remit/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./pool": "./managed/remit_pool/contract/index.js",
+    "./quote": "./managed/remit_quote/contract/index.js"
+  }
+}

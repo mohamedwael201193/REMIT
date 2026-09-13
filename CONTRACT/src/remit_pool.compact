@@ -1,0 +1,336 @@
+pragma language_version >= 0.22 && <= 0.23;
+
+import CompactStandardLibrary;
+
+// ============================================================================
+// REMIT pool — mandate-bound dark RFQ desk (Preprod / ledger 8).
+//
+// Asset 0 = native unshielded NIGHT (tNIGHT on Preprod).
+// Asset 1 = constructor-supplied quote colour (REMIT-Q test token; not a
+//           stablecoin — see remit_quote.compact).
+//
+// Impure circuits (7 verifier keys):
+//   deposit(asset, amount)   PUBLIC: asset, amount, colour, depositor wallet
+//   withdraw(asset, amount)  PUBLIC: asset, amount, colour, recipient
+//   placeOffer()             PUBLIC: note nullifier, change commit, offer commit
+//   cancelOffer()            PUBLIC: offer nullifier, refund commit
+//   createMandate()          PUBLIC: note nullifier, mandate + state commits
+//   revokeMandate()          PUBLIC: revoke tag, state nullifier, refund commit
+//   fill(nowBound)           PUBLIC: nowBound, two nullifiers, three commits,
+//                            auditRoot. NEVER the mandate/offer openings.
+// ============================================================================
+
+export sealed ledger quoteColor: Bytes<32>;
+
+export struct Note {
+  asset: Uint<8>;
+  amount: Uint<64>;
+  owner: Bytes<32>;
+}
+
+export struct Offer {
+  side: Uint<8>;
+  baseAmount: Uint<64>;
+  quoteAmount: Uint<64>;
+  maker: Bytes<32>;
+  payNonce: Bytes<32>;
+}
+
+export struct Mandate {
+  principal: Bytes<32>;
+  executor: Bytes<32>;
+  side: Uint<8>;
+  maxFillBase: Uint<64>;
+  limitNum: Uint<64>;
+  limitDen: Uint<64>;
+  cpRoot: Field;
+  expiry: Uint<64>;
+  mandateId: Bytes<32>;
+}
+
+export struct MandateState {
+  mandateId: Bytes<32>;
+  remaining: Uint<64>;
+}
+
+export struct AuditFields {
+  side: Uint<8>;
+  baseAmount: Uint<64>;
+  quoteAmount: Uint<64>;
+  principal: Bytes<32>;
+  counterparty: Bytes<32>;
+  mandateId: Bytes<32>;
+}
+
+export ledger notes: HistoricMerkleTree<16, Bytes<32>>;
+export ledger noteNullifiers: Set<Bytes<32>>;
+export ledger offers: HistoricMerkleTree<16, Bytes<32>>;
+export ledger offerNullifiers: Set<Bytes<32>>;
+export ledger mandates: HistoricMerkleTree<16, Bytes<32>>;
+export ledger mandateRevoked: Set<Bytes<32>>;
+export ledger mandateStates: HistoricMerkleTree<16, Bytes<32>>;
+export ledger mandateStateNullifiers: Set<Bytes<32>>;
+export ledger auditRoots: List<Bytes<32>>;
+export ledger openOffers: Counter;
+export ledger activeMandates: Counter;
+export ledger fills: Counter;
+
+constructor(quote: Bytes<32>) {
+  quoteColor = disclose(quote);
+}
+
+witness ownerSecret(): Bytes<32>;
+witness executorSecret(): Bytes<32>;
+witness freshNonce(): Bytes<32>;
+witness freshNonce2(): Bytes<32>;
+witness spendNote(): Note;
+witness spendNoteNonce(): Bytes<32>;
+witness spendNotePath(): MerkleTreePath<16, Bytes<32>>;
+witness offerData(): Offer;
+witness offerRand(): Bytes<32>;
+witness offerPath(): MerkleTreePath<16, Bytes<32>>;
+witness mandateData(): Mandate;
+witness mandateRand(): Bytes<32>;
+witness mandatePath(): MerkleTreePath<16, Bytes<32>>;
+witness mandateStateData(): MandateState;
+witness mandateStateNonce(): Bytes<32>;
+witness mandateStatePath(): MerkleTreePath<16, Bytes<32>>;
+witness counterpartyPath(): MerkleTreePath<8, Bytes<32>>;
+witness auditSeed(): Bytes<32>;
+witness withdrawTo(): Either<ContractAddress, UserAddress>;
+
+export pure circuit ownerKey(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "remit:pk"), sk]);
+}
+export pure circuit executorKey(esk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "remit:ek"), esk]);
+}
+export pure circuit escrowKey(mandateId: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "remit:mk"), mandateId]);
+}
+export pure circuit noteCommitment(note: Note, nonce: Bytes<32>): Bytes<32> {
+  return persistentCommit<Note>(note, nonce);
+}
+export pure circuit noteNullifier(sk: Bytes<32>, nonce: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "remit:nul"), sk, nonce]);
+}
+export pure circuit offerCommitment(o: Offer, rand: Bytes<32>): Bytes<32> {
+  return persistentCommit<Offer>(o, rand);
+}
+export pure circuit offerNullifier(commit: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "remit:onul"), commit]);
+}
+export pure circuit mandateCommitment(m: Mandate, rand: Bytes<32>): Bytes<32> {
+  return persistentCommit<Mandate>(m, rand);
+}
+export pure circuit mandateRevocationTag(mandateId: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "remit:mrev"), mandateId]);
+}
+export pure circuit mandateStateCommitment(s: MandateState, nonce: Bytes<32>): Bytes<32> {
+  return persistentCommit<MandateState>(s, nonce);
+}
+export pure circuit mandateStateNullifier(mandateId: Bytes<32>, nonce: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "remit:msnul"), mandateId, nonce]);
+}
+export pure circuit fieldSalt(seed: Bytes<32>, idx: Uint<8>): Bytes<32> {
+  return persistentHash<[Bytes<32>, Bytes<32>, Uint<8>]>([pad(32, "remit:salt"), seed, idx]);
+}
+export pure circuit auditRootOf(cs: Vector<6, Bytes<32>>): Bytes<32> {
+  return persistentHash<Vector<6, Bytes<32>>>(cs);
+}
+export pure circuit priceAtLeast(base: Uint<64>, quote: Uint<64>, num: Uint<64>, den: Uint<64>): Boolean {
+  return quote * den >= base * num;
+}
+export pure circuit priceAtMost(base: Uint<64>, quote: Uint<64>, num: Uint<64>, den: Uint<64>): Boolean {
+  return quote * den <= base * num;
+}
+
+circuit colorOf(asset: Uint<8>): Bytes<32> {
+  return asset == 0 ? nativeToken() : quoteColor;
+}
+
+circuit consumeNote(sk: Bytes<32>): Note {
+  const note = spendNote();
+  const nonce = spendNoteNonce();
+  const path = spendNotePath();
+  assert(note.owner == ownerKey(sk), "not your note");
+  assert(path.leaf == noteCommitment(note, nonce), "path/note mismatch");
+  assert(notes.checkRoot(disclose(merkleTreePathRoot<16, Bytes<32>>(path))), "unknown note");
+  const nul = noteNullifier(sk, nonce);
+  assert(!noteNullifiers.member(disclose(nul)), "note already spent");
+  noteNullifiers.insert(disclose(nul));
+  return note;
+}
+
+circuit mintNote(asset: Uint<8>, amount: Uint<64>, owner: Bytes<32>, nonce: Bytes<32>): [] {
+  notes.insert(disclose(noteCommitment(Note { asset: asset, amount: amount, owner: owner }, nonce)));
+}
+
+export circuit deposit(asset: Uint<8>, amount: Uint<64>): [] {
+  assert(asset <= 1, "bad asset");
+  assert(amount > 0, "zero amount");
+  const a = disclose(asset);
+  receiveUnshielded(colorOf(a), disclose(amount as Uint<128>));
+  mintNote(a, amount, ownerKey(ownerSecret()), freshNonce());
+}
+
+export circuit withdraw(asset: Uint<8>, amount: Uint<64>): [] {
+  const sk = ownerSecret();
+  const note = consumeNote(sk);
+  const a = disclose(asset);
+  assert(note.asset == a, "wrong asset");
+  assert(note.amount >= amount, "insufficient note");
+  sendUnshielded(colorOf(a), disclose(amount as Uint<128>), disclose(withdrawTo()));
+  mintNote(a, note.amount - amount, note.owner, freshNonce());
+}
+
+export circuit placeOffer(): [] {
+  const sk = ownerSecret();
+  const o = offerData();
+  const rand = offerRand();
+  const note = consumeNote(sk);
+  assert(o.maker == ownerKey(sk), "offer maker must be caller");
+  assert(o.side <= 1, "bad side");
+  assert(o.baseAmount > 0 && o.quoteAmount > 0, "zero amounts");
+  const escrowAsset = o.side == 0 ? 0 : 1;
+  const escrowAmount = o.side == 0 ? o.baseAmount : o.quoteAmount;
+  assert(note.asset == escrowAsset, "escrow wrong asset");
+  assert(note.amount >= escrowAmount, "escrow too small");
+  mintNote(note.asset, note.amount - escrowAmount, note.owner, freshNonce());
+  offers.insert(disclose(offerCommitment(o, rand)));
+  openOffers.increment(1);
+}
+
+export circuit cancelOffer(): [] {
+  const sk = ownerSecret();
+  const o = offerData();
+  const rand = offerRand();
+  const p = offerPath();
+  assert(o.maker == ownerKey(sk), "not your offer");
+  const c = offerCommitment(o, rand);
+  assert(p.leaf == c, "offer path mismatch");
+  assert(offers.checkRoot(disclose(merkleTreePathRoot<16, Bytes<32>>(p))), "unknown offer");
+  const nul = offerNullifier(c);
+  assert(!offerNullifiers.member(disclose(nul)), "offer already used");
+  offerNullifiers.insert(disclose(nul));
+  const escrowAsset = o.side == 0 ? 0 : 1;
+  const escrowAmount = o.side == 0 ? o.baseAmount : o.quoteAmount;
+  mintNote(escrowAsset, escrowAmount, o.maker, freshNonce());
+  openOffers.decrement(1);
+}
+
+export circuit createMandate(): [] {
+  const sk = ownerSecret();
+  const m = mandateData();
+  const rand = mandateRand();
+  const note = consumeNote(sk);
+  assert(m.principal == ownerKey(sk), "mandate principal must be caller");
+  assert(m.side <= 1, "bad side");
+  assert(m.maxFillBase > 0, "zero max fill");
+  assert(m.limitDen > 0, "zero limit denominator");
+  const escrowAsset = m.side == 0 ? 0 : 1;
+  assert(note.asset == escrowAsset, "escrow wrong asset");
+  assert(note.amount > 0, "empty escrow");
+  mandates.insert(disclose(mandateCommitment(m, rand)));
+  mandateStates.insert(disclose(mandateStateCommitment(
+    MandateState { mandateId: m.mandateId, remaining: note.amount }, freshNonce())));
+  activeMandates.increment(1);
+}
+
+export circuit revokeMandate(): [] {
+  const sk = ownerSecret();
+  const m = mandateData();
+  const rand = mandateRand();
+  const mp = mandatePath();
+  assert(m.principal == ownerKey(sk), "not your mandate");
+  const mc = mandateCommitment(m, rand);
+  assert(mp.leaf == mc, "mandate path mismatch");
+  assert(mandates.checkRoot(disclose(merkleTreePathRoot<16, Bytes<32>>(mp))), "unknown mandate");
+  const rev = mandateRevocationTag(m.mandateId);
+  assert(!mandateRevoked.member(disclose(rev)), "already revoked");
+  mandateRevoked.insert(disclose(rev));
+
+  const s = mandateStateData();
+  const sn = mandateStateNonce();
+  const sp = mandateStatePath();
+  assert(s.mandateId == m.mandateId, "state/mandate mismatch");
+  assert(sp.leaf == mandateStateCommitment(s, sn), "state path mismatch");
+  assert(mandateStates.checkRoot(disclose(merkleTreePathRoot<16, Bytes<32>>(sp))), "unknown state");
+  const snul = mandateStateNullifier(s.mandateId, sn);
+  assert(!mandateStateNullifiers.member(disclose(snul)), "state already consumed");
+  mandateStateNullifiers.insert(disclose(snul));
+
+  const escrowAsset = m.side == 0 ? 0 : 1;
+  mintNote(escrowAsset, s.remaining, m.principal, freshNonce());
+  activeMandates.decrement(1);
+}
+
+export circuit fill(nowBound: Uint<64>): [] {
+  assert(nowBound > 0, "nowBound required");
+  const esk = executorSecret();
+  const m = mandateData();
+  const mrand = mandateRand();
+  const mp = mandatePath();
+  assert(m.executor == executorKey(esk), "not the mandated executor");
+  const mc = mandateCommitment(m, mrand);
+  assert(mp.leaf == mc, "mandate path mismatch");
+  assert(mandates.checkRoot(disclose(merkleTreePathRoot<16, Bytes<32>>(mp))), "unknown mandate");
+  assert(!mandateRevoked.member(disclose(mandateRevocationTag(m.mandateId))), "mandate revoked");
+  assert(blockTimeLt(disclose(nowBound)), "nowBound must be in the future");
+  assert(nowBound <= m.expiry, "mandate expired");
+
+  const s = mandateStateData();
+  const sn = mandateStateNonce();
+  const sp = mandateStatePath();
+  assert(s.mandateId == m.mandateId, "state/mandate mismatch");
+  assert(sp.leaf == mandateStateCommitment(s, sn), "state path mismatch");
+  assert(mandateStates.checkRoot(disclose(merkleTreePathRoot<16, Bytes<32>>(sp))), "unknown state");
+  const snul = mandateStateNullifier(s.mandateId, sn);
+  assert(!mandateStateNullifiers.member(disclose(snul)), "state already consumed");
+  mandateStateNullifiers.insert(disclose(snul));
+
+  const o = offerData();
+  const orand = offerRand();
+  const op = offerPath();
+  const oc = offerCommitment(o, orand);
+  assert(op.leaf == oc, "offer path mismatch");
+  assert(offers.checkRoot(disclose(merkleTreePathRoot<16, Bytes<32>>(op))), "unknown offer");
+  const onul = offerNullifier(oc);
+  assert(!offerNullifiers.member(disclose(onul)), "offer already used");
+  offerNullifiers.insert(disclose(onul));
+
+  assert(o.baseAmount > 0 && o.quoteAmount > 0, "zero amounts");
+  assert(o.side != m.side, "offer must be on the opposite side");
+  assert(o.baseAmount <= m.maxFillBase, "fill exceeds per-fill cap");
+  const priceOk = m.side == 0
+    ? priceAtLeast(o.baseAmount, o.quoteAmount, m.limitNum, m.limitDen)
+    : priceAtMost(o.baseAmount, o.quoteAmount, m.limitNum, m.limitDen);
+  assert(priceOk, "price outside mandate limit");
+  const principalPays = m.side == 0 ? o.baseAmount : o.quoteAmount;
+  const principalGets = m.side == 0 ? o.quoteAmount : o.baseAmount;
+  assert(principalPays <= s.remaining, "fill exceeds remaining budget");
+  const anyCp = m.cpRoot == 0;
+  const cpp = counterpartyPath();
+  const cpOk = anyCp || (cpp.leaf == o.maker && merkleTreePathRoot<8, Bytes<32>>(cpp).field == m.cpRoot);
+  assert(cpOk, "counterparty not allowed");
+
+  const payAsset = m.side == 0 ? 0 : 1;
+  const getAsset = m.side == 0 ? 1 : 0;
+  mintNote(payAsset, principalPays, o.maker, o.payNonce);
+  mintNote(getAsset, principalGets, m.principal, freshNonce());
+  mandateStates.insert(disclose(mandateStateCommitment(
+    MandateState { mandateId: m.mandateId, remaining: s.remaining - principalPays }, freshNonce2())));
+
+  const seed = auditSeed();
+  const cs: Vector<6, Bytes<32>> = [
+    persistentCommit<Uint<8>>(o.side, fieldSalt(seed, 0)),
+    persistentCommit<Uint<64>>(o.baseAmount, fieldSalt(seed, 1)),
+    persistentCommit<Uint<64>>(o.quoteAmount, fieldSalt(seed, 2)),
+    persistentCommit<Bytes<32>>(m.principal, fieldSalt(seed, 3)),
+    persistentCommit<Bytes<32>>(o.maker, fieldSalt(seed, 4)),
+    persistentCommit<Bytes<32>>(m.mandateId, fieldSalt(seed, 5))
+  ];
+  auditRoots.pushFront(disclose(auditRootOf(cs)));
+  fills.increment(1);
+  openOffers.decrement(1);
+}
