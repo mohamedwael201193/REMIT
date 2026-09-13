@@ -80,6 +80,26 @@ export function releaseOperatorWalletLock() {
   }
 }
 
+/** Lifecycle must not open a second facade while deploy still holds the lock. */
+export async function waitForOperatorWalletUnlocked(timeoutMs = 30 * 60_000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (!existsSync(WALLET_LOCK_FILE)) return;
+    const pid = Number(readFileSync(WALLET_LOCK_FILE, "utf8").trim());
+    if (!Number.isInteger(pid) || pid <= 0 || !pidAlive(pid)) {
+      try {
+        unlinkSync(WALLET_LOCK_FILE);
+      } catch {
+        /* stale */
+      }
+      return;
+    }
+    console.log("waiting for operator WalletFacade lock to release (pid", pid, ")");
+    await sleep(5_000);
+  }
+  throw new Error("timed out waiting for operator wallet lock");
+}
+
 let persistBusy = false;
 
 /** Official Wallet SDK serializeState cache so the next open of the SAME wallet does not cold-replay DUST history. */

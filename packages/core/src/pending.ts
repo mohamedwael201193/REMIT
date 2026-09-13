@@ -136,3 +136,40 @@ export function pendingFill(ld: PoolLedger, args: FillPendingArgs): PendingWitne
     freshNonce2: toArray(args.nextStateNonce),
   };
 }
+
+export function pendingCancelOffer(
+  ld: PoolLedger,
+  ownerSk: Uint8Array,
+  offer: Offer,
+  offerRand: Uint8Array,
+  refundNonce: Uint8Array,
+): PendingWitness {
+  return {
+    ownerSecret: toArray(ownerSk),
+    offerData: offerJson(offer),
+    offerRand: toArray(offerRand),
+    offerPath: requireLeafPath(ld.offers, offerLeaf(offer, offerRand), "offer"),
+    freshNonce: toArray(refundNonce),
+  };
+}
+
+export function pendingWithdraw(
+  ld: PoolLedger,
+  ownerSk: Uint8Array,
+  note: OwnedNote,
+  recipient: Uint8Array,
+  changeNonce: Uint8Array,
+): PendingWitness {
+  return {
+    ownerSecret: toArray(ownerSk),
+    spendNote: { asset: note.asset.toString(), amount: note.amount.toString(), owner: toArray(note.owner) },
+    spendNoteNonce: toArray(note.nonce),
+    spendNotePath: requireLeafPath(ld.notes, noteLeaf(note, note.nonce), "note"),
+    freshNonce: toArray(changeNonce),
+    withdrawTo: {
+      is_left: false,
+      left: Array.from({ length: 32 }, () => 0),
+      right: toArray(recipient),
+    },
+  };
+}

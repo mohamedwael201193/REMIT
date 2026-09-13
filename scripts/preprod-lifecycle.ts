@@ -22,6 +22,9 @@ import {
   pendingCreateMandate,
   pendingDeposit,
   pendingPlaceOffer,
+  pendingCancelOffer,
+  pendingRevokeMandate,
+  pendingWithdraw,
   poolLedgerFromStateHex,
   randomBytes32,
   requireContractAction,
@@ -36,6 +39,7 @@ import {
   closeOperatorWallet,
   ensureOperatorDust,
   openOperatorWallet,
+  waitForOperatorWalletUnlocked,
   waitForPreprodDeployFile,
 } from "./lib/operator-wallet.ts";
 
@@ -66,6 +70,8 @@ async function main() {
 
   console.log("waiting for indexer-backed deployments/preprod.json");
   const deployed = await waitForPreprodDeployFile();
+  console.log("deploy file present; waiting for deploy wallet to release the lock");
+  await waitForOperatorWalletUnlocked();
   const indexer = process.env.MIDNIGHT_INDEXER_URL!;
   const block = await fetchBlock(indexer);
   console.log("indexer head", block.height, "protocol", block.protocolVersion);
@@ -397,6 +403,9 @@ async function main() {
     }
 
     const auditSeed = randomBytes32();
+    const nextStateNonce = randomBytes32();
+    const remainingAfterFill = nightNote.amount - offer.baseAmount;
+    const refundNonce = randomBytes32();
     try {
       const { ld } = await poolState();
       const built = constructFill({
@@ -412,7 +421,7 @@ async function main() {
         offerRand,
         auditSeed,
         getNonce: randomBytes32(),
-        nextStateNonce: randomBytes32(),
+        nextStateNonce,
       });
       const filled = await submitStagedCircuit(poolProviders, {
         contractAddress: deployed.pool.address,
@@ -451,6 +460,113 @@ async function main() {
         name: "pool-fill",
         ok: false,
         detail: e instanceof Error ? e.message.slice(0, 180) : "fill failed",
+      });
+    }
+
+    try {
+      const fillOk = steps.some((s) => s.name === "pool-fill" && s.ok);
+      if (!fillOk) throw new Error("skip cancel: fill did not settle");
+      const { ld } = await poolState();
+      const cancelled = await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "cancelOffer",
+        circuitArgs: [],
+        pending: pendingCancelOffer(ld, makerSk, over, overRand, randomBytes32()),
+        fallback: emptyPrivateState(ns),
+      });
+      const after = (await poolState()).hit;
+      record({
+        name: "pool-cancel-over-offer",
+        ok: true,
+        txHash: after.txHash,
+        block: after.blockHeight,
+        detail: cancelled.status,
+      });
+    } catch (e) {
+      record({
+        name: "pool-cancel-over-offer",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 180) : "cancelOffer failed",
+      });
+    }
+
+    try {
+      const fillOk = steps.some((s) => s.name === "pool-fill" && s.ok);
+      if (!fillOk) throw new Error("skip revoke: fill did not settle");
+      const { ld } = await poolState();
+      const revoked = await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "revokeMandate",
+        circuitArgs: [],
+        pending: pendingRevokeMandate(
+          ld,
+          principalSk,
+          mandate,
+          mandateRand,
+          remainingAfterFill,
+          nextStateNonce,
+          refundNonce,
+        ),
+        fallback: emptyPrivateState(ns),
+      });
+      const after = (await poolState()).hit;
+      record({
+        name: "pool-revoke",
+        ok: true,
+        txHash: after.txHash,
+        block: after.blockHeight,
+        detail: revoked.status,
+      });
+    } catch (e) {
+      record({
+        name: "pool-revoke",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 180) : "revoke failed",
+      });
+    }
+
+    try {
+      const fillOk = steps.some((s) => s.name === "pool-fill" && s.ok);
+      if (!fillOk) throw new Error("skip withdraw: fill did not settle");
+      const refundNote = {
+        asset: 0n,
+        amount: remainingAfterFill,
+        owner: nightNote.owner,
+        nonce: refundNonce,
+      };
+      const { ld } = await poolState();
+      const withdrawn = await submitStagedCircuit(poolProviders, {
+        contractAddress: deployed.pool.address,
+        compiledContract: compiledPool(),
+        privateStateId: "remit-pool",
+        circuitId: "withdraw",
+        circuitArgs: [0n, remainingAfterFill],
+        pending: pendingWithdraw(
+          ld,
+          principalSk,
+          refundNote,
+          userAddressBytes(session.unshieldedKeystore),
+          randomBytes32(),
+        ),
+        fallback: emptyPrivateState(ns),
+      });
+      const after = (await poolState()).hit;
+      record({
+        name: "pool-withdraw",
+        ok: true,
+        txHash: after.txHash,
+        block: after.blockHeight,
+        detail: withdrawn.status,
+      });
+    } catch (e) {
+      record({
+        name: "pool-withdraw",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 180) : "withdraw failed",
       });
     }
 
