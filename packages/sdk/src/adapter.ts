@@ -1,6 +1,6 @@
 import type { DAppConnectorAPI, DAppConnectorWalletAPI } from "@midnight-ntwrk/dapp-connector-api";
 import { RemitError } from "@remit/core";
-import { capabilitiesOf, classifyWallet, requireClickHandler, type RemitClientState, type WalletKind } from "./wallet.js";
+import { capabilitiesOf, classifyWallet, requireClickHandler, assertLaceProofServer, type RemitClientState, type WalletKind } from "./wallet.js";
 
 export type MidnightWindow = Window & {
   midnight?: { [rdns: string]: DAppConnectorAPI };
@@ -27,9 +27,11 @@ export async function connectWallet(
   const wallet = (service as { wallet?: DAppConnectorWalletAPI }).wallet ?? (service as unknown as DAppConnectorWalletAPI);
   const caps = capabilitiesOf(wallet as unknown as { getProvingProvider?: unknown; signData?: unknown });
   let networkId: string | undefined;
+  let proverServerUri: string | undefined;
   try {
     const cfg = await (wallet as unknown as { getConfiguration?: () => Promise<{ networkId?: string; proverServerUri?: string }> }).getConfiguration?.();
     networkId = cfg?.networkId;
+    proverServerUri = cfg?.proverServerUri;
   } catch {
     networkId = undefined;
   }
@@ -37,11 +39,11 @@ export async function connectWallet(
     throw new RemitError("NETWORK_MISMATCH", "wallet network does not match Preprod", "wrong network");
   }
   const kind = classifyWallet(api.name ?? "", api.name);
-  if (kind === "lace" && caps.getProvingProvider) {
-    // Lace must not be treated as in-tab proving.
-  }
-  if (kind === "lace" && !caps.localProofServer) {
-    throw new RemitError("WALLET", "Lace proving requires a local proof server", "lace needs proof server");
+  if (kind === "lace") {
+    if (caps.getProvingProvider) {
+      throw new RemitError("WALLET", "Lace must not be treated as in-tab proving", "lace needs proof server");
+    }
+    await assertLaceProofServer(proverServerUri ?? "http://localhost:6300");
   }
   const state: RemitClientState = {
     phase: "connected",
