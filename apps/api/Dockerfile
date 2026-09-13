@@ -10,7 +10,7 @@ COPY tsconfig.base.json tsconfig.json vitest.config.ts ./
 COPY CONTRACT ./CONTRACT
 COPY packages ./packages
 COPY apps/api ./apps/api
-RUN npm ci
+RUN npm install
 ENV NODE_ENV=production
 EXPOSE 8787
 CMD ["npm", "run", "api"]
