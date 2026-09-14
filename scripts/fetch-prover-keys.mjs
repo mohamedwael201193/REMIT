@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const keysDir = resolve(root, "CONTRACT/managed/remit_pool/keys");
-const NEEDED = ["deposit.prover", "createMandate.prover", "revokeMandate.prover"];
+const NEEDED = ["deposit.prover", "createMandate.prover", "revokeMandate.prover", "withdraw.prover"];
 const ALSO = ["placeOffer.prover"];
 const DEFAULT_PROVER_URL =
   "https://github.com/mohamedwael201193/REMIT/releases/download/zk-provers-compact-0.31.1/browser-provers.tar.gz";

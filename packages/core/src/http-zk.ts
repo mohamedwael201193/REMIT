@@ -5,10 +5,29 @@ function apiRoot(url: string): string {
   return url.replace(/\/$/, "");
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
 async function fetchBytes(url: string): Promise<Uint8Array> {
-  const res = await fetch(url);
-  if (!res.ok) throw new RemitError("CONFIG", `zk artifact HTTP ${res.status}`, url);
-  return new Uint8Array(await res.arrayBuffer());
+  let last = `zk artifact HTTP for ${url}`;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return new Uint8Array(await res.arrayBuffer());
+      last = `zk artifact HTTP ${res.status}`;
+      if (!retryableStatus(res.status)) throw new RemitError("CONFIG", last, url);
+    } catch (e) {
+      if (e instanceof RemitError) throw e;
+      last = e instanceof Error ? e.message : last;
+    }
+    if (attempt < 3) await sleep(250 * 2 ** attempt);
+  }
+  throw new RemitError("CONFIG", last, url);
 }
 
 async function fetchFirst(urls: string[]): Promise<Uint8Array> {

@@ -18,7 +18,7 @@ describe("1AM circuit bundle graph", () => {
     expect(session).toMatch(/remitSetNetworkId/);
     expect(providers).toMatch(/remitSetNetworkId/);
     const call = readFileSync(resolve("front/src/lib/remit/circuit-call.ts"), "utf8");
-    expect(call).toMatch(/v=ps2/);
+    expect(call).toMatch(/v=ps3/);
     const build = readFileSync(resolve("scripts/build-browser-circuit.mjs"), "utf8");
     expect(build).toMatch(/buffer-polyfill/);
     expect(build).toMatch(/from "buffer"/);
@@ -37,6 +37,7 @@ describe("1AM circuit bundle graph", () => {
     expect(src).toMatch(/deposit\.prover/);
     expect(src).toMatch(/createMandate\.prover/);
     expect(src).toMatch(/revokeMandate\.prover/);
+    expect(src).toMatch(/withdraw\.prover/);
     expect(src).toMatch(/placeOffer\.prover/);
     const ignore = readFileSync(resolve(".gitignore"), "utf8");
     expect(ignore).toMatch(/keys\/\*\.prover/);
@@ -48,6 +49,14 @@ describe("1AM circuit bundle graph", () => {
     expect(src).toMatch(/sessionStorage/);
     expect(src).toMatch(/writeTabPrivate/);
     expect(src).toMatch(/readTabPrivate/);
+    expect(src).toMatch(/postCiphertext/);
+    expect(src).toMatch(/circuitId: "withdraw"/);
+    expect(src).toMatch(/if \(!note\)/);
+    const live = readFileSync(resolve("front/src/lib/remit/live-provider.ts"), "utf8");
+    expect(live).toMatch(/did not decrease/);
+    expect(live).not.toMatch(/indexer still reports activeMandates > 0/);
+    const settings = readFileSync(resolve("front/src/components/remit/app/view-settings.tsx"), "utf8");
+    expect(settings).toMatch(/deposits 1 then withdraws/);
   });
 
   it("built bundle exports Compact wallet circuits when present", () => {

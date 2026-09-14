@@ -31,6 +31,32 @@ describe("HTTP ZK config for in-browser proving", () => {
     expect(hits.some((u) => u.includes("/zkir/deposit.zkir"))).toBe(true);
   });
 
+  it("retries 5xx prover fetches then succeeds", async () => {
+    let hits = 0;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (!url.includes("/keys/revokeMandate.prover")) return new Response("no", { status: 404 });
+      hits += 1;
+      if (hits === 1) return new Response("spinning", { status: 500 });
+      return new Response(new Uint8Array([8, 9]));
+    }) as typeof fetch;
+    const zk = new HttpZkConfigProvider("https://remit-api-node.onrender.com");
+    const pk = await zk.getProverKey("revokeMandate");
+    expect(pk.byteLength).toBe(2);
+    expect(hits).toBe(2);
+  });
+
+  it("does not retry a missing withdraw prover", async () => {
+    let hits = 0;
+    globalThis.fetch = (async () => {
+      hits += 1;
+      return new Response("missing", { status: 404 });
+    }) as typeof fetch;
+    const zk = new HttpZkConfigProvider("https://api.example");
+    await expect(zk.getProverKey("withdraw")).rejects.toThrow(/zk artifact HTTP 404/);
+    expect(hits).toBe(1);
+  });
+
   it("scopes quote artifacts under /keys/quote and /zkir/quote", async () => {
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);

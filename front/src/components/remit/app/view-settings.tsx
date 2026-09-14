@@ -426,7 +426,8 @@ export function ViewSettings() {
               <p className="text-[14px] font-semibold text-cream/90">Withdraw leftover notes</p>
               <p className="max-w-md text-[12.5px] leading-relaxed text-muted-foreground">
                 Returns an unspent custody note from this tab to the connected unshielded
-                address. Requires the private note opening. Does not invent a balance.
+                address. If this tab has no leftover opening, deposits 1 then withdraws
+                that note. Indexer-gated. Does not invent a balance.
               </p>
             </div>
             <Button

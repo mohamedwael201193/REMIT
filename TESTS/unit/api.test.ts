@@ -150,6 +150,10 @@ describe("api (no private openings stored in plaintext)", () => {
     expect(JSON.stringify(status.json()).includes(rec.secretHex)).toBe(false);
     expect(health.json().semantics).toBe("mbbe-k3");
     expect(health.json().globalBest).toBe(false);
+    const missingKey = await app.inject({ method: "GET", url: "/keys/missing.prover" });
+    expect(missingKey.statusCode).toBe(404);
+    expect(missingKey.headers["access-control-allow-origin"]).toBe("*");
+    expect(missingKey.headers["cross-origin-resource-policy"]).toBe("cross-origin");
     await app.close();
   });
 });

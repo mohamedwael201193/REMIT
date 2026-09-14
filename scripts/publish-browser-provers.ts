@@ -13,7 +13,7 @@ loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../.env.prepro
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const keysDir = resolve(root, "CONTRACT/managed/remit_pool/keys");
 const archive = resolve(root, "browser-provers.tar.gz");
-const files = ["deposit.prover", "createMandate.prover", "revokeMandate.prover"];
+const files = ["deposit.prover", "createMandate.prover", "revokeMandate.prover", "withdraw.prover"];
 if (existsSync(resolve(keysDir, "placeOffer.prover")) && statSync(resolve(keysDir, "placeOffer.prover")).size > 1_000_000) {
   files.push("placeOffer.prover");
 }
@@ -52,7 +52,7 @@ if (existing.status === 200) {
     body: JSON.stringify({
       tag_name: tag,
       name: "Compact 0.31.1 browser prover keys",
-      body: "Public deposit/createMandate/revokeMandate prover keys for 1AM in-tab proving. Not secrets.",
+      body: "Public deposit/createMandate/revokeMandate/withdraw prover keys for 1AM in-tab proving. Not secrets.",
       draft: false,
       prerelease: false,
     }),

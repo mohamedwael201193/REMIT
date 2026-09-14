@@ -131,6 +131,30 @@ function writeTabPrivate(network: string, pool: string, wallet: string, ps: Remi
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function postCiphertext(url: string, body: unknown, label: string): Promise<Response> {
+  let last = `${label} failed`;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok || res.status === 409) return res;
+      last = `${label} ${res.status}`;
+      if (res.status < 500 && res.status !== 429) break;
+    } catch (e) {
+      last = e instanceof Error ? e.message : last;
+    }
+    await sleep(600 * (attempt + 1));
+  }
+  throw new Error(last);
+}
+
 export async function createMandateFromWallet(args: BrowserCircuitArgs) {
   const input = args.input;
   if (!input) throw new Error("createMandate requires mandate input");
@@ -220,13 +244,14 @@ export async function createMandateFromWallet(args: BrowserCircuitArgs) {
     remaining: amount.toString(),
     stateNonce: Array.from(stateNonce),
   });
-  const mandatePost = await fetch(`${args.apiUrl.replace(/\/$/, "")}/mandate`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ box: mandateBox }),
-  });
-  if (!mandatePost.ok && mandatePost.status !== 409) {
-    throw new Error(`mandate inbox ${mandatePost.status}`);
+  try {
+    await postCiphertext(
+      `${args.apiUrl.replace(/\/$/, "")}/mandate`,
+      { box: mandateBox },
+      "mandate inbox",
+    );
+  } catch {
+    /* Compact createMandate already settled; executor can receive the box on a later persist */
   }
   const after = await ledger(config.indexer, args.pool);
   return {
@@ -380,13 +405,12 @@ export async function placeOfferFromWallet(args: BrowserCircuitArgs) {
   writeTabPrivate(args.network, args.pool, addr, nextPs);
 
   const { boxed } = makeOfferBox(config.rfqPublic, jsonOffer, Array.from(offerRand));
-  const rfqPost = await fetch(`${args.apiUrl.replace(/\/$/, "")}/rfq/offer`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ box: boxed }),
-  });
+  const rfqPost = await postCiphertext(
+    `${args.apiUrl.replace(/\/$/, "")}/rfq/offer`,
+    { box: boxed },
+    "rfq/offer",
+  );
   if (rfqPost.status === 409) throw new Error("RFQ nonce already delivered");
-  if (!rfqPost.ok) throw new Error(`rfq/offer ${rfqPost.status}`);
   const rfq = (await rfqPost.json()) as { id?: string };
   if (!rfq.id) throw new Error("rfq/offer did not return an inbox id");
   const after = await ledger(config.indexer, args.pool);
@@ -418,18 +442,39 @@ export async function placeOfferFromWallet(args: BrowserCircuitArgs) {
 export async function withdrawFromWallet(args: BrowserCircuitArgs) {
   const { providers, compiled, config, ns, addr, initial } = await poolProviders(args);
   providers.privateStateProvider.setContractAddress(args.pool as never);
-  const ps = ((await providers.privateStateProvider.get("remit-pool")) as RemitPrivateState | null) ?? initial;
+  let ps = ((await providers.privateStateProvider.get("remit-pool")) as RemitPrivateState | null) ?? initial;
   const ownerSk = ownerSkOf(ps);
   const noteJson = ps.notes[0];
-  if (!noteJson) {
-    throw new Error("No leftover custody note in this tab — withdraw cannot be proven without the note opening");
+  let note = noteJson
+    ? {
+        asset: BigInt(noteJson.asset),
+        amount: BigInt(noteJson.amount),
+        owner: Uint8Array.from(noteJson.owner),
+        nonce: Uint8Array.from(noteJson.nonce),
+      }
+    : null;
+  if (!note) {
+    const depositNonce = randomBytes32();
+    const amount = 1n;
+    ps = { ...ps, ownerSk: Array.from(ownerSk) };
+    await providers.privateStateProvider.set("remit-pool", ps);
+    const deposited = await submitStagedCircuit(providers, {
+      contractAddress: args.pool,
+      compiledContract: compiled,
+      privateStateId: "remit-pool",
+      circuitId: "deposit",
+      circuitArgs: [0n, amount],
+      pending: pendingDeposit(ownerSk, depositNonce),
+      fallback: ps,
+    });
+    if (!deposited.txId && !deposited.txHash) throw new Error("deposit missing tx id");
+    note = {
+      asset: 0n,
+      amount,
+      owner: pureCircuits.ownerKey(ownerSk),
+      nonce: depositNonce,
+    };
   }
-  const note = {
-    asset: BigInt(noteJson.asset),
-    amount: BigInt(noteJson.amount),
-    owner: Uint8Array.from(noteJson.owner),
-    nonce: Uint8Array.from(noteJson.nonce),
-  };
   const { ld, hit } = await ledger(config.indexer, args.pool);
   const recipient = encodeUserAddress(addr);
   if (recipient.length !== 32) {

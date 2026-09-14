@@ -165,6 +165,14 @@ export async function buildApp(cfg: ApiConfig) {
   await app.register(helmet, { global: true, contentSecurityPolicy: false });
   await app.register(cors, { origin: cfg.cors === "*" ? true : cfg.cors.split(",") });
   await app.register(rateLimit, { max: 60, timeWindow: "1 minute" });
+  app.addHook("onSend", async (req, reply, payload) => {
+    const path = (req.url.split("?")[0] ?? req.url);
+    if (path.startsWith("/keys/") || path.startsWith("/zkir/") || path.startsWith("/browser/")) {
+      reply.header("Access-Control-Allow-Origin", "*");
+      reply.header("Cross-Origin-Resource-Policy", "cross-origin");
+    }
+    return payload;
+  });
 
   const managedRoots = [
     resolve(process.cwd(), "CONTRACT/managed"),

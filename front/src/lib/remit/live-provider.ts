@@ -139,8 +139,8 @@ class LiveRemitProvider implements RemitProvider {
       quote: this.cfg.quote,
       network: this.cfg.network,
       input,
-    })) as Mandate;
-    if (!created?.id) {
+    })) as Mandate & { txHash?: string };
+    if (!created?.id || !created.txHash) {
       throw new Error("createMandate did not return an indexer-backed mandate");
     }
     return created;
@@ -333,17 +333,24 @@ class LiveRemitProvider implements RemitProvider {
       throw new Error("Connect 1AM or Lace in a click handler before revokeMandate");
     }
     const circuit = await loadRemitCircuitModule(this.cfg.apiUrl);
-    await circuit.revokeMandatesFromWallet({
+    const before = await this.load();
+    const previous = before.portfolio.activeMandates;
+    const revoked = (await circuit.revokeMandatesFromWallet({
       wallet: this.connected,
       kind: this.wallet.provider,
       apiUrl: this.cfg.apiUrl,
       pool: this.cfg.pool,
       quote: this.cfg.quote,
       network: this.cfg.network,
-    });
+    })) as { txHash?: string; block?: number };
+    if (!revoked?.txHash) {
+      throw new Error("revokeMandate did not return an indexer-backed transaction");
+    }
     const after = await this.load();
-    if (after.portfolio.activeMandates > 0) {
-      throw new Error("revokeMandate was submitted but indexer still reports activeMandates > 0");
+    if (after.portfolio.activeMandates >= previous) {
+      throw new Error(
+        `revokeMandate ${revoked.txHash} settled but indexer activeMandates did not decrease (${previous} → ${after.portfolio.activeMandates})`,
+      );
     }
   }
   async withdrawLeftover(): Promise<{ txHash?: string; block?: number }> {
