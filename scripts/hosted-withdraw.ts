@@ -51,8 +51,8 @@ async function proofServerReady(url: string): Promise<boolean> {
   }
 }
 
-function userAddressBytes(address: string): Uint8Array {
-  const encoded = encodeUserAddress(address);
+function userAddressBytes(keystore: { getAddress: () => string }): Uint8Array {
+  const encoded = encodeUserAddress(keystore.getAddress());
   if (encoded.length !== 32) {
     throw new Error(`encodeUserAddress produced ${encoded.length} bytes, expected 32`);
   }
@@ -144,6 +144,11 @@ async function main() {
       detail: deposited.status,
     });
 
+    const syncedAfterDep = await waitUntilSynced(session.wallet, 10 * 60_000);
+    if (!syncedAfterDep) {
+      throw new Error("wallet lost isSynced after deposit; refusing withdraw");
+    }
+
     const { ld } = await poolState();
     const withdrawn = await submitStagedCircuit(poolProviders, {
       contractAddress: deployed.pool.address,
@@ -151,7 +156,7 @@ async function main() {
       privateStateId: "remit-pool",
       circuitId: "withdraw",
       circuitArgs: [0n, amount],
-      pending: pendingWithdraw(ld, ownerSk, note, userAddressBytes(session.addr), randomBytes32()),
+      pending: pendingWithdraw(ld, ownerSk, note, userAddressBytes(session.unshieldedKeystore), randomBytes32()),
       fallback: emptyPrivateState(ns),
     });
     const after = await poolState();
