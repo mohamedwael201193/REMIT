@@ -18,7 +18,7 @@ describe("1AM circuit bundle graph", () => {
     expect(session).toMatch(/remitSetNetworkId/);
     expect(providers).toMatch(/remitSetNetworkId/);
     const call = readFileSync(resolve("front/src/lib/remit/circuit-call.ts"), "utf8");
-    expect(call).toMatch(/v=ps3/);
+    expect(call).toMatch(/v=ps4/);
     const build = readFileSync(resolve("scripts/build-browser-circuit.mjs"), "utf8");
     expect(build).toMatch(/buffer-polyfill/);
     expect(build).toMatch(/from "buffer"/);
@@ -52,6 +52,8 @@ describe("1AM circuit bundle graph", () => {
     expect(src).toMatch(/postCiphertext/);
     expect(src).toMatch(/circuitId: "withdraw"/);
     expect(src).toMatch(/if \(!note\)/);
+    expect(src).toMatch(/compactRecipient/);
+    expect(src).toMatch(/MidnightBech32m/);
     const live = readFileSync(resolve("front/src/lib/remit/live-provider.ts"), "utf8");
     expect(live).toMatch(/did not decrease/);
     expect(live).toMatch(/ensureProvingSession/);

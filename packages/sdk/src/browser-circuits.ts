@@ -25,6 +25,7 @@ import { submitStagedCircuit } from "../../core/src/stage-call.ts";
 import { FAR_EXPIRY } from "../../core/src/mbbe.ts";
 import { makeMandateBox, makeOfferBox } from "../../core/src/rfq.ts";
 import { encodeUserAddress } from "@midnight-ntwrk/ledger-v8";
+import { MidnightBech32m, UnshieldedAddress } from "@midnightntwrk/wallet-sdk-address-format";
 import { createRemitBrowserProviders } from "./browser-session.ts";
 import { fetchRemitConfig } from "./public.ts";
 
@@ -133,6 +134,17 @@ function writeTabPrivate(network: string, pool: string, wallet: string, ps: Remi
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function compactRecipient(addr: string, network: string): Uint8Array {
+  const hex = /^[0-9a-f]{64}$/i.test(addr)
+    ? addr
+    : MidnightBech32m.parse(addr).decode(UnshieldedAddress, network).hexString;
+  const recipient = encodeUserAddress(hex);
+  if (recipient.length !== 32) {
+    throw new Error(`encodeUserAddress produced ${recipient.length} bytes, expected 32`);
+  }
+  return recipient;
 }
 
 async function postCiphertext(url: string, body: unknown, label: string): Promise<Response> {
@@ -474,12 +486,23 @@ export async function withdrawFromWallet(args: BrowserCircuitArgs) {
       owner: pureCircuits.ownerKey(ownerSk),
       nonce: depositNonce,
     };
+    ps = {
+      ...ps,
+      notes: [
+        {
+          asset: note.asset.toString(),
+          amount: note.amount.toString(),
+          owner: Array.from(note.owner),
+          nonce: Array.from(note.nonce),
+        },
+        ...ps.notes,
+      ],
+    };
+    await providers.privateStateProvider.set("remit-pool", ps);
+    writeTabPrivate(args.network, args.pool, addr, ps);
   }
   const { ld, hit } = await ledger(config.indexer, args.pool);
-  const recipient = encodeUserAddress(addr);
-  if (recipient.length !== 32) {
-    throw new Error(`encodeUserAddress produced ${recipient.length} bytes, expected 32`);
-  }
+  const recipient = compactRecipient(addr, args.network);
   const withdrawn = await submitStagedCircuit(providers, {
     contractAddress: args.pool,
     compiledContract: compiled,
