@@ -41,9 +41,44 @@ export type InitialAPI = {
   connect: (networkId: string) => Promise<ConnectedAPI>;
 };
 
-export type MidnightWindow = Window & {
+export type MidnightWindow = {
   midnight?: { [rdns: string]: InitialAPI };
+  sessionStorage?: Storage;
 };
+
+function storageOf(win: MidnightWindow | undefined): Storage | undefined {
+  return win?.sessionStorage;
+}
+
+const ADAPTER_KEY = "remit:adapter";
+
+export function rememberedAdapter(win: MidnightWindow = globalThis as MidnightWindow): WalletProviderKind | null {
+  try {
+    const raw = storageOf(win)?.getItem(ADAPTER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { kind?: string };
+    if (parsed.kind === "1am" || parsed.kind === "lace") return parsed.kind;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberAdapter(kind: WalletProviderKind, win: MidnightWindow = globalThis as MidnightWindow) {
+  try {
+    storageOf(win)?.setItem(ADAPTER_KEY, JSON.stringify({ kind }));
+  } catch {
+    /* private mode */
+  }
+}
+
+export function forgetAdapter(win: MidnightWindow = globalThis as MidnightWindow) {
+  try {
+    storageOf(win)?.removeItem(ADAPTER_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 function requireConnectorV4(apiVersion: string | undefined): void {
   if (!/^4\./.test(String(apiVersion ?? ""))) {
@@ -83,6 +118,30 @@ export function discoverInjected(win: MidnightWindow): { rdns: string; name: str
     kind: classify(api.name ?? "", api.rdns ?? rdns),
     apiVersion: api.apiVersion ?? "",
   }));
+}
+
+function removePrefixed(storage: Storage, prefixes: string[]) {
+  const keys: string[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const k = storage.key(i);
+    if (k && prefixes.some((p) => (p.endsWith(":") ? k.startsWith(p) : k === p))) keys.push(k);
+  }
+  for (const k of keys) storage.removeItem(k);
+}
+
+export function clearPrivateVault(win: MidnightWindow = globalThis as MidnightWindow) {
+  try {
+    const storage = storageOf(win);
+    if (!storage) return;
+    removePrefixed(storage, ["remit:wrap:", "remit:blob:"]);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearWalletVault(win: MidnightWindow = globalThis as MidnightWindow) {
+  clearPrivateVault(win);
+  forgetAdapter(win);
 }
 
 export async function connectInjectedWallet(
@@ -141,6 +200,7 @@ export async function connectInjectedWallet(
     address = null;
   }
   if (!address) throw new Error("wallet did not return an unshielded address");
+  rememberAdapter(kind, win);
   let dustHeader: string | undefined;
   try {
     const d = await wallet.getDustBalance?.();

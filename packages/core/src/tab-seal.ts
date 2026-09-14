@@ -1,14 +1,32 @@
 import { xchacha20poly1305 } from "@noble/ciphers/chacha";
 import { randomBytes } from "@noble/ciphers/webcrypto";
 import { blake2b } from "@noble/hashes/blake2b";
+import { sha256 } from "@noble/hashes/sha2";
 import type { RemitPrivateState } from "./state.js";
 import { fromHex, toHex, toBase64Url, fromBase64Url } from "./bytes.js";
 
 const MAGIC = new TextEncoder().encode("RMTPS1");
 
+/** SHA-256(network || pool || wallet). Do not use the raw address as a storage key. */
+export function privateStateNamespace(network: string, pool: string, wallet: string): string {
+  return toHex(sha256(new TextEncoder().encode(`${network}|${pool}|${wallet}`)));
+}
+
 export function tabStorageKeys(network: string, pool: string, wallet: string) {
-  const id = `${network}:${pool}:${wallet}`;
+  const id = privateStateNamespace(network, pool, wallet);
   return { wrap: `remit:wrap:${id}`, blob: `remit:blob:${id}` };
+}
+
+export function clearTabPrivateStorage(
+  storage: { removeItem(key: string): void; key(i: number): string | null; length: number } | undefined,
+) {
+  if (!storage) return;
+  const keys: string[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const k = storage.key(i);
+    if (k && (k.startsWith("remit:wrap:") || k.startsWith("remit:blob:") || k === "remit:adapter")) keys.push(k);
+  }
+  for (const k of keys) storage.removeItem(k);
 }
 
 export function freshTabWrapKey(): Uint8Array {

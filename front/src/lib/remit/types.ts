@@ -265,7 +265,7 @@ export interface WalletState {
   /** Dust balance used for protocol fees. Header DUST is not spendable coins. */
   dust: number | null;
   dustHeader?: string;
-  status: "disconnected" | "connecting" | "connected";
+  status: "disconnected" | "connecting" | "reconnecting" | "connected";
   lastError?: string | null;
 }
 
@@ -310,6 +310,7 @@ export interface RemitProvider {
   probeForgedDisclosure(): Promise<{ ok: boolean; failed: string[]; auditRoot?: string }>;
   getActivity(): Promise<ActivityItem[]>;
   connectWallet(provider: WalletProviderKind): Promise<WalletState>;
+  restoreWallet(): Promise<WalletState>;
   disconnectWallet(): Promise<WalletState>;
   revokeMandates(): Promise<void>;
   withdrawLeftover(): Promise<{ txHash?: string; block?: number }>;

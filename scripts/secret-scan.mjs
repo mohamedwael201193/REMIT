@@ -22,7 +22,7 @@ function walk(dir, acc = []) {
   return acc;
 }
 
-const SECRET_KEY = /(MNEMONIC|SECRET|PASSWORD|TOKEN|API_KEY|_HEX)$/;
+const SECRET_KEY = /(MNEMONIC|SECRET|PASSWORD|TOKEN|API_KEY|_HEX|DATABASE_URL|DIRECT_URL|SERVICE_ROLE_KEY)$/;
 
 const secretFile = join(ROOT, ".env.preprod.local");
 if (existsSync(secretFile)) {

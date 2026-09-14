@@ -11,7 +11,8 @@ const { app } = await buildApp({
   quote: process.env.REMIT_TESTQUOTE_CONTRACT_ADDRESS ?? "",
   network: process.env.MIDNIGHT_NETWORK ?? "preprod",
   indexer: process.env.MIDNIGHT_INDEXER_URL ?? "https://indexer.preprod.midnight.network/api/v4/graphql",
-  inboxFile: process.env.REMIT_RFQ_INBOX_FILE ?? "private-state/rfq-inbox.rmt1",
+  inboxFile: process.env.DATABASE_URL ? undefined : process.env.REMIT_RFQ_INBOX_FILE ?? "private-state/rfq-inbox.rmt1",
+  databaseUrl: process.env.DATABASE_URL,
   httpSubmit: process.env.REMIT_AGENT_SUBMIT === "1",
 });
 

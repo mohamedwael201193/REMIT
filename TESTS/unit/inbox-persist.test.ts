@@ -49,6 +49,8 @@ describe("encrypted RFQ inbox survives process restart", () => {
     const health = await second.app.inject({ method: "GET", url: "/health" });
     expect(health.json().visibility).toBe(EXECUTOR_VISIBILITY.model);
     expect(health.json().trust.model).toBe(EXECUTOR_VISIBILITY.model);
+    expect(health.json().persist.backend).toBe("file");
+    expect(health.json().persist.ok).toBe(true);
     const disk = readFileSync(inboxFile);
     expect(disk.subarray(0, 5).toString()).toBe("RMTI1");
     const hay = disk.toString("utf8").toLowerCase();

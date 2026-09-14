@@ -79,6 +79,9 @@ class HonestEmptyProvider implements RemitProvider {
   async connectWallet(_provider: WalletProviderKind): Promise<WalletState> {
     throw new Error("Wallet connect waits for live Preprod contracts and a real 1AM/Lace gesture");
   }
+  async restoreWallet(): Promise<WalletState> {
+    return disconnected;
+  }
   async disconnectWallet(): Promise<WalletState> {
     return disconnected;
   }

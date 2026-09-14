@@ -18,8 +18,6 @@ import {
   poolLedgerFromStateHex,
   publicExecutorKeyHex,
   indexerWsFromHttp,
-  loadInbox,
-  saveInbox,
   fromHex,
   toHex,
   sanitizePublicDetail,
@@ -27,6 +25,7 @@ import {
   type InboxItem,
 } from "@remit/core";
 import { constructRankedFill, mandateOpeningFromInbox, planFillFromInbox, publicAgentRankView, publicAgentStatusView, agentHttpHasLeakKeys } from "@remit/agent";
+import { createDurableInbox } from "./durable.js";
 
 export type ApiConfig = {
   cors: string;
@@ -39,6 +38,7 @@ export type ApiConfig = {
   indexer: string;
   keysDir?: string;
   inboxFile?: string;
+  databaseUrl?: string;
   auditPackageFile?: string;
   httpSubmit?: boolean;
   submitFill?: (pending: unknown, nowBound: bigint) => Promise<{ txHash: string; block: number }>;
@@ -57,24 +57,32 @@ type PublicEvidence = {
 };
 
 export async function buildApp(cfg: ApiConfig) {
-  const snap =
-    cfg.inboxFile && cfg.rfqSk && cfg.rfqSk.length === 64
-      ? loadInbox(cfg.inboxFile, cfg.rfqSk)
-      : { v: 1 as const, offers: [] as InboxItem[], mandates: [] as InboxItem[], nonces: [] as string[], receipts: [] as [string, string][] };
+  const durable =
+    cfg.rfqSk && cfg.rfqSk.length === 64 && (cfg.databaseUrl || cfg.inboxFile)
+      ? createDurableInbox({
+          password: cfg.rfqSk,
+          file: cfg.inboxFile,
+          databaseUrl: cfg.databaseUrl,
+        })
+      : createDurableInbox({ password: cfg.rfqSk || "test-only-not-for-prod", memory: true });
+  const snap = await durable.load();
   const offers: InboxItem[] = [...snap.offers];
   const mandates: InboxItem[] = [...snap.mandates];
   const receipts = new Map<string, string>(snap.receipts);
   const nonces = new Set<string>(snap.nonces);
 
+  let persistChain = Promise.resolve();
   const persistInbox = () => {
-    if (!cfg.inboxFile || !cfg.rfqSk) return;
-    saveInbox(cfg.inboxFile, cfg.rfqSk, {
-      v: 1,
-      offers,
-      mandates,
-      nonces: [...nonces],
-      receipts: [...receipts.entries()],
-    });
+    const write = () =>
+      durable.save({
+        v: 1,
+        offers,
+        mandates,
+        nonces: [...nonces],
+        receipts: [...receipts.entries()],
+      });
+    persistChain = persistChain.then(write, write);
+    return persistChain;
   };
   const seedAuditPackage = () => {
     if (receipts.get("audit:published")) return;
@@ -255,6 +263,7 @@ export async function buildApp(cfg: ApiConfig) {
       globalBest: false,
       semantics: "mbbe-k3",
       agent: { rank: true, httpSubmit: Boolean(cfg.httpSubmit && cfg.submitFill) },
+      persist: { backend: durable.backend, ok: await durable.ping() },
     };
   });
 
@@ -305,7 +314,7 @@ export async function buildApp(cfg: ApiConfig) {
       if (!idOk(id) || !boxOk(box)) return reply.code(400).send({ error: "invalid mandate restore" });
       upsert(mandates, id, box);
     }
-    persistInbox();
+    await persistInbox();
     return { ok: true, offers: offers.length, mandates: mandates.length };
   });
 
@@ -423,7 +432,7 @@ export async function buildApp(cfg: ApiConfig) {
       return reply.code(400).send({ error: "one-field package required" });
     }
     receipts.set("audit:published", JSON.stringify(body.package));
-    persistInbox();
+    await persistInbox();
     return { ok: true, field: body.package.openings[0]?.field };
   });
 
@@ -583,7 +592,7 @@ export async function buildApp(cfg: ApiConfig) {
     }
     const id = `${Date.now()}-${offers.length}`;
     offers.push({ id, boxed: body.box, receivedAt: Date.now() });
-    persistInbox();
+    await persistInbox();
     return { id };
   });
 
@@ -607,7 +616,7 @@ export async function buildApp(cfg: ApiConfig) {
     }
     const id = `m-${Date.now()}`;
     mandates.push({ id, boxed: body.box, receivedAt: Date.now() });
-    persistInbox();
+    await persistInbox();
     return { id };
   });
 
@@ -720,5 +729,10 @@ export async function buildApp(cfg: ApiConfig) {
     reply.code(500).send({ error: publicErrorMessage(err) });
   });
 
-  return { app, offers, mandates, receipts };
+  app.addHook("onClose", async () => {
+    await persistInbox().catch(() => undefined);
+    await durable.close();
+  });
+
+  return { app, offers, mandates, receipts, persist: durable.backend };
 }

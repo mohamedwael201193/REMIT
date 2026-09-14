@@ -123,19 +123,46 @@ export function WalletButton() {
   const wallet = useRemitStore((s) => s.wallet);
   const openDialog = useRemitStore((s) => s.openWalletDialog);
   const disconnectWallet = useRemitStore((s) => s.disconnectWallet);
+  const restoreWalletSession = useRemitStore((s) => s.restoreWalletSession);
+  const connectWallet = useRemitStore((s) => s.connectWallet);
   const { toast } = useToast();
 
-  if (wallet.status === "disconnected") {
+  React.useEffect(() => {
+    void restoreWalletSession();
+  }, [restoreWalletSession]);
+
+  if (wallet.status === "reconnecting") {
     return (
       <Button
         variant="outline"
         size="sm"
-        onClick={() => openDialog(true)}
+        disabled
+        className="h-11 min-w-0 shrink gap-2 border-[rgba(239,235,224,0.16)] bg-transparent px-3 text-[13px] text-cream/85"
+      >
+        <RefreshCcw className="h-4 w-4 shrink-0 animate-spin text-gold" />
+        <span>Reconnecting</span>
+      </Button>
+    );
+  }
+
+  if (wallet.status === "disconnected") {
+    const needsGesture = Boolean(wallet.lastError && /Reconnect wallet/i.test(wallet.lastError));
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          if (needsGesture && wallet.provider) {
+            void connectWallet(wallet.provider);
+            return;
+          }
+          openDialog(true);
+        }}
         className="h-11 min-w-0 shrink gap-2 border-[rgba(239,235,224,0.16)] bg-transparent px-3 text-[13px] whitespace-normal text-cream/85 hover:bg-[rgba(239,235,224,0.06)] hover:text-cream"
       >
         <WalletIcon className="h-4 w-4 shrink-0 text-gold" />
-        <span className="hidden sm:inline">Connect wallet</span>
-        <span className="sm:hidden">Connect</span>
+        <span className="hidden sm:inline">{needsGesture ? "Reconnect wallet" : "Connect wallet"}</span>
+        <span className="sm:hidden">{needsGesture ? "Reconnect" : "Connect"}</span>
       </Button>
     );
   }

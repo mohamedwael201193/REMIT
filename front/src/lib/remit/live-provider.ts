@@ -14,7 +14,7 @@ import {
   type MappedExecution,
   type MappedWorkspace,
 } from "./public-client";
-import { connectInjectedWallet, type ConnectedAPI } from "./midnight-connector";
+import { connectInjectedWallet, clearPrivateVault, clearWalletVault, forgetAdapter, rememberedAdapter, type ConnectedAPI, type MidnightWindow } from "./midnight-connector";
 import { chainAuditRootFromHead } from "./audit-flow";
 import { loadRemitCircuitModule } from "./circuit-call";
 import { getRemitProvider as emptyProvider } from "./local-provider";
@@ -272,13 +272,57 @@ class LiveRemitProvider implements RemitProvider {
     if (typeof window === "undefined") {
       throw new Error("Wallet connect only runs in the browser");
     }
+    const previous = this.wallet.address;
     const connected = await connectInjectedWallet(provider, this.cfg.network, window);
+    if (previous && connected.state.address && previous !== connected.state.address) {
+      clearPrivateVault(window);
+    }
     this.connected = connected.api;
     this.wallet = connected.state;
     return this.wallet;
   }
+  async restoreWallet(): Promise<WalletState> {
+    if (typeof window === "undefined") return disconnected();
+    const kind = rememberedAdapter(window);
+    if (!kind) return disconnected();
+    this.wallet = {
+      ...disconnected(),
+      provider: kind,
+      status: "reconnecting",
+      lastError: null,
+    };
+    try {
+      const statusProbe = (window as MidnightWindow).midnight;
+      if (!statusProbe || Object.keys(statusProbe).length === 0) {
+        this.wallet = {
+          ...disconnected(),
+          provider: kind,
+          status: "disconnected",
+          lastError: "Reconnect wallet — the connector is not injected yet",
+        };
+        return this.wallet;
+      }
+      return await this.connectWallet(kind);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "wallet reconnect failed";
+      this.connected = null;
+      this.wallet = {
+        ...disconnected(),
+        provider: kind,
+        status: "disconnected",
+        lastError: /gesture|popup|user|activation|rejected/i.test(message)
+          ? "Reconnect wallet — the connector requires a user gesture"
+          : message,
+      };
+      return this.wallet;
+    }
+  }
   async disconnectWallet(): Promise<WalletState> {
     this.connected = null;
+    if (typeof window !== "undefined") {
+      clearWalletVault(window);
+      forgetAdapter(window);
+    }
     this.wallet = disconnected();
     return this.wallet;
   }

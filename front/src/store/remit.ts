@@ -89,6 +89,7 @@ interface RemitState {
 
   openWalletDialog: (open: boolean) => void;
   connectWallet: (provider: WalletProviderKind) => Promise<boolean>;
+  restoreWalletSession: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
   lastError: string | null;
   circuitBusy: boolean;
@@ -167,11 +168,21 @@ export const useRemitStore = create<RemitState>((set, get) => ({
   connectWallet: async (walletProvider) => {
     set({ wallet: { ...get().wallet, status: "connecting", lastError: null }, lastError: null });
     try {
+      const previous = get().wallet.address;
       const wallet = await provider.connectWallet(walletProvider);
       if (wallet.status !== "connected" || !wallet.address) {
         throw new Error("connector did not report connected");
       }
-      set({ wallet, walletDialogOpen: false, lastError: null });
+      const identityChanged = Boolean(previous && wallet.address !== previous);
+      set({
+        wallet,
+        walletDialogOpen: false,
+        lastError: null,
+        ...(identityChanged
+          ? { postedOffers: [], lastExecution: null, mandates: [], circuitStatus: null }
+          : {}),
+      });
+      if (identityChanged) await get().syncWorkspace();
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "wallet connect failed";
@@ -180,9 +191,46 @@ export const useRemitStore = create<RemitState>((set, get) => ({
     }
   },
 
+  restoreWalletSession: async () => {
+    if (typeof provider.restoreWallet !== "function") return;
+    const current = get().wallet;
+    if (current.status === "connected" || current.status === "connecting" || current.status === "reconnecting") {
+      return;
+    }
+    set({
+      wallet: { ...current, status: "reconnecting", lastError: null },
+      postedOffers: [],
+      lastExecution: null,
+      mandates: [],
+      lastError: null,
+    });
+    try {
+      const wallet = await provider.restoreWallet();
+      set({ wallet, lastError: wallet.lastError ?? null });
+      if (wallet.status === "connected") await get().syncWorkspace();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "wallet reconnect failed";
+      set({
+        wallet: { ...initialWallet, lastError: message },
+        lastError: message,
+        postedOffers: [],
+        lastExecution: null,
+        mandates: [],
+      });
+    }
+  },
+
   disconnectWallet: async () => {
     const wallet = await provider.disconnectWallet();
-    set({ wallet });
+    set({
+      wallet,
+      postedOffers: [],
+      lastExecution: null,
+      mandates: [],
+      circuitStatus: null,
+      lastError: null,
+    });
+    await get().syncWorkspace();
   },
 
   syncWorkspace: async () => {

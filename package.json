@@ -40,7 +40,7 @@
     "front:env": "npx tsx scripts/write-front-public-env.ts",
     "front:circuit": "node scripts/build-browser-circuit.mjs",
     "keys:fetch": "node scripts/fetch-prover-keys.mjs",
-    "render:deploy": "npx tsx scripts/render-deploy.ts",
+    "persist:migrate": "npx tsx scripts/durable-migrate.ts",
     "e2e:preprod": "npx tsx scripts/chrome-preprod-smoke.ts",
     "build": "npm run compile:skip-zk && npm run -ws --if-present build",
     "api": "npm run start -w @remit/api",
