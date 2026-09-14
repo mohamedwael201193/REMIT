@@ -24,15 +24,16 @@ import {
 } from "@/components/ui/dialog";
 import {
   DataChip,
+  EmptyState,
+  HashChip,
   ProgressTrack,
   Reveal,
   StatusPill,
-  EmptyState,
   type PillTone,
 } from "@/components/remit/primitives";
 import { assetBySymbol, counterpartyById, executorById } from "@/lib/remit/catalog";
 import { formatUsd, pct, timeAgo } from "@/lib/remit/format";
-import type { CounterpartyStatus, Offer, OfferState } from "@/lib/remit/types";
+import type { Offer, OfferState } from "@/lib/remit/types";
 import { useRemitStore } from "@/store/remit";
 import { useToast } from "@/hooks/use-toast";
 
@@ -54,17 +55,6 @@ function offerPill(state: OfferState): { tone: PillTone; label: string } {
       return { tone: "neutral", label: "Declined" };
     case "expired":
       return { tone: "neutral", label: "Expired" };
-  }
-}
-
-function counterpartyPill(status: CounterpartyStatus): { tone: PillTone; label: string } {
-  switch (status) {
-    case "verified":
-      return { tone: "verified", label: "Verified" };
-    case "conditional":
-      return { tone: "pending", label: "Conditional" };
-    case "pending":
-      return { tone: "neutral", label: "Pending review" };
   }
 }
 
@@ -90,9 +80,11 @@ function inFilter(offer: Offer, filter: OfferFilter): boolean {
 function OfferCard({
   offer,
   onRun,
+  makerLens,
 }: {
   offer: Offer;
   onRun: (offer: Offer) => void;
+  makerLens: boolean;
 }) {
   const mandates = useRemitStore((s) => s.mandates);
   const declineOffer = useRemitStore((s) => s.declineOffer);
@@ -102,28 +94,32 @@ function OfferCard({
   const asset = assetBySymbol(offer.asset);
   const counterparty = counterpartyById(offer.counterpartyId);
   const pill = offerPill(offer.state);
-  const cpPill = counterpartyPill(counterparty.status);
   const expired = !offer.txHash && new Date(offer.expiresAt).getTime() < Date.now();
-  const actionable = offer.state === "compatible" || offer.state === "new";
+  const actionable = !makerLens && (offer.state === "compatible" || offer.state === "new");
 
   return (
     <article
       className={cn(
-        "flex flex-col gap-4 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:p-6",
+        "flex min-w-0 flex-col gap-4 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:p-6",
         actionable && "border-[rgba(239,235,224,0.14)]",
       )}
     >
-      {/* reference row */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <span className="font-data text-[13px] font-semibold tracking-tight text-cream">
           {offer.reference}
         </span>
-        {mandate ? (
+        {!makerLens && mandate ? (
           <DataChip className="border-gold/20 bg-gold/5 text-gold/80">
             {mandate.reference}
           </DataChip>
         ) : null}
-        <StatusPill tone={pill.tone}>{pill.label}</StatusPill>
+        {makerLens ? (
+          <StatusPill tone={offer.state === "executed" ? "settled" : "sealed"}>
+            {offer.state === "executed" ? "Filled" : offer.txHash ? "Committed" : "Sealed"}
+          </StatusPill>
+        ) : (
+          <StatusPill tone={pill.tone}>{pill.label}</StatusPill>
+        )}
         <span
           className={cn(
             "font-data ml-auto text-[10.5px] whitespace-nowrap",
@@ -136,21 +132,20 @@ function OfferCard({
         </span>
       </div>
 
-      {/* main facts */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="space-y-1">
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="min-w-0 space-y-1">
           <p className="eyebrow text-muted-foreground">Price</p>
           <p className="font-data text-[15px] font-medium tracking-tight text-cream">
             {formatUsd(offer.price, offer.price != null && offer.price < 10)}
           </p>
         </div>
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <p className="eyebrow text-muted-foreground">Size</p>
           <p className="font-data text-[15px] font-medium tracking-tight text-cream">
             {formatUsd(offer.size)}
           </p>
         </div>
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <p className="eyebrow text-muted-foreground">Asset</p>
           <p className="font-data text-[15px] font-medium tracking-tight text-cream">
             {asset.symbol}
@@ -158,26 +153,31 @@ function OfferCard({
         </div>
       </div>
 
-      {/* counterparty */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[rgba(239,235,224,0.07)] bg-[#0f1814] px-3.5 py-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[rgba(239,235,224,0.07)] bg-[#0f1814] px-3.5 py-3">
         <div className="min-w-0">
-          <p className="text-[13.5px] font-semibold text-cream">
-            {counterparty.name}
-          </p>
-          <p className="text-[11.5px] text-muted-foreground">
-            {counterparty.desk} · {counterparty.region}
-          </p>
+          <p className="text-[13.5px] font-semibold text-cream">{counterparty.name}</p>
+          {counterparty.desk || counterparty.region ? (
+            <p className="text-[11.5px] text-muted-foreground">
+              {[counterparty.desk, counterparty.region].filter(Boolean).join(" · ")}
+            </p>
+          ) : (
+            <p className="text-[11.5px] text-muted-foreground">Desk not disclosed</p>
+          )}
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2.5">
-          <StatusPill tone={cpPill.tone}>{cpPill.label}</StatusPill>
-          <span className="font-data text-[11px] text-sage">
-            {counterparty.settlements.toLocaleString("en-US")} settled fills
-          </span>
-        </div>
+        {offer.txHash ? (
+          <div className="ml-auto min-w-0">
+            <HashChip value={offer.txHash} label="tx" />
+          </div>
+        ) : null}
       </div>
 
-      {offer.compatibility != null && offer.executionScore != null ? (
-      <div className="grid grid-cols-2 gap-4">
+      {makerLens ? (
+        <p className="rounded-xl border border-[rgba(239,235,224,0.08)] bg-[#101915] px-3 py-2.5 text-[12.5px] text-cream/70">
+          You never see the principal&apos;s mandate. Compact enforces it. Eligible vs ineligible is
+          not visible from this desk.
+        </p>
+      ) : offer.compatibility != null && offer.executionScore != null ? (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <div className="flex items-baseline justify-between">
             <p className="eyebrow text-muted-foreground">Compatibility</p>
@@ -204,7 +204,7 @@ function OfferCard({
       )}
 
       {/* frictions */}
-      {offer.frictions.length > 0 ? (
+      {makerLens || offer.frictions.length === 0 ? null : (
         <ul className="space-y-1.5 rounded-xl border border-clay/30 bg-clay/5 p-3">
           {offer.frictions.map((friction) => (
             <li
@@ -216,7 +216,7 @@ function OfferCard({
             </li>
           ))}
         </ul>
-      ) : null}
+      )}
 
       {/* actions */}
       {actionable ? (
@@ -395,12 +395,21 @@ function ExecutionDialog({
 
 export function ViewOffers() {
   const offers = useRemitStore((s) => s.offers);
+  const role = useRemitStore((s) => s.role);
   const syncStatus = useRemitStore((s) => s.syncStatus);
   const [filter, setFilter] = React.useState<OfferFilter>("all");
   const [confirmOffer, setConfirmOffer] = React.useState<Offer | null>(null);
+  const [desk, setDesk] = React.useState<"inbox" | "posted">(
+    role === "maker" ? "posted" : "inbox",
+  );
+
+  React.useEffect(() => {
+    setDesk(role === "maker" ? "posted" : "inbox");
+  }, [role]);
 
   const loading = syncStatus === "loading" || syncStatus === "idle";
-  const filtered = offers.filter((o) => inFilter(o, filter));
+  const makerLens = desk === "posted";
+  const filtered = offers.filter((o) => (makerLens ? true : inFilter(o, filter)));
 
   const counts: Record<OfferFilter, number> = {
     all: offers.length,
@@ -426,19 +435,37 @@ export function ViewOffers() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* header */}
+    <div className="min-w-0 space-y-6">
       <Reveal>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-1.5">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 space-y-1.5">
             <h2 className="font-display text-2xl font-semibold tracking-tight">
-              Offers
+              Private liquidity
             </h2>
             <p className="max-w-lg text-[13.5px] leading-relaxed text-muted-foreground">
-              Private responses to your sealed mandates. Counterparties never
-              see the mandate — or each other.
+              {makerLens
+                ? "Posted commitments. You never see the principal's mandate. Compact enforces it."
+                : "Executor inbox of private RFQ openings. Demo lens is not authorization."}
             </p>
           </div>
+          <div className="flex min-w-0 flex-col items-stretch gap-3 sm:items-end">
+            <Tabs value={desk} onValueChange={(v) => setDesk(v as "inbox" | "posted")}>
+              <TabsList className="h-10 gap-1 rounded-full border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-1">
+                <TabsTrigger
+                  value="inbox"
+                  className="min-h-8 rounded-full px-3 text-[12px] text-cream/60 data-[state=active]:bg-gold/15 data-[state=active]:text-gold"
+                >
+                  Inbox (executor)
+                </TabsTrigger>
+                <TabsTrigger
+                  value="posted"
+                  className="min-h-8 rounded-full px-3 text-[12px] text-cream/60 data-[state=active]:bg-gold/15 data-[state=active]:text-gold"
+                >
+                  Posted (maker)
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {!makerLens ? (
           <Tabs
             value={filter}
             onValueChange={(v) => setFilter(v as OfferFilter)}
@@ -464,8 +491,17 @@ export function ViewOffers() {
               ))}
             </TabsList>
           </Tabs>
+            ) : null}
+          </div>
         </div>
       </Reveal>
+
+      {makerLens ? (
+        <p className="rounded-xl border border-gold/20 bg-gold/5 px-4 py-3 text-[13px] leading-relaxed text-cream/80">
+          This tab does not post RFQ boxes. Operator-placed commitments appear as sealed inventory.
+          You never see the principal&apos;s mandate. Compact enforces it.
+        </p>
+      ) : null}
 
       {/* list */}
       {filtered.length === 0 ? (
@@ -475,10 +511,10 @@ export function ViewOffers() {
           description="Adjust the filter to see the rest of your private responses."
         />
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
           {filtered.map((offer, i) => (
             <Reveal key={offer.id} delay={Math.min(i * 0.05, 0.25)}>
-              <OfferCard offer={offer} onRun={setConfirmOffer} />
+              <OfferCard offer={offer} onRun={setConfirmOffer} makerLens={makerLens} />
             </Reveal>
           ))}
         </div>

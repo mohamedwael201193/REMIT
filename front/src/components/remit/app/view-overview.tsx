@@ -30,6 +30,8 @@ import {
   CountUp,
   DataChip,
   EmptyState,
+  HashAwareLine,
+  HashChip,
   PaperSurface,
   ProgressTrack,
   ProofSeal,
@@ -37,6 +39,7 @@ import {
   StatusPill,
   type PillTone,
 } from "@/components/remit/primitives";
+import { isLikelyHash } from "@/lib/remit/format";
 import {
   assetBySymbol,
   executorById,
@@ -60,8 +63,16 @@ import type {
 
 const ROLE_LINE: Record<Role, string> = {
   principal: "Principal workspace",
+  maker: "Maker desk",
   executor: "Executor console",
   auditor: "Audit desk",
+};
+
+const ROLE_PRIVACY: Record<Role, string> = {
+  principal: "Mandate openings stay in this tab",
+  maker: "You never see the principal's mandate",
+  executor: "Broker sees openings it was given",
+  auditor: "Facts sealed until opened",
 };
 
 const ACTIVITY_ICON: Record<ActivityKind, React.ElementType> = {
@@ -97,7 +108,7 @@ function KpiCard({
   sub: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4">
+    <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4">
       <span className="eyebrow text-sage">{label}</span>
       <span className="font-data text-[1.6rem] font-medium leading-none tracking-tight text-cream">
         {value}
@@ -242,7 +253,7 @@ function SpotlightCard({ mandate }: { mandate: Mandate | undefined }) {
           <div className="mt-6 flex items-center gap-3 border-t border-border pt-4">
             <ProofSeal className="h-8 w-8" tone="gold" label="Sealed mandate" />
             <p className="text-[12px] font-medium text-muted-foreground">
-              Sealed — rules visible only to you
+              Sealed — openings are not on the public ledger
             </p>
           </div>
         </PaperSurface>
@@ -353,12 +364,12 @@ function ActivityRow({ item }: { item: ActivityItem }) {
   const Icon = ACTIVITY_ICON[item.kind];
 
   return (
-    <div className="flex items-start gap-3 rounded-lg px-1 py-2.5">
+    <div className="flex min-w-0 items-start gap-3 rounded-lg px-1 py-2.5">
       <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[rgba(239,235,224,0.1)] bg-[#18241e] text-cream/70">
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <p className="text-[13px] font-medium text-cream">{item.label}</p>
           {item.privateToWorkspace ? (
             <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.14em] text-sage">
@@ -367,7 +378,9 @@ function ActivityRow({ item }: { item: ActivityItem }) {
             </span>
           ) : null}
         </div>
-        <p className="mt-0.5 truncate text-xs text-sage">{item.detail}</p>
+        <div className="mt-0.5 min-w-0 text-xs text-sage">
+          <HashAwareLine text={item.detail} />
+        </div>
       </div>
       <span className="shrink-0 font-data text-[10.5px] text-sage/80">
         {timeAgo(item.at)}
@@ -410,38 +423,51 @@ function PrivateActivityCard({ activity }: { activity: ActivityItem[] }) {
 function AuditReadyCard({ verifiedCount }: { verifiedCount: number }) {
   const audits = useRemitStore((s) => s.audits);
   const setAppView = useRemitStore((s) => s.setAppView);
-  const verified = audits.filter((a) => a.proofStatus === "verified");
+  const ready = audits.slice(0, 3);
 
   return (
     <section
-      className="rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-6"
+      className="min-w-0 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-6"
       aria-label="Audit-ready executions"
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center justify-between gap-3">
         <p className="eyebrow text-gold">Audit-ready executions</p>
-        <span className="font-data text-[11px] text-mint">
+        <span className="font-data text-[11px] text-sage">
           {verifiedCount} verified
+          {ready.length !== verifiedCount ? ` · ${ready.length} on file` : ""}
         </span>
       </div>
 
-      {verified.length > 0 ? (
+      {ready.length > 0 ? (
         <>
           <div className="mt-3 divide-y divide-[rgba(239,235,224,0.06)]">
-            {verified.slice(0, 3).map((record) => (
+            {ready.map((record) => (
               <div
                 key={record.id}
-                className="flex min-h-[48px] items-center gap-3 py-2.5"
+                className="flex min-h-[48px] min-w-0 items-center gap-3 py-2.5"
               >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-mint/35 bg-mint/10 text-mint">
+                <span
+                  className={cn(
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+                    record.proofStatus === "verified"
+                      ? "border-mint/35 bg-mint/10 text-mint"
+                      : "border-gold/35 bg-gold/10 text-gold",
+                  )}
+                >
                   <Check className="h-3.5 w-3.5" aria-hidden="true" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-data text-[12.5px] font-semibold text-cream">
                     {record.executionRef}
                   </p>
-                  <p className="truncate font-data text-[10.5px] text-sage">
-                    {record.asset} · {record.auditRoot}
-                  </p>
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                    <DataChip className="py-0.5">{record.asset}</DataChip>
+                    {record.auditRoot ? (
+                      <HashChip value={record.auditRoot} label="audit" />
+                    ) : (
+                      <span className="text-[10.5px] text-sage">auditRoot not opened in this tab</span>
+                    )}
+                  </div>
                 </div>
                 <span className="shrink-0 font-data text-[10.5px] text-sage/80">
                   {timeAgo(record.verifiedAt)}
@@ -473,6 +499,31 @@ function AuditReadyCard({ verifiedCount }: { verifiedCount: number }) {
 }
 
 /* ── role banners ─────────────────────────────────────────────────── */
+
+function MakerBanner() {
+  const setAppView = useRemitStore((s) => s.setAppView);
+  return (
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gold/25 bg-gold/10 text-gold">
+        <Inbox className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-medium text-cream">Maker desk</p>
+        <p className="text-[11.5px] text-sage">
+          You never see the principal&apos;s mandate. Compact enforces it.
+        </p>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setAppView("offers")}
+        className="h-10 shrink-0 border-gold/35 bg-transparent px-3.5 text-gold hover:bg-gold/10 hover:text-gold-2"
+      >
+        Posted liquidity
+      </Button>
+    </div>
+  );
+}
 
 function ExecutorBanner() {
   const setAppView = useRemitStore((s) => s.setAppView);
@@ -585,20 +636,24 @@ export function ViewOverview() {
   const spotlight = mandates.find((m) => m.status === "active");
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       {/* greeting */}
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+      <section className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <p className="eyebrow text-gold">{greeting}</p>
-          <h2 className="font-display mt-3 text-2xl font-semibold tracking-tight text-cream sm:text-[1.75rem]">
-            {principalName}
+          <h2 className="font-display mt-3 min-w-0 text-2xl font-semibold tracking-tight text-cream sm:text-[1.75rem]">
+            {isLikelyHash(principalName) ? (
+              <HashChip value={principalName} className="align-middle" />
+            ) : (
+              <span className="break-words">{principalName}</span>
+            )}
           </h2>
           <p className="mt-1.5 text-[13px] text-sage">
             {portfolio.deskName} · {ROLE_LINE[role]}
           </p>
         </div>
-        <StatusPill tone="private" className="shrink-0">
-          Rules visible only to you
+        <StatusPill tone="private" className="max-w-full shrink-0 whitespace-normal text-pretty">
+          {ROLE_PRIVACY[role]}
         </StatusPill>
       </section>
 
@@ -639,14 +694,15 @@ export function ViewOverview() {
       {/* main grid */}
       <Reveal
         delay={0.08}
-        className="grid gap-6 lg:grid-cols-2"
+        className="grid min-w-0 gap-6 lg:grid-cols-2"
       >
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
           <SpotlightCard mandate={spotlight} />
           <RecentExecutionsCard executions={executions.slice(0, 6)} />
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
+          {role === "maker" ? <MakerBanner /> : null}
           {role === "executor" ? <ExecutorBanner /> : null}
           {role === "auditor" ? (
             <AuditorBanner verifiedCount={verifiedAudits.length} />

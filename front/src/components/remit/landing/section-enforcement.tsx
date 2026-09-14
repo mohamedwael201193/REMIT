@@ -334,7 +334,9 @@ export function SectionEnforcement() {
                       >
                         <p className="flex items-center gap-3 text-[13px] text-gold">
                           <span className="relative flex h-2.5 w-2.5">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold opacity-60" />
+                            {!reduced ? (
+                              <span className="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-gold opacity-60" />
+                            ) : null}
                             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-gold" />
                           </span>
                           Evaluating against the private mandate…

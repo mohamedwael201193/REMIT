@@ -398,8 +398,9 @@ export function HashChip({
   if (href) {
     return (
       <span className={chipClass}>
-        <a href={href} target="_blank" rel="noreferrer" className="min-w-0 truncate text-gold/90 hover:text-gold">
-          {label ? `${label} ${display}` : display}
+        {label ? <span className="shrink-0 text-sage">{label}</span> : null}
+        <a href={href} target="_blank" rel="noreferrer" className="font-data max-w-[11rem] truncate text-gold/90 hover:text-gold" title={value}>
+          {display}
         </a>
         <button
           type="button"

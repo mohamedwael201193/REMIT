@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { DataChip, Reveal } from "@/components/remit/primitives";
+import { DataChip, HashChip, Reveal } from "@/components/remit/primitives";
 import { LaceMark, OneAmMark } from "@/components/remit/brand";
 import { useRemitStore } from "@/store/remit";
 import { useToast } from "@/hooks/use-toast";
@@ -87,7 +87,10 @@ export function ViewSettings() {
   const [notifyExpiry, setNotifyExpiry] = React.useState(false);
 
   const savedToast = () =>
-    toast({ title: "Preference saved to this workspace", duration: 2200 });
+    toast({
+      title: "Saved in this browser only — not on-chain",
+      duration: 2200,
+    });
 
   const loading = syncStatus === "loading" || syncStatus === "idle";
   if (loading) {
@@ -172,9 +175,9 @@ export function ViewSettings() {
                       {wallet.provider === "1am" ? "1AM" : "Lace"} · connected
                       to {wallet.network}
                     </p>
-                    <p className="font-data text-[11.5px] leading-relaxed break-all text-cream/60">
-                      {wallet.address}
-                    </p>
+                    <div className="min-w-0">
+                      <HashChip value={wallet.address} />
+                    </div>
                     <p className="font-data text-[12.5px] text-gold">
                       {wallet.dustHeader ?? "header DUST is not spendable coins"}
                     </p>

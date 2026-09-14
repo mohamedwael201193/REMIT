@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DataChip,
   EmptyState,
+  HashChip,
   Reveal,
   StatBlock,
   StatusPill,
@@ -138,15 +139,20 @@ function AuditRecordCard({ record }: { record: AuditRecord }) {
   return (
     <article className="flex flex-col gap-4 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:p-6">
       {/* header */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h3 className="font-display text-lg font-semibold tracking-tight">
           {record.executionRef}
         </h3>
         <DataChip>{asset.symbol}</DataChip>
         <StatusPill tone={pill.tone}>{pill.label}</StatusPill>
-        <span className="font-data ml-auto text-[11px] text-sage">
-          {record.auditRoot} · verified {timeAgo(record.verifiedAt)}
-        </span>
+        <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
+          {record.auditRoot ? <HashChip value={record.auditRoot} label="audit" /> : (
+            <span className="font-data text-[11px] text-sage">auditRoot not opened</span>
+          )}
+          <span className="font-data text-[11px] text-sage">
+            {record.proofStatus === "verified" ? "verified" : "pending"} {timeAgo(record.verifiedAt)}
+          </span>
+        </div>
       </div>
 
       {/* disclosures */}
@@ -228,8 +234,8 @@ export function ViewAudit() {
         <Reveal delay={0.05}>
           <div className="flex flex-col gap-3 rounded-xl border border-gold/20 bg-gold/5 p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[13px] leading-relaxed text-cream/80">
-              You are viewing as {roleLabel(role)}. Switch to the Auditor role
-              for the full audit desk.
+            You are viewing as {roleLabel(role)}. Demo lens is not authorization. Switch to the
+            Auditor lens for the audit desk.
             </p>
             <Button
               size="sm"

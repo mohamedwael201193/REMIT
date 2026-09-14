@@ -84,7 +84,7 @@ export function LandingNav() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-10 w-10 text-cream md:hidden"
+            className="h-11 w-11 min-h-11 min-w-11 text-cream md:hidden"
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />

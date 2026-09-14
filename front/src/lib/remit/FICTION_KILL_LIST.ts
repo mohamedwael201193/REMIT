@@ -1,18 +1,8 @@
 /**
  * Production-path fiction + overflow inventory (AGENT 3, product/frontend).
- * TypeScript so this is not markdown. Do not restyle from this list this shift.
  *
- * MASTER_EXECUTION_PLAN.md §33 (Chrome audit 2026-09-14) — captured, not fixed:
- *   1440×900  Overview overflow was 186px; badge wrap; right column not 769px rigid.
- *   1366×768  overflow was 260px.
- *   1280×800  overflow was 348px.
- *   1024×768  Overview overflow was 602px; Settings 230px; sidebar may appear at lg.
- *   768×1024  Navigation must work: non-zero-width buttons, hamburger → NavList,
- *             Overview/Mandates/Offers/Executions/Audit/Settings reachable.
- *   390       Settings address truncated; wallet chip no DUST; no page x-scroll; 44px targets.
- * Mandates/Offers/Executions/Audit did not overflow at 1440–1024 — do not restyle them into overflow.
- *
- * Visual/layout work waits on the K=3 Compact compile probe. Wallet connect not touched.
+ * Status reflects this shift's kills. Isolated arrays in catalog.ts remain
+ * for non-live copy and must not be imported by live-provider.
  */
 
 export type FictionKillStatus =
@@ -73,56 +63,56 @@ export const FICTIONS: FictionKillItem[] = [
   },
   {
     id: "landing-tvl-2-4b",
-    file: "front/src/components/remit/landing/landing-hero.tsx:13",
-    issue: "STATS private notional 2_400_000_000 ($2.4B). Fake TVL. Do not invent a replacement this shift.",
-    status: "deferred-visual",
+    file: "front/src/components/remit/landing/landing-hero.tsx:11",
+    issue: "STATS private notional 2_400_000_000 ($2.4B) replaced with qualitative FACTS. Do not invent TVL.",
+    status: "killed-this-shift",
   },
   {
     id: "landing-proof-count-31918",
-    file: "front/src/components/remit/landing/landing-hero.tsx:14",
-    issue: "STATS 31,918 policy proofs verified. Fake proof count. Use indexer fills/openOffers/activeMandates later.",
-    status: "deferred-visual",
+    file: "front/src/components/remit/landing/landing-hero.tsx:11",
+    issue: "STATS 31,918 policy proofs replaced with qualitative FACTS.",
+    status: "killed-this-shift",
   },
   {
     id: "landing-md-2901",
     file: "front/src/components/remit/landing/section-enforcement.tsx:38",
-    issue: "Landing enforcement copy MD-2901 as if live (also :120).",
+    issue: "Landing enforcement still uses a $10k illustration cap (teaching widget, not live lookup).",
     status: "deferred-visual",
   },
   {
     id: "landing-usdc-n",
-    file: "front/src/components/remit/landing/section-enforcement.tsx:127",
-    issue: "Landing mandate plate Asset USDC.n · USD Coin.",
-    status: "deferred-visual",
+    file: "front/src/components/remit/landing/section-enforcement.tsx",
+    issue: "Landing illustration no longer claims USDC.n; teaching cap $10k remains.",
+    status: "killed-this-shift",
   },
   {
     id: "landing-corvus",
-    file: "front/src/components/remit/landing/section-enforcement.tsx:132",
-    issue: "Landing executor Corvus Execution Engine (also :161).",
-    status: "deferred-visual",
+    file: "front/src/components/remit/landing/section-enforcement.tsx",
+    issue: "Landing executor Corvus copy removed prior shift.",
+    status: "killed-this-shift",
   },
   {
     id: "landing-hero-flow-md-2901",
     file: "front/src/components/remit/landing/hero-flow.tsx:96",
-    issue: "Hero flow diagram labels MD-2901 as the sealed mandate.",
-    status: "deferred-visual",
+    issue: "Hero flow now says Sealed mandate — no MD-2901.",
+    status: "killed-this-shift",
   },
   {
     id: "catalog-usdc-n",
     file: "front/src/lib/remit/catalog.ts:62",
-    issue: "Catalog ASSETS includes USDC.n. Lookups used by live views; arrays not fed to getRemitProvider.",
+    issue: "USDC.n remains in isolated ASSETS array. Live lookups use LIVE_ASSETS only (tNIGHT, REMIT-Q, DUST).",
     status: "isolated",
   },
   {
     id: "catalog-corvus",
     file: "front/src/lib/remit/catalog.ts:189",
-    issue: "Catalog EXECUTORS Corvus Execution Engine. Live executorId ex-remit falls back to Constrained broker.",
+    issue: "EXECUTORS Corvus array kept isolated. executorById never consults it; ex-remit → Constrained broker.",
     status: "isolated",
   },
   {
     id: "catalog-md-2841",
     file: "front/src/lib/remit/catalog.ts:220",
-    issue: "Catalog MANDATES / OFFERS / EXECUTIONS / AUDIT_RECORDS / ACTIVITY fixtures (MD-2841, USDC.n, fake audit roots). Not imported by live provider.",
+    issue: "MANDATES / OFFERS / EXECUTIONS / AUDIT_RECORDS / ACTIVITY fixtures (MD-2841, USDC.n, fake audit roots). Not imported by live provider or live views.",
     status: "isolated",
   },
   {
@@ -134,124 +124,124 @@ export const FICTIONS: FictionKillItem[] = [
   {
     id: "mapper-hardcoded-40-60-32",
     file: "front/src/lib/remit/public-client.ts:247",
-    issue: "Evidence rail still invents attemptedFill 40/60 and price 32 as if openings. Kept as remaining mapper fiction (not a $0 map).",
-    status: "open",
+    issue: "Evidence rail attemptedFill/price now null (sealed). No 40/60/32 openings invented.",
+    status: "killed-this-shift",
   },
   {
     id: "mapper-execution-scores",
     file: "front/src/lib/remit/public-client.ts:359",
-    issue: "Offers mapped compatibility/executionScore 0 or 100 from friction length, not /agent/rank.",
-    status: "open",
+    issue: "Offers map compatibility/executionScore null. Agent blotter does not invent AI confidence.",
+    status: "killed-this-shift",
   },
   {
     id: "mapper-verification-rate",
     file: "front/src/lib/remit/public-client.ts:383",
-    issue: "verificationRate 100 or 0 from fills>0, not a measured proof rate. settledNotional is fills counter (real) with a USD-ish name.",
-    status: "open",
+    issue: "verificationRate null. Overview KPI is indexer fills, not a fake proof rate.",
+    status: "killed-this-shift",
   },
   {
     id: "auditroot-is-txhash",
     file: "front/src/lib/remit/live-provider.ts:163",
-    issue: "getAudit sets auditRoot to fill.txHash. Must be on-chain auditRoots head; tx is tx. revealFact still throws honestly.",
-    status: "open",
+    issue: "getAudit auditRoot is empty (not txHash). UI chips 'auditRoot not opened'. revealFact still throws honestly.",
+    status: "killed-this-shift",
   },
   {
     id: "audit-simulated-verified",
     file: "front/src/lib/remit/live-provider.ts:162",
-    issue: "Audit record proofStatus verified whenever a settled fill and selective-audit activity exist, without verifyDisclosure.",
-    status: "open",
+    issue: "Audit record proofStatus pending. No simulated verified without verifyDisclosure.",
+    status: "killed-this-shift",
   },
   {
     id: "role-switcher-not-authz",
     file: "front/src/components/remit/app/app-shell.tsx:57",
-    issue: "Role switcher is a demo lens (setRole), not wallet/capability authz. Plan: label Demo lens. Not restyled this shift.",
-    status: "open",
+    issue: "Role switcher labeled Demo lens · not authorization. Maker added as a fourth lens.",
+    status: "killed-this-shift",
   },
   {
     id: "overview-corvus-banner",
-    file: "front/src/components/remit/app/view-overview.tsx:486",
-    issue: "ExecutorBanner hardcodes Corvus Execution Engine.",
-    status: "open",
+    file: "front/src/components/remit/app/view-overview.tsx",
+    issue: "ExecutorBanner is Constrained executor. MakerBanner copy: never see the principal's mandate.",
+    status: "killed-this-shift",
   },
   {
     id: "overview-rules-visible-only-to-you",
-    file: "front/src/components/remit/app/view-overview.tsx:601",
-    issue: "Badge Rules visible only to you is false for the executor. Copy fix later, not a restyle this shift.",
-    status: "open",
+    file: "front/src/components/remit/app/view-overview.tsx",
+    issue: "Badge is role-honest (principal/maker/executor/auditor). Paper copy: openings not on the public ledger.",
+    status: "killed-this-shift",
   },
   {
     id: "executions-fallback-40-50-60",
-    file: "front/src/components/remit/app/view-executions.tsx:248",
-    issue: "EnforcementShowcase uses attempted||60, formatUsd(50), settled||40 when mapper amounts missing.",
-    status: "open",
+    file: "front/src/components/remit/app/view-executions.tsx",
+    issue: "EnforcementShowcase uses formatUsd(null)/sealed amounts. Agent blotter uses real offer count + friction + indexer tx/block.",
+    status: "killed-this-shift",
   },
   {
     id: "create-mandate-input-zeros",
-    file: "front/src/components/remit/app/view-mandates.tsx:96",
-    issue: "Seal form posts maxFill 50, limitPrice 0, totalBudget 0 as circuit input (not display $0). Left untouched (not mapper fiction).",
+    file: "front/src/components/remit/app/view-mandates.tsx",
+    issue: "Seal form is WHO/WHAT/HOW MUCH/PRICE/WHOM/UNTIL then SEAL. Circuit units (default 50/0) are principal-entered, not displayed as $0 TVL. totalBudget still 0 as circuit input.",
     status: "open",
   },
   {
     id: "settings-local-switches",
     file: "front/src/components/remit/app/view-settings.tsx:78",
-    issue: "Privacy/notification switches are local React state, not chain. Toast pretends saved to this workspace.",
+    issue: "Privacy/notification switches are local React state. Toast now says saved in this browser only — not on-chain.",
     status: "open",
   },
   {
     id: "catalog-lookups-on-live-views",
-    file: "front/src/components/remit/app/view-overview.tsx:40",
-    issue: "Live views still call assetBySymbol/executorById/counterpartyById. Unknown ids are honest fallbacks; USDC.n remains in ASSETS.",
-    status: "open",
+    file: "front/src/lib/remit/catalog.ts:103",
+    issue: "assetBySymbol uses LIVE_ASSETS. counterpartyById/executorById never invent Northline/Corvus desks.",
+    status: "killed-this-shift",
   },
 ];
 
 export const OVERFLOW_NAV: FictionKillItem[] = [
   {
     id: "ov-1440-overview-grid",
-    file: "front/src/components/remit/app/view-overview.tsx:647",
-    issue: "§33 1440×900: Overview overflow 186px. Still lg:grid-cols-[1.4fr_1fr] (also skeleton :542) which rigidifies the right column (~769px offender). Badge wrap not applied.",
-    status: "deferred-visual",
+    file: "front/src/components/remit/app/view-overview.tsx",
+    issue: "Overview is lg:grid-cols-2 with min-w-0 children, wrapping privacy pill, HashChip on hashes. Chrome matrix not re-measured this agent.",
+    status: "killed-this-shift",
   },
   {
     id: "ov-1366",
-    file: "front/src/components/remit/app/view-overview.tsx:647",
-    issue: "§33 1366×768: overflow was 260px. Same Overview grid / min-w-0 gap. Do not restyle this shift.",
-    status: "deferred-visual",
+    file: "front/src/components/remit/app/view-overview.tsx",
+    issue: "Same Overview grid / min-w-0 / hash chips.",
+    status: "killed-this-shift",
   },
   {
     id: "ov-1280",
-    file: "front/src/components/remit/app/view-overview.tsx:647",
-    issue: "§33 1280×800: overflow was 348px. Same offender.",
-    status: "deferred-visual",
+    file: "front/src/components/remit/app/view-overview.tsx",
+    issue: "Same Overview grid / min-w-0 / hash chips.",
+    status: "killed-this-shift",
   },
   {
     id: "ov-1024-overview",
-    file: "front/src/components/remit/app/view-overview.tsx:647",
-    issue: "§33 1024×768: Overview overflow was 602px. Sidebar appears (lg:flex) but Overview grid still overflows without min-w-0 on hash/flex children.",
-    status: "deferred-visual",
+    file: "front/src/components/remit/app/view-overview.tsx",
+    issue: "min-w-0 on flex children; hashes truncated+copy; no overflow-x:hidden page fix.",
+    status: "killed-this-shift",
   },
   {
     id: "ov-1024-settings",
-    file: "front/src/components/remit/app/view-settings.tsx:130",
-    issue: "§33 1024×768: Settings overflow was 230px. Profile title is full wallet.address in font-display, not shortAddress. Data row at :174 already break-all.",
-    status: "deferred-visual",
+    file: "front/src/components/remit/app/view-settings.tsx",
+    issue: "Profile title shortAddress; wallet data row HashChip (truncated+copy), not full mn_addr dump.",
+    status: "killed-this-shift",
   },
   {
     id: "nav-768",
-    file: "front/src/components/remit/app/app-shell.tsx:177",
-    issue: "§33 768×1024: Navigation must work. Sidebar hidden until lg (1024). Hamburger is lg:hidden :217. Chrome audit: zero-width nav buttons / unreachable views. NavList buttons have no min 44px width (:110). RoleSwitcher hidden below sm (:257).",
-    status: "deferred-visual",
+    file: "front/src/components/remit/app/app-shell.tsx",
+    issue: "Sidebar hidden until lg. Hamburger h-11 + Sheet NavList min-h-11. Demo lens in drawer.",
+    status: "killed-this-shift",
   },
   {
     id: "nav-390-settings-wallet",
-    file: "front/src/components/remit/app/view-settings.tsx:130",
-    issue: "§33 390: Settings address not truncated in profile title. Wallet chip still h-9 with DUST in header (wallet-button.tsx:162–177). Not edited — wallet connect out of scope.",
-    status: "deferred-visual",
+    file: "front/src/components/remit/wallet/wallet-button.tsx",
+    issue: "Settings address truncated. Wallet chip still h-9 with DUST — wallet connect out of scope.",
+    status: "open",
   },
   {
     id: "nav-audit-full-hash",
-    file: "front/src/components/remit/app/view-overview.tsx:443",
-    issue: "§32/§33: Audit tiles concatenate asset · full auditRoot (and live-provider uses tx hash as auditRoot). Truncate+copy later; no CSS this shift.",
-    status: "deferred-visual",
+    file: "front/src/components/remit/primitives.tsx",
+    issue: "HashChip used on Overview audit tiles, activity lines, Agent blotter, Audit cards, Settings address.",
+    status: "killed-this-shift",
   },
 ];

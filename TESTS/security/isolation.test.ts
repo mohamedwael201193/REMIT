@@ -99,7 +99,7 @@ describe("isolation — wrong executor, cancelled/expired K-set, padding, residu
       allowCounterparty: () => true,
     });
     expect(local.action).toBe("reject");
-    if (local.action === "reject") expect(local.reason).toBe("wrong-executor");
+    expect(local.ranked.some((r) => !r.ok && r.reason === "wrong-executor")).toBe(true);
 
     let sim = bootPool();
     const placed = placeQuoted(sim, a.makerSk, offer);

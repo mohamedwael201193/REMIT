@@ -41,6 +41,7 @@ const NAV: { view: AppView; label: string; icon: React.ElementType }[] = [
 
 const ROLES: { role: Role; label: string }[] = [
   { role: "principal", label: "Principal" },
+  { role: "maker", label: "Maker" },
   { role: "executor", label: "Executor" },
   { role: "auditor", label: "Auditor" },
 ];
@@ -54,34 +55,45 @@ const VIEW_TITLES: Record<AppView, string> = {
   settings: "Settings",
 };
 
-function RoleSwitcher({ className }: { className?: string }) {
+function RoleSwitcher({
+  className,
+  caption = false,
+}: {
+  className?: string;
+  caption?: boolean;
+}) {
   const role = useRemitStore((s) => s.role);
   const setRole = useRemitStore((s) => s.setRole);
   return (
-    <div
-      className={cn(
-        "inline-flex items-center rounded-full border border-[rgba(239,235,224,0.12)] bg-[#121c17] p-0.5",
-        className,
-      )}
-      role="tablist"
-      aria-label="Demo lens — not authorization"
-    >
-      {ROLES.map((r) => (
-        <button
-          key={r.role}
-          role="tab"
-          aria-selected={role === r.role}
-          onClick={() => setRole(r.role)}
-          className={cn(
-            "rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors",
-            role === r.role
-              ? "bg-gold text-[#1a1409]"
-              : "text-cream/60 hover:text-cream",
-          )}
-        >
-          {r.label}
-        </button>
-      ))}
+    <div className={cn("min-w-0", className)}>
+      {caption ? (
+        <p className="mb-1.5 px-1 text-[10px] tracking-[0.16em] text-cream/35 uppercase">
+          Demo lens · not authorization
+        </p>
+      ) : null}
+      <div
+        className="inline-flex max-w-full flex-wrap items-center rounded-full border border-[rgba(239,235,224,0.12)] bg-[#121c17] p-0.5"
+        role="tablist"
+        aria-label="Demo lens — not authorization"
+        title="Demo lens — not authorization"
+      >
+        {ROLES.map((r) => (
+          <button
+            key={r.role}
+            role="tab"
+            aria-selected={role === r.role}
+            onClick={() => setRole(r.role)}
+            className={cn(
+              "min-h-9 rounded-full px-2.5 py-1.5 text-[11.5px] font-medium transition-colors sm:px-3",
+              role === r.role
+                ? "bg-gold text-[#1a1409]"
+                : "text-cream/60 hover:text-cream",
+            )}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -166,7 +178,6 @@ export function AppShell() {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const returnToLanding = useRemitStore((s) => s.returnToLanding);
   const appView = useRemitStore((s) => s.appView);
-  const role = useRemitStore((s) => s.role);
 
   return (
     <div className="flex min-h-screen flex-col bg-ink text-cream">
@@ -189,7 +200,7 @@ export function AppShell() {
           </div>
           <div className="space-y-3 border-t border-[rgba(239,235,224,0.08)] p-4">
             <p className="px-1 text-[10.5px] uppercase tracking-[0.18em] text-cream/35">
-              Demo lens · {role}
+              Demo lens · not authorization
             </p>
             <Button
               variant="ghost"
@@ -207,7 +218,7 @@ export function AppShell() {
         <div className="flex min-w-0 flex-1 flex-col">
           {/* top bar */}
           <header className="sticky top-0 z-40 border-b border-[rgba(239,235,224,0.08)] bg-[#0d1512]/88 backdrop-blur-xl">
-            <div className="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
+            <div className="flex h-16 min-w-0 items-center gap-3 px-4 sm:px-6 lg:px-8">
               {/* mobile menu */}
               <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
                 <SheetTrigger asChild>
@@ -233,7 +244,7 @@ export function AppShell() {
                     <NavList onNavigate={() => setMenuOpen(false)} />
                   </div>
                   <div className="mt-6 border-t border-[rgba(239,235,224,0.08)] p-4">
-                    <RoleSwitcher />
+                    <RoleSwitcher caption />
                     <Button
                       variant="ghost"
                       size="sm"
@@ -249,20 +260,20 @@ export function AppShell() {
                 </SheetContent>
               </Sheet>
 
-              <h1 className="font-display truncate text-lg font-semibold sm:text-xl">
+              <h1 className="font-display min-w-0 truncate text-lg font-semibold sm:text-xl">
                 {VIEW_TITLES[appView]}
               </h1>
 
-              <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
-                <RoleSwitcher className="hidden sm:inline-flex" />
+              <div className="ml-auto flex min-w-0 items-center gap-2.5 sm:gap-3">
+                <RoleSwitcher className="hidden min-w-0 lg:block" />
                 <WalletButton />
               </div>
             </div>
           </header>
 
           {/* view */}
-          <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-            <div className="mx-auto w-full max-w-6xl">
+          <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+            <div className="mx-auto w-full min-w-0 max-w-6xl">
               <ViewContent />
             </div>
           </main>
