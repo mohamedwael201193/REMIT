@@ -76,6 +76,8 @@ interface RemitState {
   connectWallet: (provider: WalletProviderKind) => Promise<boolean>;
   disconnectWallet: () => Promise<void>;
   lastError: string | null;
+  circuitBusy: boolean;
+  circuitStatus: string | null;
 
   syncWorkspace: () => Promise<void>;
   createMandate: (input: NewMandateInput) => Promise<Mandate>;
@@ -106,6 +108,8 @@ export const useRemitStore = create<RemitState>((set, get) => ({
   wallet: initialWallet,
   walletDialogOpen: false,
   lastError: null,
+  circuitBusy: false,
+  circuitStatus: null,
 
   portfolio: null,
   mandates: [],
@@ -191,9 +195,18 @@ export const useRemitStore = create<RemitState>((set, get) => ({
   },
 
   createMandate: async (input) => {
-    const mandate = await provider.createMandate(input);
-    await get().syncWorkspace();
-    return mandate;
+    set({ circuitBusy: true, circuitStatus: "Proving deposit and createMandate on Preprod", lastError: null });
+    try {
+      const mandate = await provider.createMandate(input);
+      await get().syncWorkspace();
+      return mandate;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Compact circuit-call required";
+      set({ lastError: message });
+      throw error;
+    } finally {
+      set({ circuitBusy: false, circuitStatus: null });
+    }
   },
 
   executeFill: async (input) => {
@@ -227,8 +240,17 @@ export const useRemitStore = create<RemitState>((set, get) => ({
   },
 
   revokeMandates: async () => {
-    await provider.revokeMandates();
-    await get().syncWorkspace();
+    set({ circuitBusy: true, circuitStatus: "Proving revokeMandate on Preprod", lastError: null });
+    try {
+      await provider.revokeMandates();
+      await get().syncWorkspace();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "revokeMandate required Compact circuit-call";
+      set({ lastError: message });
+      throw error;
+    } finally {
+      set({ circuitBusy: false, circuitStatus: null });
+    }
   },
 
   revealFact: async (auditId, disclosureId) => {

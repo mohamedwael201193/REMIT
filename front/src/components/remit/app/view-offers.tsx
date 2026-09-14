@@ -103,7 +103,7 @@ function OfferCard({
   const counterparty = counterpartyById(offer.counterpartyId);
   const pill = offerPill(offer.state);
   const cpPill = counterpartyPill(counterparty.status);
-  const expired = new Date(offer.expiresAt).getTime() < Date.now();
+  const expired = !offer.txHash && new Date(offer.expiresAt).getTime() < Date.now();
   const actionable = offer.state === "compatible" || offer.state === "new";
 
   return (
@@ -130,7 +130,9 @@ function OfferCard({
             expired ? "text-clay/80" : "text-sage",
           )}
         >
-          {expired ? "expired" : "expires"} {timeAgo(offer.expiresAt)}
+          {offer.txHash
+            ? "on-chain"
+            : `${expired ? "expired" : "expires"} ${timeAgo(offer.expiresAt)}`}
         </span>
       </div>
 

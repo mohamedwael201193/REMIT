@@ -76,10 +76,12 @@ export function ViewMandates() {
   const openWalletDialog = useRemitStore((s) => s.openWalletDialog);
   const createMandate = useRemitStore((s) => s.createMandate);
   const syncStatus = useRemitStore((s) => s.syncStatus);
+  const circuitBusy = useRemitStore((s) => s.circuitBusy);
+  const circuitStatus = useRemitStore((s) => s.circuitStatus);
+  const lastError = useRemitStore((s) => s.lastError);
   const { toast } = useToast();
-  const [busy, setBusy] = React.useState(false);
 
-  const loading = syncStatus === "loading" || syncStatus === "idle";
+  const loading = (syncStatus === "loading" || syncStatus === "idle") && !circuitBusy;
 
   const seal = async () => {
     if (wallet.status !== "connected") {
@@ -87,7 +89,6 @@ export function ViewMandates() {
       toast({ title: "Connect a wallet to continue." });
       return;
     }
-    setBusy(true);
     try {
       await createMandate({
         asset: "tNIGHT",
@@ -101,14 +102,14 @@ export function ViewMandates() {
         executorId: "ex-remit",
         intent: "Preprod mandate",
       });
+      toast({ title: "Mandate sealed on Preprod", duration: 8000 });
     } catch (error) {
       toast({
         title: "Mandate was not created",
         description: error instanceof Error ? error.message : "Compact circuit-call required",
         variant: "destructive",
+        duration: 20000,
       });
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -134,13 +135,16 @@ export function ViewMandates() {
           <Button
             size="sm"
             onClick={() => void seal()}
-            disabled={busy}
+            disabled={circuitBusy}
             className="min-h-10 bg-gold px-4 text-[#1a1409] hover:bg-gold-2"
           >
-            Seal a mandate
+            {circuitBusy ? circuitStatus ?? "Proving on Preprod…" : "Seal a mandate"}
           </Button>
         </div>
       </Reveal>
+      {lastError ? (
+        <p className="max-w-2xl text-[12.5px] leading-relaxed text-clay">{lastError}</p>
+      ) : null}
       {mandates.length === 0 ? (
         <EmptyState
           icon={<FileLock2 className="h-5 w-5" />}

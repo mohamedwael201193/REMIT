@@ -64,4 +64,24 @@ describe("public Preprod config for the supplied frontend", () => {
     expect(ws.mandates[0]?.status).toBe("revoked");
     expect(explorerTxUrl("f1")).toContain("f1");
   });
+
+  it("prefers live activeMandates over a historical revoke step", () => {
+    const chain: RemitChainSnapshot = {
+      live: true,
+      network: "preprod",
+      pool: { address: "pool1", txHash: "aa", block: 9, fills: 1, openOffers: 0, activeMandates: 1 },
+      quote: { address: "quote1", txHash: "bb", block: 8 },
+    };
+    const evidence: RemitPublicEvidence = {
+      present: true,
+      network: "preprod",
+      mpc: false,
+      steps: [
+        { name: "pool-create-mandate", ok: true, txHash: "m1", block: 10 },
+        { name: "pool-revoke", ok: true, txHash: "r1", block: 12 },
+      ],
+    };
+    const ws = mapPublicWorkspace({ chain, evidence });
+    expect(ws.mandates[0]?.status).toBe("active");
+  });
 });

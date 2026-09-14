@@ -239,6 +239,13 @@ function LiveExecutionPanel() {
 /* ── enforcement-boundary showcase ─────────────────────────────────── */
 
 function EnforcementShowcase() {
+  const executions = useRemitStore((s) => s.executions);
+  const over = executions.find((e) => e.reference === "OVER-CAP");
+  const fill = executions.find((e) => e.status === "settled");
+  const attempted = over?.attemptedFill ?? 0;
+  const settled = fill?.settledFill ?? fill?.attemptedFill ?? 0;
+  const receipt = fill?.txHash ? fill.txHash.slice(0, 12) : null;
+
   return (
     <Reveal>
       <section
@@ -256,7 +263,7 @@ function EnforcementShowcase() {
           <div>
             <p className="eyebrow text-muted-foreground">Attempted fill</p>
             <p className="font-data mt-2 text-4xl font-semibold tracking-tight text-clay sm:text-5xl">
-              $12,000
+              {formatUsd(attempted || 60)}
             </p>
           </div>
 
@@ -272,14 +279,14 @@ function EnforcementShowcase() {
           <div className="sm:text-right">
             <p className="eyebrow text-muted-foreground">Mandate limit</p>
             <p className="font-data mt-2 text-4xl font-semibold tracking-tight text-gold sm:text-5xl">
-              $10,000
+              {formatUsd(50)}
             </p>
           </div>
         </div>
 
         <div className="mt-7 rounded-xl border border-clay/40 bg-clay/10 p-4">
           <p className="text-[13px] font-semibold tracking-wide text-clay">
-            REJECTED BEFORE SETTLEMENT — Fill exceeds per-fill mandate cap.
+            REJECTED BEFORE SETTLEMENT — OVER-CAP Compact fill, no settlement tx.
           </p>
           <p className="mt-1 text-[12.5px] leading-relaxed text-cream/70">
             No value moved. The attempt is provable, the rules are not.
@@ -291,12 +298,14 @@ function EnforcementShowcase() {
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <ProofSeal tone="mint" label="Proof verified" className="h-8 w-8 shrink-0" />
           <p className="font-data text-[15px] text-cream/85">
-            <span className="text-mint">$8,000</span> attempted →{" "}
+            <span className="text-mint">{formatUsd(settled || 40)}</span> attempted →{" "}
             <span className="text-mint">VERIFIED — Mandate satisfied</span>
           </p>
-          <DataChip className="border-mint/30 bg-mint/5 text-mint/90">
-            receipt RCP-2262
-          </DataChip>
+          {receipt ? (
+            <DataChip className="border-mint/30 bg-mint/5 text-mint/90">
+              tx {receipt}
+            </DataChip>
+          ) : null}
         </div>
       </section>
     </Reveal>

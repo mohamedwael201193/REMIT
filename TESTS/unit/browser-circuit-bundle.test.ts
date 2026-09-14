@@ -10,6 +10,17 @@ describe("1AM circuit bundle graph", () => {
     }
   });
 
+  it("sets Midnight network id before browser circuit-calls", () => {
+    const session = readFileSync(resolve("packages/sdk/src/browser-session.ts"), "utf8");
+    const providers = readFileSync(resolve("packages/core/src/browser-providers.ts"), "utf8");
+    const helper = readFileSync(resolve("packages/core/src/network-id.ts"), "utf8");
+    expect(helper).toMatch(/setNetworkId/);
+    expect(session).toMatch(/remitSetNetworkId/);
+    expect(providers).toMatch(/remitSetNetworkId/);
+    const call = readFileSync(resolve("front/src/lib/remit/circuit-call.ts"), "utf8");
+    expect(call).toMatch(/v=setNetworkId/);
+  });
+
   it("copies Midnight wasm next to remit-circuit.js", () => {
     const src = readFileSync(resolve("scripts/build-browser-circuit.mjs"), "utf8");
     expect(src).toMatch(/midnight_onchain_runtime_wasm_bg\.wasm/);

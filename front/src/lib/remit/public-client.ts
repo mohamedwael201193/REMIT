@@ -303,7 +303,7 @@ export function mapPublicWorkspace(args: {
       counterpartyIds: ["cp-onchain"],
       expiry: now,
       executorId: "ex-remit",
-      status: revoked ? "revoked" : activeMandates > 0 ? "active" : "exhausted",
+      status: activeMandates > 0 ? "active" : revoked ? "revoked" : "exhausted",
       createdAt: now,
       settledFills: fills,
       intent: created?.txHash

@@ -5,6 +5,7 @@ import type { ProvingProvider } from "@midnight-ntwrk/midnight-js-protocol/ledge
 import { RemitError } from "./errors.js";
 import { HttpZkConfigProvider } from "./http-zk.js";
 import { inMemoryPrivateStateProvider } from "./memory-state.js";
+import { remitSetNetworkId } from "./network-id.js";
 
 export type BrowserProofKind = "1am-intab" | "lace-http";
 
@@ -18,6 +19,7 @@ export type BrowserProviderOpts = {
   proof: BrowserProofKind;
   provingProvider?: ProvingProvider;
   proofServer?: string;
+  network?: string;
 };
 
 /**
@@ -25,6 +27,7 @@ export type BrowserProviderOpts = {
  * 1AM getProvingProvider or Lace's local proof-server 8.1.0. No WalletFacade.
  */
 export function createBrowserProviders(opts: BrowserProviderOpts) {
+  remitSetNetworkId(opts.network ?? "preprod");
   const zkConfigProvider = new HttpZkConfigProvider(opts.apiUrl, opts.zkScope ?? "pool");
   let proofProvider: ProofProvider;
   if (opts.proof === "1am-intab") {

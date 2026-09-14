@@ -183,10 +183,10 @@ export function LandingFooter() {
             © {new Date().getFullYear()} REMIT. Delegate the trade. Keep the trust.
           </p>
           <div className="flex items-center gap-4 text-cream/45">
-            <a href="#" aria-label="Documentation" className="transition-colors hover:text-gold">
+            <a href="https://github.com/mohamedwael201193/REMIT#readme" target="_blank" rel="noreferrer" aria-label="Documentation" className="transition-colors hover:text-gold">
               <BookOpen className="h-4 w-4" />
             </a>
-            <a href="#" aria-label="GitHub" className="transition-colors hover:text-gold">
+            <a href="https://github.com/mohamedwael201193/REMIT" target="_blank" rel="noreferrer" aria-label="GitHub" className="transition-colors hover:text-gold">
               <Github className="h-4 w-4" />
             </a>
             <a href="#" aria-label="Twitter" className="transition-colors hover:text-gold">

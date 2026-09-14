@@ -120,10 +120,15 @@ function AuditRecordCard({ record }: { record: AuditRecord }) {
         title: `Fact revealed — ${disclosure.label}`,
         duration: 2600,
       });
-    } catch {
+    } catch (error) {
       toast({
-        title: "Disclosure could not be opened. Try again.",
+        title: "Disclosure stays sealed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Field opening requires a real audit package verified against the on-chain auditRoot",
         variant: "destructive",
+        duration: 12000,
       });
     } finally {
       setBusyId(null);

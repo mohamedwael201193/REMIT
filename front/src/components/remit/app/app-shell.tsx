@@ -166,6 +166,7 @@ export function AppShell() {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const returnToLanding = useRemitStore((s) => s.returnToLanding);
   const appView = useRemitStore((s) => s.appView);
+  const role = useRemitStore((s) => s.role);
 
   return (
     <div className="flex min-h-screen flex-col bg-ink text-cream">
@@ -188,7 +189,7 @@ export function AppShell() {
           </div>
           <div className="space-y-3 border-t border-[rgba(239,235,224,0.08)] p-4">
             <p className="px-1 text-[10.5px] uppercase tracking-[0.18em] text-cream/35">
-              Signed in as principal
+              Signed in as {role}
             </p>
             <Button
               variant="ghost"

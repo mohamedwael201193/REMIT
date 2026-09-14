@@ -50,6 +50,7 @@ async function poolProviders(args: BrowserCircuitArgs) {
     zkScope: "pool",
     walletName: args.kind === "lace" ? "Lace" : "1AM",
     walletRdns: args.kind === "lace" ? "io.lace" : "xyz.1am",
+    network: args.network,
   });
   const addr = (await args.wallet.getUnshieldedAddress()).unshieldedAddress;
   const ns = walletNamespace(args.network, addr, "browser-pool");
