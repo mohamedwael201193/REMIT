@@ -4,7 +4,7 @@
  * Do not include mnemonics or executor secrets.
  */
 import { build } from "esbuild";
-import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -88,3 +88,16 @@ await build({
 });
 
 console.log("wrote", outfile);
+
+const jsPath = outfile;
+let js = readFileSync(jsPath, "utf8");
+const syncCount = (js.match(/new WebAssembly\.Module/g) ?? []).length;
+js = js.replace(
+  /var (\w+) = new WebAssembly\.Module\((\w+)\);\r?\nvar (\w+) = new WebAssembly\.Instance\(\1, (\w+)\);/g,
+  "var { instance: $3, module: $1 } = await WebAssembly.instantiate($2, $4);",
+);
+if (/new WebAssembly\.Module/.test(js)) {
+  throw new Error("circuit bundle still uses sync WebAssembly.Module (Chrome blocks >8MB on the main thread)");
+}
+writeFileSync(jsPath, js);
+console.log("async-wasm-instantiate", syncCount);

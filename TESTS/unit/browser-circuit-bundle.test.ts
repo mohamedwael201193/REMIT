@@ -34,6 +34,8 @@ describe("1AM circuit bundle graph", () => {
     const text = readFileSync(js, "utf8");
     expect(text).toMatch(/createMandateFromWallet/);
     expect(text).toMatch(/revokeMandatesFromWallet/);
+    expect(text).not.toMatch(/new WebAssembly\.Module/);
+    expect(text).toMatch(/WebAssembly\.instantiate/);
     expect(existsSync(resolve("dist/browser/midnight_ledger_wasm_bg.wasm"))).toBe(true);
   });
 });
