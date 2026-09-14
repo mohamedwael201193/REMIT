@@ -112,7 +112,7 @@ export function SectionPrivacy() {
         <Reveal delay={1}>
           <p className="mt-10 max-w-xl text-pretty text-[15px] leading-relaxed text-cream/55">
             Privacy is not decoration. Privacy is what stops the market from
-            trading against you — and what lets a stranger verify your agent
+            trading against you, and what lets a stranger verify your agent
             behaved, without ever seeing why.
           </p>
         </Reveal>

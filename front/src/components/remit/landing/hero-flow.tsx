@@ -256,7 +256,7 @@ export function HeroFlow({ className }: { className?: string }) {
       >
         <span className="absolute -top-[5px] left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-gold/70" aria-hidden="true" />
         <p className="text-center font-data text-[10px] uppercase tracking-[0.24em] text-sage">
-          Midnight · public ledger — only the result is visible
+          Midnight · public ledger · only the result is visible
         </p>
       </motion.div>
     </div>

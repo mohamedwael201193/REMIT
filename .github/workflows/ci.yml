@@ -39,5 +39,17 @@ jobs:
       - name: Integration (compact-runtime lifecycle)
         run: npm run test:integration
       - run: node scripts/inspect-managed.mjs
+      - name: Public documentation scan
+        run: node scripts/public-doc-scan.mjs
       - name: API build
         run: npm run build -w @remit/api
+      - name: Install frontend deps
+        run: npm install --prefix front
+      - name: Typecheck frontend
+        run: npm run typecheck --prefix front
+      - name: ABOUT character gate
+        run: node scripts/about-count.mjs
+      - name: Judge proof (local gates; live probes are non-fatal YELLOW)
+        run: npx tsx scripts/judge-proof.ts
+        env:
+          JUDGE_SKIP_TESTS: "1"

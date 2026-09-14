@@ -15,11 +15,11 @@ import { Accent, Reveal, SectionHeading } from "@/components/remit/primitives";
 const FAQS = [
   {
     q: "What exactly is a mandate?",
-    a: "A private set of trading rules — allowed asset, side, per-fill cap, limit price, total budget, admitted counterparties and an expiry — sealed before execution begins. The executor operates inside it; the market never reads it; the chain proves it was respected.",
+    a: "A private set of trading rules: allowed asset, side, per-fill cap, limit price, total budget, admitted counterparties, and an expiry, sealed before execution begins. The executor operates inside it. The market never reads it. The chain proves it was respected.",
   },
   {
     q: "Can the agent exceed the mandate?",
-    a: "No. A fill that breaks any rule — size over the cap, price past the limit, a counterparty outside the admitted set, a lapsed expiry — is rejected before settlement. No value moves. You can try it yourself in the enforcement demo above.",
+    a: "No. A fill that breaks any rule (size over the cap, price past the limit, a counterparty outside the admitted set, a lapsed expiry) is rejected before settlement. No value moves. You can try it yourself in the enforcement illustration above.",
   },
   {
     q: "What does the public actually see?",
@@ -27,15 +27,15 @@ const FAQS = [
   },
   {
     q: "What can an auditor see?",
-    a: "Exactly one verified fact at a time — a fill amount, a policy result, a counterparty class or a timestamp — and only what you choose to disclose. The mandate itself is never handed over.",
+    a: "Exactly one verified fact at a time (a fill amount, a policy result, a counterparty class, or a timestamp), and only what you choose to disclose. The mandate itself is never handed over.",
   },
   {
     q: "Which wallets does REMIT work with?",
-    a: "1AM and Lace on Midnight today, with additional providers as the ecosystem grows. The wallet sits underneath the product — it never becomes the experience.",
+    a: "1AM and Lace on Midnight today, with additional providers as the ecosystem grows. The wallet sits underneath the product. It never becomes the experience.",
   },
   {
     q: "What happens when I revoke the executor?",
-    a: "Revocation is part of the mandate state. Once revoked, no further fill can settle under that authorization — while every past receipt remains independently verifiable.",
+    a: "Revocation is part of the mandate state. Once revoked, no further fill can settle under that authorization, while every past receipt remains independently verifiable.",
   },
 ];
 

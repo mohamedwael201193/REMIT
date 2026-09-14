@@ -54,7 +54,11 @@
     "proof:up": "docker compose -f infra/proof-server.yml up -d",
     "proof:down": "docker compose -f infra/proof-server.yml down",
     "local:health": "npx tsx scripts/local-health.ts",
-    "local:up": "node scripts/local-up.mjs"
+    "local:up": "node scripts/local-up.mjs",
+    "typecheck": "npm run build -w @remit/api && npm run typecheck --prefix front",
+    "judge:proof": "npx tsx scripts/judge-proof.ts",
+    "about:count": "node scripts/about-count.mjs",
+    "docs:scan": "node scripts/public-doc-scan.mjs"
   },
   "overrides": {
     "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",

@@ -41,6 +41,9 @@
     { "name": "old-opening-replay", "ok": true, "detail": "consumed opening rejected by Compact" },
     { "name": "residual-replay", "ok": true, "detail": "already-consumed leftover rejected" },
     { "name": "selective-audit", "ok": true, "detail": "one-field verifyDisclosure against auditRoots head" },
-    { "name": "pool-withdraw", "ok": true, "txHash": "999e2b5b3a32c7537ebba3ecb9afd7bce77f8ff205f97e361c2be5e35490fce5", "block": 2550510, "detail": "SucceedEntirely" }
+    { "name": "pool-withdraw", "ok": true, "txHash": "999e2b5b3a32c7537ebba3ecb9afd7bce77f8ff205f97e361c2be5e35490fce5", "block": 2550510, "detail": "SucceedEntirely · operator leftover" },
+    { "name": "chrome-create-mandate", "ok": true, "txHash": "5172ab712e2cb39e5f455dd8cec609765d6fe2225ca0b0e97412cfc436df8fa9", "block": 2551299, "detail": "SucceedEntirely · 1AM in-tab · 0 public outputs" },
+    { "name": "chrome-revoke-mandate", "ok": true, "txHash": "8ae27d7a3930c284a410198234d97ad110f0668af29cf89c42091b3b51882f49", "block": 2551669, "detail": "SucceedEntirely · indexer activeMandates 4 to 3" },
+    { "name": "chrome-withdraw-deposit", "ok": true, "txHash": "cdb04c15462fad79bcd851ec39604bae32ef3b8f2463eb44aea7e7365c05ff2d", "block": 2551700, "detail": "SucceedEntirely deposit · Chrome leftover withdraw not yet explorer-gated" }
   ]
 }

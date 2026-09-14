@@ -110,7 +110,7 @@ export function SectionEnforcement() {
               <Accent>The agent cannot exceed.</Accent>
             </>
           }
-          lede="Illustration — not live Preprod. Seal a teaching cap. Drive the executor yourself. Watch what happens when the engine tries to cross the boundary."
+          lede="Illustration. Teaching cap only. Seal a boundary, drive the executor, and watch Compact refuse a fill that crosses it. Live Preprod fills are in the workspace."
         />
 
         <Reveal delay={0.1} className="mx-auto mt-14 max-w-5xl">
@@ -368,7 +368,7 @@ export function SectionEnforcement() {
                           Fill exceeds per-fill mandate cap.
                         </p>
                         <p className="font-data text-[11px] uppercase tracking-[0.14em] text-cream/45">
-                          {usd(size)} attempted · {usd(CAP)} cap · refused before settlement — no value moved
+                          {usd(size)} attempted · {usd(CAP)} cap · refused before settlement. No value moved.
                         </p>
                       </motion.div>
                     ) : null}
@@ -390,11 +390,11 @@ export function SectionEnforcement() {
                           <ProofSeal className="h-9 w-9" tone="mint" stamp />
                         </div>
                         <p className="text-[13.5px] text-cream/85">
-                          Mandate satisfied — proof accepted on Midnight.
+                          Mandate satisfied. Proof accepted on Midnight.
                         </p>
                         <div className="flex flex-wrap gap-2 pt-0.5">
                           <DataChip className="border-mint/25 text-mint/90">
-                            illustration — not an indexer tx
+                            illustration · not an indexer tx
                           </DataChip>
                         </div>
                       </motion.div>
@@ -409,7 +409,7 @@ export function SectionEnforcement() {
         <Reveal delay={0.15}>
           <p className="mx-auto mt-10 max-w-2xl text-center text-pretty text-[15px] leading-relaxed text-cream/60">
             The executor stays free to choose the offer, the moment and the
-            size — up to the boundary.{" "}
+            size, up to the boundary.{" "}
             <span className="text-gold">Cryptography defines where it stops.</span>{" "}
             The market only ever sees the result.
           </p>

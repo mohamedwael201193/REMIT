@@ -53,7 +53,7 @@ export function SectionRoles() {
               Four parties. <Accent>One boundary.</Accent>
             </>
           }
-          lede="Every role sees exactly what it needs — and not a field more."
+          lede="Every role sees exactly what it needs, and not a field more."
         />
 
         {/* the council — engraved banner above the cards */}
@@ -78,7 +78,7 @@ export function SectionRoles() {
               <CornerTicks />
               <figcaption className="absolute bottom-4 left-5 right-5 flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1">
                 <span className="font-data text-[10px] font-medium uppercase tracking-[0.24em] text-gold">
-                  PLATE III — THE COUNCIL OF FOUR
+                  PLATE III · THE COUNCIL OF FOUR
                 </span>
                 <span className="font-display text-[13px] italic text-cream/70">
                   The envelope is shared. The letter is not.

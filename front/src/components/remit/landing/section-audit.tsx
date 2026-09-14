@@ -14,10 +14,10 @@ import { Accent, EASE, Reveal, SectionHeading } from "@/components/remit/primiti
 import { PlateFrame, SpecimenStamp } from "./plates";
 
 const FACTS = [
-  { id: "fill", label: "Fill amount", value: "SEALED — illustration, not a live opening" },
-  { id: "policy", label: "Price limit satisfied", value: "Boolean fact — illustration" },
+  { id: "fill", label: "Fill amount", value: "SEALED · illustration, not a live opening" },
+  { id: "policy", label: "Price limit satisfied", value: "Boolean fact · illustration" },
   { id: "cp", label: "Counterparty authorized", value: "On-chain maker (illustration)" },
-  { id: "time", label: "Execution timestamp", value: "SEALED — not a live clock" },
+  { id: "time", label: "Execution timestamp", value: "SEALED · not a live clock" },
 ];
 
 export function SectionAudit() {
@@ -48,7 +48,7 @@ export function SectionAudit() {
                   <Accent>reading the book.</Accent>
                 </>
               }
-              lede="An auditor can confirm a single fact about an execution — the fill amount, the policy result, the counterparty class, the timestamp — without ever receiving the mandate behind it."
+              lede="An auditor can confirm a single fact about an execution (the fill amount, the policy result, the counterparty class, the timestamp) without ever receiving the mandate behind it."
             />
 
             <Reveal delay={0.1}>
@@ -61,7 +61,7 @@ export function SectionAudit() {
                     <p className="text-[14.5px] font-semibold">Private</p>
                     <p className="mt-0.5 text-[13.5px] leading-relaxed text-[#5d6a61]">
                       The mandate, the strategy, hidden amounts, private
-                      counterparties and risk limits. Sealed — always.
+                      counterparties and risk limits. Sealed. Always.
                     </p>
                   </div>
                 </div>
@@ -85,7 +85,7 @@ export function SectionAudit() {
               <PlateFrame
                 src="/remit-art/audit-rosette.webp"
                 alt="Guilloche rosette engraving with a keyhole at its center and one gold ring"
-                plate="PLATE IV — THE DISCLOSURE SEAL"
+                plate="PLATE IV · THE DISCLOSURE SEAL"
                 caption="One ring opens. The rest is security printing."
                 tone="paper"
                 imgClassName="h-[240px] object-cover sm:h-[300px]"
@@ -172,7 +172,7 @@ export function SectionAudit() {
                                 transition={{ duration: 0.3 }}
                                 className="mt-2 font-data text-[12px] uppercase tracking-[0.18em] text-cream/40"
                               >
-                                sealed — tap to disclose
+                                sealed · tap to disclose
                               </motion.span>
                             )}
                           </AnimatePresence>
@@ -182,7 +182,7 @@ export function SectionAudit() {
                   </div>
                   <p className="mt-5 text-[12.5px] leading-relaxed text-cream/50">
                     The auditor never receives the complete mandate. Each
-                    disclosure carries its own proof — and nothing else.
+                    disclosure carries its own proof, and nothing else.
                   </p>
                 </div>
               </div>

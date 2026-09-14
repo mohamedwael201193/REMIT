@@ -7,6 +7,7 @@
 import { LandingNav } from "./landing-nav";
 import { LandingHero } from "./landing-hero";
 import { LandingFacts } from "./landing-facts";
+import { LandingEvidence } from "./landing-evidence";
 import { SectionLeak } from "./section-leak";
 import { SectionInterlude } from "./section-interlude";
 import { SectionComparison } from "./section-comparison";
@@ -25,6 +26,7 @@ export function LandingPage() {
       <main className="w-full max-w-full flex-1 overflow-x-hidden">
         <LandingHero />
         <LandingFacts />
+        <LandingEvidence />
         <SectionLeak />
         <SectionInterlude />
         <SectionComparison />

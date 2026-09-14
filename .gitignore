@@ -49,9 +49,11 @@ Thumbs.db
 RESEARCH/spikes/**/out/
 RESEARCH/spikes/**/out-*/
 
-# ---- planning/research markdown stays local; GitHub gets README.md only ----
+# ---- planning/research markdown stays local; GitHub gets README + Wave plan + ABOUT ----
 *.md
 !README.md
+!PLAN.md
+!ABOUT.md
 
 # ---- local deploy evidence / wallet snapshots ----
 deployments/
@@ -72,3 +74,4 @@ front/.env.*
 front/*.log
 front/.zscripts/
 front/download/
+front/package-lock.json

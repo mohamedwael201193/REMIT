@@ -42,7 +42,7 @@ export function SectionInterlude() {
             <PlateFrame
               src="/remit-art/paper-interlude.webp"
               alt="Copperplate etching of a quiet private study desk with a sealed envelope and a brass lamp"
-              plate="PLATE II — THE SEALED DESK"
+              plate="PLATE II · THE SEALED DESK"
               caption="Rules at rest: sealed, stamped, still enforceable."
               tone="paper"
               priority={false}
@@ -69,7 +69,7 @@ export function SectionInterlude() {
               <div className="mt-2.5 flex items-start justify-between gap-2 px-1">
                 <div>
                   <p className="font-data text-[9.5px] font-medium uppercase tracking-[0.2em] text-[#b5522e]">
-                    fig. 1 — the old desk
+                    fig. 1 · the old desk
                   </p>
                   <p className="mt-1 text-[11.5px] leading-snug text-[#5d6a61]">
                     Every rule on display, every eye invited.

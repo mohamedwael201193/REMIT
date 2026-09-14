@@ -39,7 +39,7 @@ const TRADITIONAL: Step[] = [
   {
     icon: ScanEye,
     title: "Broker sees the whole strategy",
-    detail: "Limits, budget, urgency — all visible to the intermediary.",
+    detail: "Limits, budget, urgency: all visible to the intermediary.",
     leak: true,
   },
   {
@@ -60,7 +60,7 @@ const REMIT: Step[] = [
   {
     icon: FileLock2,
     title: "Principal seals a private mandate",
-    detail: "Asset, side, caps, counterparties and expiry — encrypted rules.",
+    detail: "Asset, side, caps, counterparties and expiry: encrypted rules.",
   },
   {
     icon: Eye,
@@ -69,7 +69,7 @@ const REMIT: Step[] = [
   },
   {
     icon: Bot,
-    title: "Executor chooses — but cannot exceed",
+    title: "Executor chooses, but cannot exceed",
     detail: "The agent is free to pick the best offer inside the boundary.",
   },
   {
@@ -192,7 +192,7 @@ export function SectionComparison() {
               <Accent>Different trust.</Accent>
             </>
           }
-          lede="Both paths hand execution to someone — or something — else. Only one of them can prove, after the fact and without disclosure, that every rule was respected."
+          lede="Both paths hand execution to someone, or something, else. Only one of them can prove, after the fact and without disclosure, that every rule was respected."
         />
 
         <div className="mx-auto mt-14 grid max-w-5xl gap-6 lg:grid-cols-2 lg:gap-8">

@@ -36,7 +36,7 @@ const STEPS = [
     icon: Inbox,
     title: "Receive private offers",
     detail:
-      "Counterparties quote the envelope — not your identity or intent.",
+      "Counterparties quote the envelope, not your identity or intent.",
   },
   {
     n: "04",
@@ -50,7 +50,7 @@ const STEPS = [
     icon: ShieldCheck,
     title: "Policy check",
     detail:
-      "Every rule is proven — in zero knowledge — before anything moves.",
+      "Every rule is proven in zero knowledge before anything moves.",
   },
   {
     n: "06",
@@ -71,7 +71,7 @@ const STEPS = [
     icon: SearchCheck,
     title: "Audit selectively",
     detail:
-      "Reveal one verified fact at a time — never the whole strategy.",
+      "Reveal one verified fact at a time, never the whole strategy.",
   },
 ];
 

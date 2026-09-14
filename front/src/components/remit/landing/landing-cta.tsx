@@ -59,9 +59,9 @@ export function LandingCta() {
         </Reveal>
         <Reveal delay={0.16}>
           <p className="mx-auto mt-6 max-w-xl text-pretty text-[15.5px] leading-relaxed text-cream/60">
-            Open the workspace, seal your first mandate and watch a
-            policy-bound engine execute inside your boundary — with Midnight
-            proving every fill.
+            Open the workspace, seal a mandate, and watch a constrained
+            executor fill inside the boundary. Midnight proves the fill before
+            value moves.
           </p>
         </Reveal>
         <Reveal delay={0.24}>
@@ -141,12 +141,12 @@ export function LandingFooter() {
             <Wordmark />
             <p className="mt-4 max-w-xs text-[13.5px] leading-relaxed text-cream/50">
               A dark pool where the trader&apos;s rules are as private as the
-              trade — and just as enforced.
+              trade, and just as enforced.
             </p>
             <div className="mt-6 flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-mint" aria-hidden="true" />
               <span className="font-data text-[11px] uppercase tracking-[0.14em] text-cream/45">
-                Midnight Preprod · Wave 1
+                Midnight Preprod
               </span>
             </div>
           </div>

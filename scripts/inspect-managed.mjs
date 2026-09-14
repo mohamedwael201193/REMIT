@@ -47,6 +47,10 @@ const report = {
 console.log(JSON.stringify(report, null, 2));
 mkdirSync(join(root, "deployments"), { recursive: true });
 writeFileSync(join(root, "deployments", "managed-keys.json"), JSON.stringify(report, null, 2));
+if (report.compilerVersion !== "0.31.1") {
+  console.error("expected Compact 0.31.1, got", report.compilerVersion);
+  process.exit(1);
+}
 if (report.pool.count && report.pool.count !== 7) {
   console.error("expected 7 pool verifier keys, got", report.pool.count);
   process.exit(1);

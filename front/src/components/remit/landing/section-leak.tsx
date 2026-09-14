@@ -27,7 +27,7 @@ const LEAKS = [
     n: "02",
     icon: TrendingDown,
     field: "Order size",
-    consequence: "Size signals conviction — price moves before you fill.",
+    consequence: "Size signals conviction. Price moves before you fill.",
   },
   {
     n: "03",
@@ -64,7 +64,7 @@ export function SectionLeak() {
                   <Accent>a story.</Accent>
                 </>
               }
-              lede="Traditional execution asks you to hand your strategy to an intermediary — and to the market. Every field an operator can see is a field the market can trade against."
+              lede="Traditional execution asks you to hand your strategy to an intermediary, and to the market. Every field an operator can see is a field the market can trade against."
             />
 
             <ol className="mt-12 space-y-0">

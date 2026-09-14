@@ -97,9 +97,9 @@ export function LandingHero() {
           <em className="pb-1 italic leading-[1.1] text-gold">the rules.</em>
         </h1>
 
-        <p className="hero-copy mx-auto mt-6 max-w-xl text-pretty text-[1.05rem] leading-relaxed text-cream/72 sm:text-lg">
-          Seal a mandate. Let an agent fill it. Midnight proves the fill before
-          value moves.
+        <p className="hero-copy mx-auto mt-6 max-w-2xl text-pretty text-[1.05rem] leading-relaxed text-cream/72 sm:text-lg">
+          Private execution where an agent can choose, but cannot exceed the
+          mandate. Compact proves the fill before value moves.
         </p>
 
         <div className="hero-copy mt-8 flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
