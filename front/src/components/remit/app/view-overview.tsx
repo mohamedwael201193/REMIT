@@ -539,7 +539,7 @@ function OverviewSkeleton() {
           <Skeleton key={i} className="h-[104px] rounded-xl" />
         ))}
       </div>
-        className="grid gap-6 lg:grid-cols-2"
+      <div className="grid gap-6 lg:grid-cols-2">
         <Skeleton className="h-[430px] rounded-2xl" />
         <div className="space-y-6">
           <Skeleton className="h-[290px] rounded-2xl" />
