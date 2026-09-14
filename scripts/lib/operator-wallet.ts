@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import * as Rx from "rxjs";
 import { mnemonicToSeedSync } from "@scure/bip39";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { unshieldedToken, LedgerParameters, ZswapSecretKeys, DustSecretKey } from "@midnight-ntwrk/midnight-js-protocol/ledger";
+import { unshieldedToken, ZswapSecretKeys, DustSecretKey } from "@midnight-ntwrk/midnight-js-protocol/ledger";
 import {
   HDWallet,
   Roles,
@@ -19,7 +19,7 @@ import {
   PublicKey,
   NoOpTransactionHistoryStorage,
 } from "@midnightntwrk/wallet-sdk";
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { RemitNodeWallet } from "../../packages/core/src/node-wallet.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -36,17 +36,29 @@ const WALLET_CACHE = {
   meta: resolve(WALLET_CACHE_DIR, "meta.json"),
 };
 
-function cachePresent() {
+export const OPERATOR_WALLET_CACHE_REL = "wallet-cache/operator";
+
+export function cachePresent() {
   return existsSync(WALLET_CACHE.shielded) && existsSync(WALLET_CACHE.unshielded) && existsSync(WALLET_CACHE.dust);
 }
 
-function quarantineOperatorWalletCache(reason: string) {
-  if (!existsSync(WALLET_CACHE_DIR)) return;
-  renameSync(WALLET_CACHE_DIR, `${WALLET_CACHE_DIR}.broken-${Date.now()}`);
-  console.log("quarantined serializeState cache:", reason);
+export function serializeStateMissingError(siblings: string[]): Error {
+  const extra = siblings.length ? ` nearby=${siblings.join(",")}` : " nearby=none";
+  return new Error(
+    `serializeState cache missing at ${OPERATOR_WALLET_CACHE_REL} (need shielded.state, unshielded.state, dust.state). Refusing genesis replay.${extra}`,
+  );
 }
 
-async function waitUntilSynced(wallet: WalletFacade, timeoutMs: number): Promise<boolean> {
+export function requireOperatorWalletCache() {
+  if (cachePresent()) return;
+  const parent = resolve(repoRoot, "wallet-cache");
+  const siblings = existsSync(parent)
+    ? readdirSync(parent).filter((n) => n.startsWith("operator"))
+    : [];
+  throw serializeStateMissingError(siblings);
+}
+
+export async function waitUntilSynced(wallet: WalletFacade, timeoutMs: number): Promise<boolean> {
   try {
     await Rx.firstValueFrom(
       wallet.state().pipe(
@@ -58,6 +70,39 @@ async function waitUntilSynced(wallet: WalletFacade, timeoutMs: number): Promise
   } catch {
     return false;
   }
+}
+
+export function truncatePublic(value: string, head = 12, tail = 6): string {
+  if (value.length <= head + tail + 1) return value;
+  return `${value.slice(0, head)}…${value.slice(-tail)}`;
+}
+
+export type OperatorWalletDiagnostics = {
+  address: string;
+  network: string;
+  pool: string;
+  cachePath: string;
+  restored: boolean;
+  availableCoins: number;
+  dustCoins: number;
+  synced: boolean;
+};
+
+export async function snapshotOperatorDiagnostics(
+  session: { wallet: WalletFacade; addr: string; restored: boolean },
+  poolAddress: string,
+): Promise<OperatorWalletDiagnostics> {
+  const s = await Rx.firstValueFrom(session.wallet.state().pipe(Rx.timeout({ first: 30_000 })));
+  return {
+    address: truncatePublic(session.addr, 20, 6),
+    network: "preprod",
+    pool: truncatePublic(poolAddress, 8, 6),
+    cachePath: OPERATOR_WALLET_CACHE_REL,
+    restored: session.restored === true,
+    availableCoins: s.unshielded.availableCoins?.length ?? 0,
+    dustCoins: s.dust?.availableCoins?.length ?? 0,
+    synced: s.isSynced === true,
+  };
 }
 
 function dustOffsetOf(serialized: string): string {
@@ -127,6 +172,16 @@ export async function persistOperatorWallet(wallet: WalletFacade) {
   if (persistBusy) return;
   persistBusy = true;
   try {
+    try {
+      const s = await Rx.firstValueFrom(wallet.state().pipe(Rx.take(1), Rx.timeout({ first: 8_000 })));
+      if (!s.isSynced) {
+        console.log("skip persist: not isSynced (keeping on-disk serializeState)");
+        return;
+      }
+    } catch {
+      console.log("skip persist: wallet state not readable");
+      return;
+    }
     mkdirSync(WALLET_CACHE_DIR, { recursive: true });
     const [shielded, unshielded, dust] = await Promise.all([
       wallet.shielded.serializeState(),
@@ -261,6 +316,14 @@ function deriveKeys(seed: Buffer) {
   return result.keys;
 }
 
+/**
+ * One exclusive operator WalletFacade (deployments/operator-wallet.lock).
+ * Jobs restore serializeState from wallet-cache/operator — the same snapshot
+ * Preprod deploy / MBBE lifecycle used. Never startWithSecretKeys / genesis.
+ * HTTP rank on Render is not a facade. Between processes, persistence is
+ * serializeState restore (compatible with a long-lived worker that holds
+ * this facade in RAM).
+ */
 export async function openOperatorWallet() {
   acquireOperatorWalletLock();
   try {
@@ -299,49 +362,27 @@ export async function openOperatorWallet() {
   };
 
   const configuration = { ...shieldedConfig, ...unshieldedConfig, ...dustConfig };
-  const coldStart = () =>
-    WalletFacade.init({
-      configuration,
-      shielded: (cfg) => ShieldedWallet(cfg).startWithSecretKeys(shieldedSecretKeys),
-      unshielded: (cfg) => UnshieldedWallet(cfg).startWithPublicKey(PublicKey.fromKeyStore(unshieldedKeystore)),
-      dust: (cfg) => DustWallet(cfg).startWithSecretKey(dustSecretKey, LedgerParameters.initialParameters().dust),
-    });
-
+  requireOperatorWalletCache();
+  const shieldedState = readFileSync(WALLET_CACHE.shielded, "utf8");
+  const unshieldedState = readFileSync(WALLET_CACHE.unshielded, "utf8");
+  const dustState = readFileSync(WALLET_CACHE.dust, "utf8");
+  console.log("opening operator wallet restore serializeState");
   let wallet: WalletFacade;
-  let restored = false;
-  console.log("opening operator wallet", cachePresent() ? "restore serializeState" : "cold start");
-  if (cachePresent() && process.env.REMIT_WALLET_COLD_START !== "1") {
-    try {
-      const shieldedState = readFileSync(WALLET_CACHE.shielded, "utf8");
-      const unshieldedState = readFileSync(WALLET_CACHE.unshielded, "utf8");
-      const dustState = readFileSync(WALLET_CACHE.dust, "utf8");
-      wallet = await WalletFacade.init({
-        configuration,
-        shielded: () => ShieldedWallet(shieldedConfig).restore(shieldedState),
-        unshielded: () => UnshieldedWallet(unshieldedConfig).restore(unshieldedState),
-        dust: () => DustWallet(dustConfig).restore(dustState),
-      });
-      const restoredOffset = dustOffsetOf(dustState);
-      console.log("restored operator wallet from serializeState cache (same wallet) dustOffset", restoredOffset);
-      restored = true;
-    } catch (e) {
-      console.log("wallet cache restore failed, cold start:", e instanceof Error ? e.message : "error");
-      quarantineOperatorWalletCache("restore-threw");
-      wallet = await coldStart();
-    }
-  } else {
-    if (process.env.REMIT_WALLET_COLD_START === "1") quarantineOperatorWalletCache("REMIT_WALLET_COLD_START");
-    console.log("no serializeState cache — cold DUST ledger replay from genesis (id: null)");
-    wallet = await coldStart();
+  try {
+    wallet = await WalletFacade.init({
+      configuration,
+      shielded: () => ShieldedWallet(shieldedConfig).restore(shieldedState),
+      unshielded: () => UnshieldedWallet(unshieldedConfig).restore(unshieldedState),
+      dust: () => DustWallet(dustConfig).restore(dustState),
+    });
+  } catch (e) {
+    throw new Error(
+      `serializeState restore failed at ${OPERATOR_WALLET_CACHE_REL}; refusing genesis replay: ${e instanceof Error ? e.message : "error"}`,
+    );
   }
+  const restoredOffset = dustOffsetOf(dustState);
+  console.log("restored operator wallet from serializeState cache (same wallet) dustOffset", restoredOffset);
   await wallet.start(shieldedSecretKeys, dustSecretKey);
-  if (restored && !(await waitUntilSynced(wallet, 90_000))) {
-    console.log("restored cache did not reach isSynced (zswap/dust rewind); same-wallet cold start");
-    await wallet.stop();
-    quarantineOperatorWalletCache("restore-not-synced");
-    wallet = await coldStart();
-    await wallet.start(shieldedSecretKeys, dustSecretKey);
-  }
   const persistTimer = setInterval(() => {
     void persistOperatorWallet(wallet);
   }, 90_000);
@@ -364,6 +405,7 @@ export async function openOperatorWallet() {
     proofServer,
     persistTimer,
     onHalt,
+    restored: true as const,
   };
   } catch (e) {
     releaseOperatorWalletLock();

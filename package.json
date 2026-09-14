@@ -43,6 +43,7 @@
     "api": "npm run start -w @remit/api",
     "agent:keygen": "node scripts/agent-keygen.mjs",
     "wallet:status": "npx tsx scripts/wallet-status.ts",
+    "wallet:diag": "npx tsx scripts/operator-wallet-diag.ts",
     "wallet:identity": "npx tsx scripts/prove-wallet-identity.ts",
     "wallet:register-dust": "npx tsx scripts/dust-register.ts",
     "audit:verify": "npx tsx scripts/audit-verify.ts",

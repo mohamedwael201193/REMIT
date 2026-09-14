@@ -40,6 +40,8 @@ import {
   openOperatorWallet,
   waitForOperatorWalletUnlocked,
   waitForPreprodDeployFile,
+  snapshotOperatorDiagnostics,
+  waitUntilSynced,
 } from "./lib/operator-wallet.ts";
 
 loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../.env.preprod.local") });
@@ -162,6 +164,17 @@ async function main() {
 
   const session = await openOperatorWallet();
   try {
+    const walletDiag = await snapshotOperatorDiagnostics(session, deployed.pool.address);
+    console.log(JSON.stringify({ wallet: walletDiag }));
+    if (walletDiag.restored !== true) {
+      throw new Error("operator wallet was not restored from serializeState");
+    }
+    const synced = await waitUntilSynced(session.wallet, 15 * 60_000);
+    const walletReady = await snapshotOperatorDiagnostics(session, deployed.pool.address);
+    console.log(JSON.stringify({ wallet: walletReady }));
+    if (!synced || walletReady.synced !== true) {
+      throw new Error("restored serializeState but isSynced=false; refusing prove/submit and refusing genesis");
+    }
     await ensureOperatorDust(session);
     const ns = walletNamespace("preprod", session.addr, "hosted-rfq-consume");
     const poolProviders = createNodeProviders({
