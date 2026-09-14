@@ -1,6 +1,6 @@
-import { checkFillPolicy, type PolicyFail } from "@remit/core";
-import type { Mandate, Offer } from "@remit/contracts/pool";
-import { pickBest, rankOffers, type Candidate, type Ranked } from "./strategy.js";
+import { checkFillPolicy, legalSlice, padBook, type PolicyFail } from "@remit/core";
+import type { Mandate, Offer, OfferSlot } from "@remit/contracts/pool";
+import { pickBest, rankOffers, selectKBook, slotsOf, type Candidate, type Ranked } from "./strategy.js";
 
 export type ExecutorInput = {
   esk: Uint8Array;
@@ -15,8 +15,18 @@ export type ExecutorInput = {
 };
 
 export type ExecutorDecision =
-  | { action: "fill"; id: string; offer: Offer; ranked: Ranked[] }
-  | { action: "reject"; reason: PolicyFail | "no-compliant-offer"; ranked: Ranked[] };
+  | {
+      action: "fill";
+      id: string;
+      offer: Offer;
+      ranked: Ranked[];
+      chosenIndex: bigint;
+      book: OfferSlot[];
+      fillBase: bigint;
+      fillQuote: bigint;
+      offerRand?: Uint8Array;
+    }
+  | { action: "reject"; reason: PolicyFail | "no-compliant-offer" | "no-legal-slice"; ranked: Ranked[] };
 
 /**
  * Agent is an execution component, not a chatbot.
@@ -37,11 +47,23 @@ export function decideFill(input: ExecutorInput): ExecutorDecision {
   if (input.bypassLocalPrecheck) {
     const first = input.candidates[0];
     if (!first) return { action: "reject", reason: "no-compliant-offer", ranked };
-    return { action: "fill", id: first.id, offer: first.offer, ranked };
+    const raw = input.candidates.slice(0, 3);
+    return {
+      action: "fill",
+      id: first.id,
+      offer: first.offer,
+      ranked,
+      chosenIndex: 0n,
+      book: padBook(slotsOf(raw)),
+      fillBase: first.offer.baseAmount,
+      fillQuote: first.offer.quoteAmount,
+      offerRand: first.rand,
+    };
   }
+  const k = selectKBook(rankArgs);
   const id = pickBest(ranked, rankArgs);
-  if (!id) return { action: "reject", reason: "no-compliant-offer", ranked };
-  const chosen = input.candidates.find((c) => c.id === id)!;
+  if (!k || !id) return { action: "reject", reason: "no-compliant-offer", ranked };
+  const chosen = k.selected;
   const gate = checkFillPolicy({
     esk: input.esk,
     mandate: input.mandate,
@@ -52,8 +74,23 @@ export function decideFill(input: ExecutorInput): ExecutorDecision {
     counterpartyAllowed: input.allowCounterparty(chosen.offer.maker),
   });
   if (!gate.ok) return { action: "reject", reason: gate.reason, ranked };
-  return { action: "fill", id, offer: chosen.offer, ranked };
+  try {
+    const slice = legalSlice(chosen.offer, input.mandate, input.remaining);
+    return {
+      action: "fill",
+      id: chosen.id,
+      offer: chosen.offer,
+      ranked,
+      chosenIndex: k.chosenIndex,
+      book: k.book,
+      fillBase: slice.fillBase,
+      fillQuote: slice.fillQuote,
+      offerRand: chosen.rand,
+    };
+  } catch {
+    return { action: "reject", reason: "no-legal-slice", ranked };
+  }
 }
 
-export { rankOffers, pickBest };
+export { rankOffers, pickBest, selectKBook };
 export type { Candidate, Ranked };

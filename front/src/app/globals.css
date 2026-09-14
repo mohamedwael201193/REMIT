@@ -56,6 +56,13 @@
   --color-clay: #d07850;
   --color-sage: #97a49a;
   --color-cream: #efebe0;
+
+  /* ── Motion tokens ────────────────────────────────────── */
+  --ease-remit: cubic-bezier(0.21, 0.47, 0.32, 0.98);
+  --duration-instant: 150ms;
+  --duration-fast: 320ms;
+  --duration-base: 450ms;
+  --duration-slow: 720ms;
 }
 
 /* ── Ink theme (root, default) ─────────────────────────── */
@@ -254,5 +261,8 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .animate-ping {
+    animation: none !important;
   }
 }

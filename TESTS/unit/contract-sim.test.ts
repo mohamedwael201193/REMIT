@@ -85,6 +85,7 @@ describe("pool compact-runtime simulator", () => {
       quoteAmount: 2560n,
       maker: k.maker,
       payNonce: randomBytes32(),
+      minFillBase: 80n,
     };
     const dM2 = deposit(sim, k.makerSk, 1n, 5000n);
     sim = dM2.sim;
@@ -115,7 +116,7 @@ describe("pool compact-runtime simulator", () => {
           offerRand: placedOver.offerRand,
           nowBound,
         }),
-      "fill exceeds per-fill cap",
+      "selected slot is not eligible",
     );
     expect(publicLedger(sim).fills).toBe(0n);
 

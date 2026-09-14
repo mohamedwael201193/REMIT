@@ -176,7 +176,7 @@ function OfferCard({
         </div>
       </div>
 
-      {/* scores */}
+      {offer.compatibility != null && offer.executionScore != null ? (
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <div className="flex items-baseline justify-between">
@@ -189,7 +189,7 @@ function OfferCard({
         </div>
         <div className="space-y-1.5">
           <div className="flex items-baseline justify-between">
-            <p className="eyebrow text-muted-foreground">Execution score</p>
+            <p className="eyebrow text-muted-foreground">Rank (not AI)</p>
             <p className="font-data text-[11.5px] text-mint">
               {pct(offer.executionScore)}
             </p>
@@ -197,6 +197,11 @@ function OfferCard({
           <ProgressTrack value={offer.executionScore} max={100} tone="mint" />
         </div>
       </div>
+      ) : (
+        <p className="rounded-xl border border-[rgba(239,235,224,0.08)] bg-[#101915] px-3 py-2.5 text-[12.5px] text-cream/60">
+          Eligibility is private. Compact ranks the K openings the executor actually opened — not a public score.
+        </p>
+      )}
 
       {/* frictions */}
       {offer.frictions.length > 0 ? (

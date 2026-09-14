@@ -70,7 +70,9 @@ describe("public Preprod config for the supplied frontend", () => {
     expect(ws.portfolio.totalBudget).toBeNull();
     expect(ws.portfolio.committedBudget).toBeNull();
     expect(ws.portfolio.amountPrivacy).toBe("sealed");
-    expect(ws.offers.every((o) => o.price == null && o.size == null && o.amountPrivacy === "sealed")).toBe(true);
+    expect(ws.executions.every((e) => e.attemptedFill == null && e.price == null)).toBe(true);
+    expect(ws.offers.every((o) => o.compatibility == null && o.executionScore == null)).toBe(true);
+    expect(ws.portfolio.verificationRate).toBeNull();
     expect(explorerTxUrl("f1")).toContain("f1");
   });
 

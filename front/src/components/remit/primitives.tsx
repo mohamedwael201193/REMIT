@@ -10,8 +10,9 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { motion, useInView, useReducedMotion } from "framer-motion";
-import { AlertTriangle, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Check, Copy, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isLikelyHash, truncateHash } from "@/lib/remit/format";
 
 /* Brand marks are re-exported for one-line imports across surfaces. */
 export { ProofSeal, RemitMark, BoundaryGlyph, Wordmark } from "./brand";
@@ -19,6 +20,17 @@ export { ProofSeal, RemitMark, BoundaryGlyph, Wordmark } from "./brand";
 /* ── Motion ────────────────────────────────────────────────────────── */
 
 export const EASE = [0.21, 0.47, 0.32, 0.98] as const;
+
+export const MOTION = {
+  ease: EASE,
+  duration: {
+    instant: 0.15,
+    fast: 0.32,
+    base: 0.45,
+    slow: 0.72,
+    draw: 1.1,
+  },
+} as const;
 
 export function Reveal({
   children,
@@ -40,7 +52,7 @@ export function Reveal({
       initial={reduced ? false : { opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once, margin: "-10% 0px" }}
-      transition={{ duration: 0.72, delay, ease: EASE }}
+      transition={{ duration: reduced ? 0 : MOTION.duration.slow, delay: reduced ? 0 : delay, ease: MOTION.ease }}
     >
       {children}
     </motion.div>
@@ -51,7 +63,7 @@ export function Reveal({
 export function DrawPath({
   d,
   className,
-  duration = 1.4,
+  duration = MOTION.duration.draw,
   delay = 0,
   ...pathProps
 }: React.SVGProps<SVGPathElement> & {
@@ -62,13 +74,13 @@ export function DrawPath({
   const inView = useInView(ref, { once: true, margin: "-8% 0px" });
   const reduced = useReducedMotion();
   return (
-    <path
+    <motion.path
       ref={ref}
       d={d}
       className={className}
       initial={{ pathLength: reduced ? 1 : 0 }}
       animate={inView || reduced ? { pathLength: 1 } : undefined}
-      transition={{ duration, delay, ease: EASE }}
+      transition={{ duration: reduced ? 0 : duration, delay: reduced ? 0 : delay, ease: MOTION.ease }}
       {...pathProps}
     />
   );
@@ -292,6 +304,7 @@ export function ProgressTrack({
   tone?: "gold" | "mint" | "clay";
 }) {
   const pct = Math.min(100, Math.max(0, (value / Math.max(max, 1)) * 100));
+  const reduced = useReducedMotion();
   const tones = {
     gold: "bg-gold",
     mint: "bg-mint",
@@ -307,10 +320,10 @@ export function ProgressTrack({
     >
       <motion.div
         className={cn("h-full rounded-full", tones[tone])}
-        initial={{ width: 0 }}
+        initial={{ width: reduced ? `${pct}%` : 0 }}
         whileInView={{ width: `${pct}%` }}
         viewport={{ once: true }}
-        transition={{ duration: 1.1, ease: EASE }}
+        transition={{ duration: reduced ? 0 : MOTION.duration.draw, ease: MOTION.ease }}
       />
     </div>
   );
@@ -331,6 +344,103 @@ export function DataChip({
       )}
     >
       {children}
+    </span>
+  );
+}
+
+/** Truncated hash / address with copy. Never dump a full hex string into layout. */
+export function HashChip({
+  value,
+  label,
+  href,
+  className,
+}: {
+  value: string;
+  label?: string;
+  href?: string;
+  className?: string;
+}) {
+  const [copied, setCopied] = React.useState(false);
+  if (!value) return null;
+  const display = truncateHash(value);
+
+  const copy = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    });
+  };
+
+  const body = (
+    <>
+      {label ? <span className="shrink-0 text-sage">{label}</span> : null}
+      <span className="font-data max-w-[11rem] truncate" title={value}>
+        {display}
+      </span>
+      <button
+        type="button"
+        onClick={copy}
+        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-sage hover:text-cream"
+        aria-label={copied ? "Copied" : "Copy"}
+      >
+        {copied ? <Check className="h-3 w-3 text-mint" /> : <Copy className="h-3 w-3" />}
+      </button>
+    </>
+  );
+
+  const chipClass = cn(
+    "font-data inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border bg-secondary/60 py-0.5 pl-2 pr-0.5 text-[11px] text-muted-foreground",
+    className,
+  );
+
+  if (href) {
+    return (
+      <span className={chipClass}>
+        <a href={href} target="_blank" rel="noreferrer" className="min-w-0 truncate text-gold/90 hover:text-gold">
+          {label ? `${label} ${display}` : display}
+        </a>
+        <button
+          type="button"
+          onClick={copy}
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-sage hover:text-cream"
+          aria-label={copied ? "Copied" : "Copy"}
+        >
+          {copied ? <Check className="h-3 w-3 text-mint" /> : <Copy className="h-3 w-3" />}
+        </button>
+      </span>
+    );
+  }
+
+  return <span className={chipClass}>{body}</span>;
+}
+
+/** Split " · " activity lines and chip any hash-like token. */
+export function HashAwareLine({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
+  const parts = text.split(" · ");
+  return (
+    <span className={cn("flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1", className)}>
+      {parts.map((part, i) => (
+        <React.Fragment key={`${part}-${i}`}>
+          {i > 0 ? (
+            <span className="text-sage/45" aria-hidden="true">
+              ·
+            </span>
+          ) : null}
+          {isLikelyHash(part) ? (
+            <HashChip value={part} />
+          ) : (
+            <span className="min-w-0 break-words">{part}</span>
+          )}
+        </React.Fragment>
+      ))}
     </span>
   );
 }

@@ -159,8 +159,8 @@ class LiveRemitProvider implements RemitProvider {
         executionRef: fill.reference,
         asset: fill.asset,
         counterpartyClass: "On-chain counterparty",
-        proofStatus: "verified",
-        auditRoot: fill.txHash ?? fill.proofRef ?? "",
+        proofStatus: "pending",
+        auditRoot: "",
         verifiedAt: fill.executedAt,
         disclosures: [
           {

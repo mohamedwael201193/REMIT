@@ -23,7 +23,7 @@ import {
   fromHex,
   type InboxItem,
 } from "@remit/core";
-import { rankOffers } from "@remit/agent";
+import { pickBest, rankOffers } from "@remit/agent";
 
 export type ApiConfig = {
   cors: string;
@@ -484,7 +484,7 @@ export async function buildApp(cfg: ApiConfig) {
       }
     });
     const live = candidates.filter((c) => c.offer.baseAmount > 0n);
-    const ranked = rankOffers({
+    const rankArgs = {
       esk,
       mandate,
       remaining,
@@ -492,14 +492,18 @@ export async function buildApp(cfg: ApiConfig) {
       revoked: false,
       candidates: live,
       allowCounterparty: () => true,
-    });
+    };
+    const ranked = rankOffers(rankArgs);
+    const selectedId = pickBest(ranked, rankArgs) ?? null;
     return {
       ranked: ranked.map((r) => (r.ok ? { id: r.id, ok: true as const } : { id: r.id, ok: false as const, reason: r.reason })),
       eligibleCount: ranked.filter((r) => r.ok).length,
       rejected: ranked.filter((r) => !r.ok).map((r) => ({ id: r.id, reason: r.ok ? undefined : r.reason })),
+      selectedId,
       candidateCount: live.length,
       rule: "mbbe-eligible-only",
       mpc: false,
+      globalBest: false,
     };
   });
 

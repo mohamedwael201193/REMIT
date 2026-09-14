@@ -630,14 +630,9 @@ export function ViewOverview() {
           sub="awaiting evaluation"
         />
         <KpiCard
-          label="Verification rate"
-          value={
-            <CountUp
-              value={portfolio.verificationRate}
-              format={(n) => `${n.toFixed(1)}%`}
-            />
-          }
-          sub="fills proven compliant"
+          label="On-chain fills"
+          value={<CountUp value={portfolio.settledNotional} />}
+          sub="indexer fill counter — not a fake proof rate"
         />
       </Reveal>
 

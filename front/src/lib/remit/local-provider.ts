@@ -37,7 +37,7 @@ const emptyPortfolio: PortfolioSnapshot = {
   amountPrivacy: "sealed",
   openOffers: 0,
   settledNotional: 0,
-  verificationRate: 0,
+  verificationRate: null,
   auditReadyCount: 0,
 };
 

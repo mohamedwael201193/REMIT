@@ -7,7 +7,7 @@
  * to them without touching the UI.
  */
 
-export type Role = "principal" | "executor" | "auditor";
+export type Role = "principal" | "executor" | "auditor" | "maker";
 
 /** Private terms with no public opening. Never format the absence as $0. */
 export type PrivacyLabel = "sealed" | "not-disclosed";
@@ -27,7 +27,7 @@ export type AssetClass =
   | "network-native";
 
 export interface AssetRef {
-  /** Trading symbol used across the product, e.g. "wBTC.n". */
+  /** Trading symbol used across the product, e.g. "tNIGHT". */
   symbol: string;
   name: string;
   assetClass: AssetClass;
@@ -66,7 +66,7 @@ export type MandateStatus =
 
 export interface Mandate {
   id: string;
-  /** Human reference, e.g. "MD-2841". */
+  /** Human reference, e.g. "MD-e82dea". */
   reference: string;
   asset: string;
   side: Side;
@@ -110,15 +110,17 @@ export interface Offer {
   size: number | null;
   amountPrivacy?: PrivacyLabel;
   counterpartyId: string;
-  /** 0–100: how well the offer fits the mandate envelope. */
-  compatibility: number;
-  /** 0–100: execution engine's score for taking this offer. */
-  executionScore: number;
+  /** 0–100 when ranked; null when the public ledger has no opening. */
+  compatibility: number | null;
+  /** 0–100 when ranked; null when not scored. Never a fake confidence. */
+  executionScore: number | null;
   receivedAt: string;
   expiresAt: string;
   state: OfferState;
   /** Reasons the offer falls outside the mandate envelope, if any. */
   frictions: string[];
+  /** Place-offer tx when the commitment is on the indexer. */
+  txHash?: string;
 }
 
 export interface PolicyCheck {
@@ -225,7 +227,8 @@ export interface PortfolioSnapshot {
   amountPrivacy?: PrivacyLabel;
   openOffers: number;
   settledNotional: number;
-  verificationRate: number;
+  /** Indexer fill count, not a fake proof-success percentage. Null when unknown. */
+  verificationRate: number | null;
   auditReadyCount: number;
 }
 

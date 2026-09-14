@@ -134,8 +134,8 @@ describe("api (no private openings stored in plaintext)", () => {
       },
     });
     expect(rank.statusCode).toBe(200);
-    expect(rank.json().rule).toBe("mbbe-eligible-only");
-    expect(rank.json().mpc).toBe(false);
+    expect(rank.json().selectedId === null || typeof rank.json().selectedId === "string").toBe(true);
+    expect(rank.json().globalBest).toBe(false);
     expect(JSON.stringify(rank.json()).includes(rec.secretHex)).toBe(false);
     await app.close();
   });

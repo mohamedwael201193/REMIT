@@ -2,8 +2,8 @@
  * Display catalog for the supplied visual system.
  *
  * Wave 1 live data comes from the provider (indexer + API evidence).
- * Lookup helpers never fall back to a fictional asset or desk.
- * The arrays below remain for landing copy only and are not a production ledger.
+ * LIVE lookups never consult the fiction arrays (USDC.n, Corvus, MD-2841, Northline).
+ * Those arrays stay isolated here and must not be imported by live-provider.
  */
 
 import type {
@@ -95,17 +95,23 @@ export const ASSETS: AssetRef[] = [
   },
 ];
 
+/** Assets that live workspace views may resolve. Fantasy tickers never match. */
+export const LIVE_ASSETS: AssetRef[] = ASSETS.filter((a) =>
+  a.symbol === "tNIGHT" || a.symbol === "REMIT-Q" || a.symbol === "DUST",
+);
+
 export const assetBySymbol = (symbol: string): AssetRef =>
-  ASSETS.find((a) => a.symbol === symbol) ?? {
+  LIVE_ASSETS.find((a) => a.symbol === symbol) ?? {
     symbol,
     name: symbol,
     assetClass: "network-native",
-    precision: 2,
+    precision: 0,
     unit: symbol,
   };
 
 /* ── counterparties ───────────────────────────────────────────────── */
 
+/* Isolated fiction — not consulted by counterpartyById. Do not import from live-provider. */
 export const COUNTERPARTIES: Counterparty[] = [
   {
     id: "cp-northline",
@@ -165,15 +171,15 @@ export const COUNTERPARTIES: Counterparty[] = [
   },
 ];
 
-export const counterpartyById = (id: string): Counterparty =>
-  COUNTERPARTIES.find((c) => c.id === id) ?? {
-    id,
-    name: id,
-    desk: "On-chain",
-    region: "Preprod",
-    status: "pending",
-    settlements: 0,
-  };
+/** Live views: never invent Northline / 1284 settlements / a named desk. */
+export const counterpartyById = (id: string): Counterparty => ({
+  id,
+  name: id === "cp-onchain" ? "On-chain maker" : id,
+  desk: "",
+  region: "",
+  status: "pending",
+  settlements: 0,
+});
 
 export const COUNTERPARTY_CLASSES = [
   "Tier-1 OTC desks",
@@ -183,6 +189,7 @@ export const COUNTERPARTY_CLASSES = [
 
 /* ── executors ────────────────────────────────────────────────────── */
 
+/* Isolated fiction — not consulted by executorById. Do not import from live-provider. */
 export const EXECUTORS: Executor[] = [
   {
     id: "ex-corvus",
@@ -204,16 +211,17 @@ export const EXECUTORS: Executor[] = [
   },
 ];
 
-export const executorById = (id: string): Executor =>
-  EXECUTORS.find((e) => e.id === id) ?? {
-    id,
-    name: "Constrained broker",
-    model: "deterministic",
-    policyBound: true,
-  };
+/** Live views: never resolve Corvus / Halcyon / Ledgerline. */
+export const executorById = (id: string): Executor => ({
+  id,
+  name: id === "ex-remit" ? "Constrained broker" : id,
+  model: "deterministic",
+  policyBound: true,
+});
 
 /* ── mandates ─────────────────────────────────────────────────────── */
 
+/* Isolated fixtures (MD-2841, USDC.n, …). Not imported by live-provider. */
 export const MANDATES: Mandate[] = [
   {
     id: "md-2841",

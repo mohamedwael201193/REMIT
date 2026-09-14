@@ -128,8 +128,8 @@ export type MappedOffer = {
   size: number | null;
   amountPrivacy: PrivacyLabel;
   counterpartyId: string;
-  compatibility: number;
-  executionScore: number;
+  compatibility: number | null;
+  executionScore: number | null;
   receivedAt: string;
   expiresAt: string;
   state: "new" | "compatible" | "incompatible" | "executed" | "declined";
@@ -147,7 +147,7 @@ export type MappedWorkspace = {
     amountPrivacy: PrivacyLabel;
     openOffers: number;
     settledNotional: number;
-    verificationRate: number;
+    verificationRate: number | null;
     auditReadyCount: number;
   };
   mandates: MappedMandate[];
@@ -250,9 +250,9 @@ export function mapPublicWorkspace(args: {
         offerId: "offer:compliant",
         asset: "tNIGHT",
         side: "buy",
-        attemptedFill: 40,
-        settledFill: s.ok ? 40 : undefined,
-        price: 32,
+        attemptedFill: null,
+        settledFill: s.ok ? null : undefined,
+        price: null,
         counterpartyId: "cp-onchain",
         status: s.ok ? "settled" : "rejected",
         refusalReason: s.ok ? undefined : s.detail,
@@ -277,8 +277,8 @@ export function mapPublicWorkspace(args: {
         offerId: "offer:over",
         asset: "tNIGHT",
         side: "buy",
-        attemptedFill: 60,
-        price: 32,
+        attemptedFill: null,
+        price: null,
         counterpartyId: "cp-onchain",
         status: "rejected",
         refusalReason: s.ok ? "Compact rejected X+20% fill" : s.detail,
@@ -298,7 +298,7 @@ export function mapPublicWorkspace(args: {
         offerId: "offer:price",
         asset: "tNIGHT",
         side: "buy",
-        attemptedFill: 40,
+        attemptedFill: null,
         price: null,
         counterpartyId: "cp-onchain",
         status: "rejected",
@@ -362,8 +362,8 @@ export function mapPublicWorkspace(args: {
       size: null,
       amountPrivacy: "sealed",
       counterpartyId: "cp-onchain",
-      compatibility: frictions.length ? 0 : 100,
-      executionScore: frictions.length ? 0 : 100,
+      compatibility: null,
+      executionScore: null,
       receivedAt: now,
       expiresAt: now,
       state,
@@ -392,7 +392,7 @@ export function mapPublicWorkspace(args: {
       amountPrivacy: "sealed",
       openOffers,
       settledNotional: fills,
-      verificationRate: fills > 0 ? 100 : 0,
+      verificationRate: null,
       auditReadyCount: args.evidence.steps.some((s) => s.name === "selective-audit" && s.ok) ? 1 : 0,
     },
     mandates,

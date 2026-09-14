@@ -15,7 +15,8 @@ describe("RFQ sealed box", () => {
     const boxed = sealJson(rec.publicHex, { side: 0, baseAmount: "40" });
     expect(openJson(rec.secretHex, boxed)).toEqual({ side: 0, baseAmount: "40" });
     expect(() => openJson(other.secretHex, boxed)).toThrow();
-    expect(boxed.includes("40")).toBe(false);
+    expect(boxed.includes('"baseAmount"')).toBe(false);
+    expect(boxed.includes("baseAmount")).toBe(false);
   });
 
   it("binds recipient, expires, and rejects replay", () => {

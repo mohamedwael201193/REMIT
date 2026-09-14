@@ -40,12 +40,12 @@ export function formatAmount(n: number, precision: number): string {
   });
 }
 
-/** Short, product-facing reference, e.g. "MD-2841". */
+/** Short, product-facing reference. Does not invent MD-2841-style labels. */
 export function shortRef(ref: string): string {
   return ref;
 }
 
-/** Truncated commitment reference, e.g. "prf_7c1d…a90e". */
+/** Truncated commitment / tx hash, e.g. "22c76487…5156". */
 export function shortCommitment(ref: string): string {
   if (ref.length <= 12) return ref;
   return `${ref.slice(0, 8)}…${ref.slice(-4)}`;
@@ -54,6 +54,21 @@ export function shortCommitment(ref: string): string {
 export function shortAddress(address: string): string {
   if (address.length <= 13) return address;
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
+/** Hex tx/contract ids, or Midnight unshielded addresses — never print full in layout. */
+export function isLikelyHash(value: string): boolean {
+  const v = value.trim();
+  if (v.length < 16) return false;
+  if (/^mn_addr_/i.test(v)) return true;
+  const hex = v.replace(/^0x/i, "");
+  return /^[0-9a-f]{16,}$/i.test(hex);
+}
+
+export function truncateHash(value: string): string {
+  const v = value.trim();
+  if (/^mn_addr_/i.test(v)) return shortAddress(v);
+  return shortCommitment(v);
 }
 
 export function timeAgo(isoTimestamp: string): string {
@@ -108,6 +123,7 @@ export function sideLabel(side: "buy" | "sell"): string {
   return side === "buy" ? "Buy" : "Sell";
 }
 
-export function pct(n: number): string {
+export function pct(n: number | null | undefined): string {
+  if (n == null) return "Sealed";
   return `${Math.round(n)}%`;
 }
