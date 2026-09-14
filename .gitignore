@@ -18,6 +18,10 @@ coverage/
 *.tsbuildinfo
 .turbo/
 .vite/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 
 # ---- compiled compact artifacts ----
 # ZKIR + verifier keys are small and hosted by the API. Prover keys are too large for git;
