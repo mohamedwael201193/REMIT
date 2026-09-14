@@ -64,7 +64,10 @@ async function poolProviders(args: BrowserCircuitArgs) {
     privateStateId: "remit-pool",
     initialPrivateState: initial,
   });
-  return { providers, compiled, config, ns, initial };
+  providers.privateStateProvider.setContractAddress(args.pool as never);
+  const restored = readTabPrivate(args.network, args.pool);
+  if (restored) await providers.privateStateProvider.set("remit-pool", restored);
+  return { providers, compiled, config, ns, initial: restored ?? initial };
 }
 
 async function ledger(indexer: string, pool: string) {
@@ -76,6 +79,28 @@ async function ledger(indexer: string, pool: string) {
 function ownerSkOf(ps: RemitPrivateState): Uint8Array {
   if (ps.ownerSk?.length === 32) return Uint8Array.from(ps.ownerSk);
   return randomBytes32();
+}
+
+function tabPrivateKey(network: string, pool: string) {
+  return `remit:ps:${network}:${pool}`;
+}
+
+function readTabPrivate(network: string, pool: string): RemitPrivateState | null {
+  try {
+    const raw = globalThis.sessionStorage?.getItem(tabPrivateKey(network, pool));
+    if (!raw) return null;
+    return JSON.parse(raw) as RemitPrivateState;
+  } catch {
+    return null;
+  }
+}
+
+function writeTabPrivate(network: string, pool: string, ps: RemitPrivateState) {
+  try {
+    globalThis.sessionStorage?.setItem(tabPrivateKey(network, pool), JSON.stringify(ps));
+  } catch {
+    /* private mode / quota */
+  }
 }
 
 export async function createMandateFromWallet(args: BrowserCircuitArgs) {
@@ -131,7 +156,7 @@ export async function createMandateFromWallet(args: BrowserCircuitArgs) {
     pending: pendingCreateMandate(afterDep.ld, ownerSk, note, mandate, mandateRand, stateNonce),
     fallback: ps,
   });
-  await providers.privateStateProvider.set("remit-pool", {
+  const nextPs: RemitPrivateState = {
     ...ps,
     ownerSk: Array.from(ownerSk),
     mandates: [
@@ -156,7 +181,9 @@ export async function createMandateFromWallet(args: BrowserCircuitArgs) {
         nonce: Array.from(stateNonce),
       },
     ],
-  });
+  };
+  await providers.privateStateProvider.set("remit-pool", nextPs);
+  writeTabPrivate(args.network, args.pool, nextPs);
   const after = await ledger(config.indexer, args.pool);
   return {
     id: `mandate:${args.pool}`,
@@ -221,5 +248,8 @@ export async function revokeMandatesFromWallet(args: BrowserCircuitArgs) {
     fallback: ps,
   });
   if (!revoked.txId && !revoked.txHash) throw new Error("revokeMandate missing tx id");
+  const cleared: RemitPrivateState = { ...ps, mandates: [], mandateStates: [] };
+  await providers.privateStateProvider.set("remit-pool", cleared);
+  writeTabPrivate(args.network, args.pool, cleared);
   return { txHash: revoked.txHash ?? hit.txHash, block: revoked.blockHeight ?? hit.blockHeight, ns };
 }

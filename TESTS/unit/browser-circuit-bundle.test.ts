@@ -18,7 +18,7 @@ describe("1AM circuit bundle graph", () => {
     expect(session).toMatch(/remitSetNetworkId/);
     expect(providers).toMatch(/remitSetNetworkId/);
     const call = readFileSync(resolve("front/src/lib/remit/circuit-call.ts"), "utf8");
-    expect(call).toMatch(/v=buffer/);
+    expect(call).toMatch(/v=ps1/);
     const build = readFileSync(resolve("scripts/build-browser-circuit.mjs"), "utf8");
     expect(build).toMatch(/buffer-polyfill/);
     expect(build).toMatch(/from "buffer"/);
@@ -40,6 +40,13 @@ describe("1AM circuit bundle graph", () => {
     const ignore = readFileSync(resolve(".gitignore"), "utf8");
     expect(ignore).toMatch(/keys\/\*\.prover/);
     expect(ignore).not.toMatch(/managed\/\*\*\/zkir\//);
+  });
+
+  it("keeps tab-local mandate openings in sessionStorage for revoke", () => {
+    const src = readFileSync(resolve("packages/sdk/src/browser-circuits.ts"), "utf8");
+    expect(src).toMatch(/sessionStorage/);
+    expect(src).toMatch(/writeTabPrivate/);
+    expect(src).toMatch(/readTabPrivate/);
   });
 
   it("built bundle exports Compact wallet circuits when present", () => {

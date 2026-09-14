@@ -48,5 +48,12 @@ export function mapLedgerFailure(message: string): RemitError {
   if (/not staged|WITNESS_MISSING|Cannot read properties of undefined/i.test(clipped)) {
     return new RemitError("WITNESS_MISSING", clipped, clipped);
   }
+  if (/Wallet UI disconnected/i.test(clipped)) {
+    return new RemitError(
+      "WALLET",
+      "1AM closed its proving toolbar. Click the 1AM icon, keep it open through deposit and createMandate, then Seal again.",
+      clipped,
+    );
+  }
   return new RemitError("INTERNAL", clipped || "ledger rejected transaction", clipped || "ledger rejected transaction");
 }

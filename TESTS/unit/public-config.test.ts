@@ -83,5 +83,8 @@ describe("public Preprod config for the supplied frontend", () => {
     };
     const ws = mapPublicWorkspace({ chain, evidence });
     expect(ws.mandates[0]?.status).toBe("active");
+    expect(ws.mandates[0]?.intent).toMatch(/tx aa/);
+    expect(ws.mandates[0]?.intent).not.toMatch(/\bm1\b/);
+    expect(ws.activity[0]?.detail).toMatch(/aa/);
   });
 });

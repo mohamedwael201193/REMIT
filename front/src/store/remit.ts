@@ -36,6 +36,13 @@ export type AppView =
 
 export type SyncStatus = "idle" | "loading" | "ready" | "error";
 
+function explainCircuitError(message: string): string {
+  if (/Wallet UI disconnected/i.test(message)) {
+    return "1AM closed its proving toolbar. Click the 1AM icon, keep it open through deposit and createMandate, then Seal again.";
+  }
+  return message;
+}
+
 interface RemitState {
   /* navigation */
   mode: "landing" | "workspace";
@@ -199,9 +206,22 @@ export const useRemitStore = create<RemitState>((set, get) => ({
     try {
       const mandate = await provider.createMandate(input);
       await get().syncWorkspace();
+      set({
+        mandates: get().mandates.map((m) =>
+          m.id === mandate.id
+            ? {
+                ...m,
+                maxFill: mandate.maxFill || m.maxFill,
+                limitPrice: mandate.limitPrice || m.limitPrice,
+                totalBudget: mandate.totalBudget || m.totalBudget,
+                intent: mandate.intent || m.intent,
+              }
+            : m,
+        ),
+      });
       return mandate;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Compact circuit-call required";
+      const message = explainCircuitError(error instanceof Error ? error.message : "Compact circuit-call required");
       set({ lastError: message });
       throw error;
     } finally {
@@ -245,7 +265,7 @@ export const useRemitStore = create<RemitState>((set, get) => ({
       await provider.revokeMandates();
       await get().syncWorkspace();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "revokeMandate required Compact circuit-call";
+      const message = explainCircuitError(error instanceof Error ? error.message : "revokeMandate required Compact circuit-call");
       set({ lastError: message });
       throw error;
     } finally {

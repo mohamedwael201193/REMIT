@@ -14,6 +14,12 @@ describe("mapLedgerFailure", () => {
     const err = mapLedgerFailure("'privateStateId' was defined for call transaction while 'privateStateProvider' was undefined");
     expect(err.code).toBe("CONFIG");
   });
+
+  it("maps 1AM proving-toolbar disconnect to WALLET", () => {
+    const err = mapLedgerFailure("'prove' returned an error: Error: Wallet UI disconnected");
+    expect(err.code).toBe("WALLET");
+    expect(err.message).toMatch(/1AM/);
+  });
 });
 
 describe("submitStagedCircuit", () => {

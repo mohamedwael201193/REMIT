@@ -209,9 +209,8 @@ class LiveRemitProvider implements RemitProvider {
       network: this.cfg.network,
     });
     const after = await this.load();
-    const revoked = after.activity.some((a) => a.kind === "revocation" && a.detail.startsWith("ok"));
-    if (!revoked) {
-      throw new Error("revokeMandate was submitted but indexer evidence does not yet show revocation");
+    if (after.portfolio.activeMandates > 0) {
+      throw new Error("revokeMandate was submitted but indexer still reports activeMandates > 0");
     }
   }
 }

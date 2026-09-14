@@ -9,7 +9,7 @@ export type CircuitBundle = {
 
 export async function loadRemitCircuitModule(apiUrl: string): Promise<CircuitBundle> {
   const root = apiUrl.replace(/\/$/, "");
-  const url = `${root}/browser/remit-circuit.js?v=buffer`;
+  const url = `${root}/browser/remit-circuit.js?v=ps1`;
   try {
     const mod = (await import(/* webpackIgnore: true */ url)) as Partial<CircuitBundle>;
     if (typeof mod.createMandateFromWallet === "function" && typeof mod.revokeMandatesFromWallet === "function") {

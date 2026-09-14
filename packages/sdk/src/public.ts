@@ -208,6 +208,8 @@ export function mapPublicWorkspace(args: {
   const poolAddr = args.chain.pool?.address ?? args.evidence.pool?.address ?? "";
   const mandateId = poolAddr ? `mandate:${poolAddr}` : "mandate:pending";
 
+  const liveTx = args.chain.pool?.txHash;
+  const liveBlock = args.chain.pool?.block;
   const activity: MappedActivity[] = args.evidence.steps.map((s) => ({
     id: `step:${s.name}:${s.txHash ?? s.detail ?? "na"}`,
     at: now,
@@ -218,6 +220,18 @@ export function mapPublicWorkspace(args: {
       .join(" · "),
     privateToWorkspace: false,
   }));
+  if (liveTx && !activity.some((a) => a.detail.includes(liveTx))) {
+    activity.unshift({
+      id: `chain:pool:${liveTx}`,
+      at: now,
+      kind: activeMandates > 0 ? "mandate" : "proof",
+      label: "pool-contractAction",
+      detail: ["ok", liveTx, liveBlock != null ? `block ${liveBlock}` : undefined, "indexer latest"]
+        .filter(Boolean)
+        .join(" · "),
+      privateToWorkspace: false,
+    });
+  }
 
   const executions: MappedExecution[] = [];
   for (const s of args.evidence.steps) {
@@ -296,6 +310,8 @@ export function mapPublicWorkspace(args: {
   if (args.evidence.steps.some((s) => s.name === "pool-create-mandate" && s.ok) || activeMandates > 0) {
     const created = args.evidence.steps.find((s) => s.name === "pool-create-mandate");
     const revoked = args.evidence.steps.some((s) => s.name === "pool-revoke" && s.ok);
+    const mandateTx = activeMandates > 0 && liveTx ? liveTx : created?.txHash;
+    const mandateBlock = activeMandates > 0 && liveBlock != null ? liveBlock : created?.block;
     mandates.push({
       id: mandateId,
       reference: poolAddr ? `MD-${poolAddr.slice(0, 6)}` : "MD-LIVE",
@@ -312,8 +328,8 @@ export function mapPublicWorkspace(args: {
       status: activeMandates > 0 ? "active" : revoked ? "revoked" : "exhausted",
       createdAt: now,
       settledFills: fills,
-      intent: created?.txHash
-        ? `On-chain mandate. Openings stay private. tx ${created.txHash}`
+      intent: mandateTx
+        ? `On-chain mandate. Openings stay private. tx ${mandateTx}${mandateBlock != null ? ` · block ${mandateBlock}` : ""}`
         : "Indexer-backed mandate counter. Openings are not on the public ledger.",
     });
   }
