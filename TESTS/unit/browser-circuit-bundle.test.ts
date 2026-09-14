@@ -18,7 +18,10 @@ describe("1AM circuit bundle graph", () => {
     expect(session).toMatch(/remitSetNetworkId/);
     expect(providers).toMatch(/remitSetNetworkId/);
     const call = readFileSync(resolve("front/src/lib/remit/circuit-call.ts"), "utf8");
-    expect(call).toMatch(/v=setNetworkId/);
+    expect(call).toMatch(/v=buffer/);
+    const build = readFileSync(resolve("scripts/build-browser-circuit.mjs"), "utf8");
+    expect(build).toMatch(/buffer-polyfill/);
+    expect(build).toMatch(/from "buffer"/);
   });
 
   it("copies Midnight wasm next to remit-circuit.js", () => {
@@ -47,6 +50,8 @@ describe("1AM circuit bundle graph", () => {
     expect(text).toMatch(/revokeMandatesFromWallet/);
     expect(text).not.toMatch(/new WebAssembly\.Module/);
     expect(text).toMatch(/WebAssembly\.instantiate/);
+    expect(text).toMatch(/Buffer/);
+    expect(text).toMatch(/globalThis\.Buffer = require_buffer\(\)\.Buffer/);
     expect(existsSync(resolve("dist/browser/midnight_ledger_wasm_bg.wasm"))).toBe(true);
   });
 });

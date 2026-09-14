@@ -70,6 +70,31 @@ await build({
         });
       },
     },
+    {
+      name: "buffer-polyfill",
+      setup(buildApi) {
+        buildApi.onLoad({ filter: /\.(cjs|mjs|js|ts)$/ }, (args) => {
+          const p = args.path.replace(/\\/g, "/");
+          if (p.includes("/node_modules/buffer/")) return undefined;
+          if (p.includes("/scripts/lib/browser-buffer")) return undefined;
+          if (p.includes("_wasm")) return undefined;
+          let contents;
+          try {
+            contents = readFileSync(args.path, "utf8");
+          } catch {
+            return undefined;
+          }
+          if (!/(^|[^.\w$])Buffer([^.\w$]|$)/.test(contents)) return undefined;
+          if (/from\s+["']buffer["']/.test(contents)) return undefined;
+          const loader = p.endsWith(".ts") ? "ts" : "js";
+          return {
+            contents: `import { Buffer } from "buffer";\n${contents}`,
+            loader,
+            resolveDir: dirname(args.path),
+          };
+        });
+      },
+    },
   ],
   alias: {
     "node:path": stub("browser-path.ts"),
@@ -98,6 +123,15 @@ js = js.replace(
 );
 if (/new WebAssembly\.Module/.test(js)) {
   throw new Error("circuit bundle still uses sync WebAssembly.Module (Chrome blocks >8MB on the main thread)");
+}
+const pin = "// (disabled):node_modules/object-inspect/util.inspect";
+const pinAt = js.indexOf(pin);
+if (pinAt < 0) throw new Error("circuit bundle missing buffer module pin");
+if (!js.slice(0, pinAt).includes("globalThis.Buffer = require_buffer().Buffer")) {
+  js = `${js.slice(0, pinAt)}globalThis.Buffer = require_buffer().Buffer;\n${js.slice(pinAt)}`;
+}
+if (!js.includes("globalThis.Buffer = require_buffer().Buffer")) {
+  throw new Error("circuit bundle missing Buffer polyfill assignment");
 }
 writeFileSync(jsPath, js);
 console.log("async-wasm-instantiate", syncCount);

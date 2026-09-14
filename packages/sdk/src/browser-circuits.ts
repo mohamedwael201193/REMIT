@@ -3,6 +3,7 @@
  * Next must not statically import this file.
  */
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
+import { Buffer } from "buffer";
 import { pureCircuits } from "@remit/contracts/pool";
 import { bindDeployed } from "../../core/src/tx.ts";
 import { compiledPoolHttp } from "../../core/src/compiled-http.ts";
@@ -32,6 +33,7 @@ export type BrowserCircuitArgs = {
 };
 
 async function poolProviders(args: BrowserCircuitArgs) {
+  (globalThis as typeof globalThis & { Buffer: typeof Buffer }).Buffer = Buffer;
   const config = await fetchRemitConfig(args.apiUrl);
   if (!config.live || config.pool !== args.pool || config.quote !== args.quote) {
     throw new Error("API does not yet expose indexer-backed pool and quote addresses");
