@@ -464,7 +464,7 @@ export function HashChip({
   return <span className={chipClass}>{body}</span>;
 }
 
-/** Chip any hash-like token, including hashes sitting inside a sentence. */
+/** Chip hash-like tokens in running text without collapsing the surrounding spaces. */
 export function HashAwareLine({
   text,
   className,
@@ -474,27 +474,21 @@ export function HashAwareLine({
 }) {
   const tokens = text.split(/(\s+)/);
   return (
-    <span className={cn("flex min-w-0 flex-wrap items-center gap-y-1", className)}>
+    <span className={cn("min-w-0 break-words", className)}>
       {tokens.map((token, i) => {
         const trimmed = token.trim();
-        if (!trimmed) {
-          return <span key={`ws-${i}`}>{token}</span>;
-        }
+        if (!trimmed) return <React.Fragment key={`ws-${i}`}>{token}</React.Fragment>;
         const punct = trimmed.replace(/[.,;:]$/, "");
         const suffix = trimmed.slice(punct.length);
         if (isLikelyHash(punct)) {
           return (
             <React.Fragment key={`${punct}-${i}`}>
-              <HashChip value={punct} />
-              {suffix ? <span>{suffix}</span> : null}
+              <HashChip value={punct} className="align-middle" />
+              {suffix}
             </React.Fragment>
           );
         }
-        return (
-          <span key={`t-${i}`} className="min-w-0 break-words">
-            {token}
-          </span>
-        );
+        return <React.Fragment key={`t-${i}`}>{token}</React.Fragment>;
       })}
     </span>
   );
