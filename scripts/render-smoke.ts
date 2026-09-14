@@ -40,6 +40,13 @@ async function smoke(url: string) {
   if (body.network !== "preprod") throw new Error(`${url} network is not preprod`);
   if (body.mpc !== false) throw new Error(`${url} claimed MPC`);
   if (body.visibility !== "constrained-broker") throw new Error(`${url} visibility mismatch`);
+  const persist = (body as { persist?: { backend?: string; ok?: boolean } }).persist;
+  if (!persist || persist.backend !== "supabase" || persist.ok !== true) {
+    throw new Error(`${url} persist is not supabase`);
+  }
+  if ((body as { agent?: { httpSubmit?: boolean } }).agent?.httpSubmit) {
+    throw new Error(`${url} claimed httpSubmit`);
+  }
   for (const secret of forbidden) {
     if (text.includes(secret)) throw new Error(`${url} leaked a secret`);
   }

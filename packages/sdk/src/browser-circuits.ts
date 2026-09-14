@@ -15,6 +15,7 @@ import {
   tabStorageKeys,
   wrapKeyHex,
   tabWrapKeyFromHex,
+  migrateTabPrivateStorage,
 } from "../../core/src/tab-seal.ts";
 import { fetchContractAction, requireContractAction } from "../../core/src/indexer.ts";
 import { fromHex, randomBytes32 } from "../../core/src/bytes.ts";
@@ -103,6 +104,7 @@ function ownerSkOf(ps: RemitPrivateState): Uint8Array {
 
 function readTabPrivate(network: string, pool: string, wallet: string): RemitPrivateState | null {
   try {
+    migrateTabPrivateStorage(globalThis.sessionStorage, network, pool, wallet);
     const keys = tabStorageKeys(network, pool, wallet);
     const wrapHex = globalThis.sessionStorage?.getItem(keys.wrap);
     const blob = globalThis.sessionStorage?.getItem(keys.blob);
@@ -115,6 +117,7 @@ function readTabPrivate(network: string, pool: string, wallet: string): RemitPri
 
 function writeTabPrivate(network: string, pool: string, wallet: string, ps: RemitPrivateState) {
   try {
+    migrateTabPrivateStorage(globalThis.sessionStorage, network, pool, wallet);
     const keys = tabStorageKeys(network, pool, wallet);
     let wrapHex = globalThis.sessionStorage?.getItem(keys.wrap);
     if (!wrapHex) {

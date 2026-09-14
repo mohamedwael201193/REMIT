@@ -17,6 +17,33 @@ export function tabStorageKeys(network: string, pool: string, wallet: string) {
   return { wrap: `remit:wrap:${id}`, blob: `remit:blob:${id}` };
 }
 
+/** Pre-hash keys embedded the raw address. Migrate then delete. */
+export function legacyTabStorageKeys(network: string, pool: string, wallet: string) {
+  return { wrap: `remit:wrap:${network}:${pool}:${wallet}`, blob: `remit:blob:${network}:${pool}:${wallet}` };
+}
+
+export function migrateTabPrivateStorage(
+  storage: { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void } | undefined,
+  network: string,
+  pool: string,
+  wallet: string,
+) {
+  if (!storage) return;
+  const next = tabStorageKeys(network, pool, wallet);
+  const prev = legacyTabStorageKeys(network, pool, wallet);
+  const hasNext = Boolean(storage.getItem(next.wrap) && storage.getItem(next.blob));
+  if (!hasNext) {
+    const wrap = storage.getItem(prev.wrap);
+    const blob = storage.getItem(prev.blob);
+    if (wrap && blob) {
+      storage.setItem(next.wrap, wrap);
+      storage.setItem(next.blob, blob);
+    }
+  }
+  storage.removeItem(prev.wrap);
+  storage.removeItem(prev.blob);
+}
+
 export function clearTabPrivateStorage(
   storage: { removeItem(key: string): void; key(i: number): string | null; length: number } | undefined,
 ) {

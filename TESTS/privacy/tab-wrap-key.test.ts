@@ -9,6 +9,7 @@ import {
   tabStorageKeys,
   tabWrapKeyFromHex,
   wrapKeyHex,
+  migrateTabPrivateStorage,
 } from "../../packages/core/src/tab-seal.ts";
 
 function functionSource(src: string, name: string): string {
@@ -90,8 +91,9 @@ describe("browser wrap-key: sessionStorage must not hold plaintext ownerSk JSON"
       "wrapKeyHex",
       "tabWrapKeyFromHex",
       "sealTabPrivateState",
+      "migrateTabPrivateStorage",
       `return function writeTabPrivate(network, pool, wallet, ps) {\n${body}\n};`,
-    )(tabStorageKeys, freshTabWrapKey, wrapKeyHex, tabWrapKeyFromHex, sealTabPrivateState) as (
+    )(tabStorageKeys, freshTabWrapKey, wrapKeyHex, tabWrapKeyFromHex, sealTabPrivateState, migrateTabPrivateStorage) as (
       network: string,
       pool: string,
       wallet: string,
