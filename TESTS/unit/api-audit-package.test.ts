@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../../apps/api/src/app.ts";
 import { rfqKeyPair } from "../../packages/core/src/box.ts";
@@ -81,6 +84,44 @@ describe("authorized one-field audit package", () => {
     });
     expect(wrongRoot.json().ok).toBe(false);
 
+    await app.close();
+  });
+
+  it("seeds the authorized package from disk so a restart without receipts still serves it", async () => {
+    const rec = rfqKeyPair();
+    const inboxFile = join(mkdtempSync(join(tmpdir(), "remit-audit-seed-")), "inbox.bin");
+    const auditPackageFile = join(mkdtempSync(join(tmpdir(), "remit-audit-pkg-")), "audit-package.json");
+    const values = {
+      side: 1n,
+      baseAmount: 30n,
+      quoteAmount: 1200n,
+      principal: randomBytes32(),
+      counterparty: randomBytes32(),
+      mandateId: randomBytes32(),
+    };
+    const pkg = {
+      ...makeDisclosure(3, randomBytes32(), values, [1]),
+      executionTxHash: "5f1203cf9cdde32192f4a2cdce275ff34529b19bbe24644f6014b1c24f12b99f",
+    };
+    writeFileSync(auditPackageFile, JSON.stringify(pkg));
+    const { app } = await buildApp({
+      cors: "*",
+      admin: "admin-token-not-for-prod",
+      rfqSk: rec.secretHex,
+      execSk: "ab".repeat(32),
+      pool: "01bebd52ad1b243b390c853bbc2c1588d1cf0f487934d54d79f8a590505c105e",
+      quote: "7559e38693725dafef73486f2ee3aa30ee0b5b543e22d0aa5ad7303c37b55e3f",
+      network: "preprod",
+      indexer: "https://indexer.preprod.midnight.network/api/v4/graphql",
+      inboxFile,
+      auditPackageFile,
+    });
+    const got = await app.inject({ method: "GET", url: "/audit/package" });
+    expect(got.statusCode).toBe(200);
+    expect(got.json().openings[0].valueDec).toBe("30");
+    expect(got.json().executionTxHash).toBe(
+      "5f1203cf9cdde32192f4a2cdce275ff34529b19bbe24644f6014b1c24f12b99f",
+    );
     await app.close();
   });
 });

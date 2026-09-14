@@ -222,6 +222,7 @@ export type RemitDisclosurePackage = {
   auditRootHex: string;
   commitmentsHex: string[];
   openings: { idx: number; field: string; valueHex?: string; valueDec?: string; saltHex: string }[];
+  executionTxHash?: string;
 };
 
 export async function fetchRemitAuditPackage(apiUrl: string): Promise<RemitDisclosurePackage> {

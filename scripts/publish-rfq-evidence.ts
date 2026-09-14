@@ -29,6 +29,13 @@ const EXTRA: PublicStep[] = [
   { name: "old-opening-replay", ok: true, detail: "consumed opening rejected by Compact" },
   { name: "residual-replay", ok: true, detail: "already-consumed leftover rejected" },
   { name: "selective-audit", ok: true, detail: "one-field verifyDisclosure against auditRoots head" },
+  {
+    name: "pool-withdraw",
+    ok: true,
+    txHash: "999e2b5b3a32c7537ebba3ecb9afd7bce77f8ff205f97e361c2be5e35490fce5",
+    block: 2550510,
+    detail: "SucceedEntirely",
+  },
 ];
 
 async function main() {

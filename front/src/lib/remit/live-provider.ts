@@ -229,7 +229,7 @@ class LiveRemitProvider implements RemitProvider {
       ],
     }));
   }
-  async revealFact(_auditId: string, disclosureId: string): Promise<Disclosure> {
+  async revealFact(auditId: string, disclosureId: string): Promise<Disclosure> {
     await this.load();
     if (disclosureId !== "fill-amount") {
       throw new Error("Unauthorized field — executor authorized a fill-amount opening only");
@@ -238,6 +238,11 @@ class LiveRemitProvider implements RemitProvider {
     const field = pkg.openings[0]?.field;
     if (field !== "baseAmount") {
       throw new Error("Authorized package is not a fill-amount opening");
+    }
+    const bound = typeof pkg.executionTxHash === "string" ? pkg.executionTxHash : "";
+    const idTx = auditId.replace(/^audit:/, "");
+    if (bound && idTx !== bound) {
+      throw new Error("Authorized package is not for this execution");
     }
     const verified = await postRemitAuditVerify(this.cfg.apiUrl, pkg);
     if (!verified.ok) {

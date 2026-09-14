@@ -882,7 +882,11 @@ export function ViewOverview() {
         <KpiCard
           label="Active mandates"
           value={<CountUp value={portfolio.activeMandates} />}
-          sub={`of ${mandates.length} total`}
+          sub={
+            portfolio.activeMandates === mandates.length
+              ? `of ${mandates.length} total`
+              : "indexer activeMandates"
+          }
         />
         <KpiCard
           label="Remaining budget"

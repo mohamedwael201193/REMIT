@@ -23,6 +23,8 @@ export type DisclosurePackage = {
   auditRootHex: string;
   commitmentsHex: string[];
   openings: FieldOpening[];
+  /** Public tx that produced this fill's audit vector. Not a private witness. */
+  executionTxHash?: string;
 };
 
 const U8 = new CompactTypeUnsignedInteger(255n, 1);

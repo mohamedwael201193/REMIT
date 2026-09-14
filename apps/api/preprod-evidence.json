@@ -35,6 +35,12 @@
     { "name": "pool-place-maker-b-eligible", "ok": true, "txHash": "07624ecca82d1cbd83a8a46aa01bce4972426d7f89117c29febc79d47c8e3663", "block": 2541986, "detail": "SucceedEntirely" },
     { "name": "pool-place-maker-c-best-partial", "ok": true, "txHash": "727611314f6b8f773932ad2ca21daed5652763ffccbdf4d9b378341ac5968861", "block": 2541991, "detail": "SucceedEntirely" },
     { "name": "agent-rank", "ok": true, "detail": "eligible=2 rejected=1 selected=true globalBest=false" },
-    { "name": "pool-k3-fill", "ok": true, "txHash": "12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20", "block": 2542039, "detail": "SucceedEntirely · 9492 B · K=3 live candidates · partial residual committed · not global-book" }
+    { "name": "pool-k3-fill", "ok": true, "txHash": "12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20", "block": 2542039, "detail": "SucceedEntirely · 9492 B · K=3 live candidates · partial residual committed · not global-book" },
+    { "name": "pool-k3-fill", "ok": true, "txHash": "5a1200f5869cb60c81f9ebcb649da45fb47c563bc245c362d36665597b16f00a", "block": 2549944, "detail": "SucceedEntirely · hosted RFQ consume" },
+    { "name": "pool-residual-consume", "ok": true, "txHash": "5f1203cf9cdde32192f4a2cdce275ff34529b19bbe24644f6014b1c24f12b99f", "block": 2550168, "detail": "SucceedEntirely · leftover opening consumed" },
+    { "name": "old-opening-replay", "ok": true, "detail": "consumed opening rejected by Compact" },
+    { "name": "residual-replay", "ok": true, "detail": "already-consumed leftover rejected" },
+    { "name": "selective-audit", "ok": true, "detail": "one-field verifyDisclosure against auditRoots head" },
+    { "name": "pool-withdraw", "ok": true, "txHash": "999e2b5b3a32c7537ebba3ecb9afd7bce77f8ff205f97e361c2be5e35490fce5", "block": 2550510, "detail": "SucceedEntirely" }
   ]
 }

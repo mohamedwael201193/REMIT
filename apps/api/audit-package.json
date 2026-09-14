@@ -1,0 +1,21 @@
+{
+  "fillIndex": 3,
+  "auditRootHex": "1bbc1cc2aa2cd83de56cb8ea15ec5dfb8dd071cf2fb305980416ed726b81a694",
+  "executionTxHash": "5f1203cf9cdde32192f4a2cdce275ff34529b19bbe24644f6014b1c24f12b99f",
+  "commitmentsHex": [
+    "e244e866f139448ec69687a213cc3d1e394be2bd7faa127dd15eecbade3f7459",
+    "8b81300b9a3c281e42229383d20a7d6982827336cedfb3727a2eac35fcbb424f",
+    "e242bebaf0dfcc72d3943fac3e17cf0c2b0e956d2980dd0499d68c9bff6dd69d",
+    "427fdd93bdcd95cc710e09540e24c13d9ac9e3c1b7818e2a6cb8b3b86bbea492",
+    "405eaff66755017def0220c44742b84e01bc0d2e44d10e59f7bc7c3541e2a3bc",
+    "394b0c92adc61ebf90a09c96e7ce32de3bca0274bc07b81de7a40bf6b01e99e1"
+  ],
+  "openings": [
+    {
+      "idx": 1,
+      "field": "baseAmount",
+      "saltHex": "758afc21c3928eae44bb8c3e1bdcca2332b5470b2898d38999284f1c9d3543ba",
+      "valueDec": "30"
+    }
+  ]
+}

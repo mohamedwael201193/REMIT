@@ -39,6 +39,7 @@ export type ApiConfig = {
   indexer: string;
   keysDir?: string;
   inboxFile?: string;
+  auditPackageFile?: string;
   httpSubmit?: boolean;
   submitFill?: (pending: unknown, nowBound: bigint) => Promise<{ txHash: string; block: number }>;
 };
@@ -75,6 +76,29 @@ export async function buildApp(cfg: ApiConfig) {
       receipts: [...receipts.entries()],
     });
   };
+  const seedAuditPackage = () => {
+    if (receipts.get("audit:published")) return;
+    const candidates = [
+      cfg.auditPackageFile,
+      resolve(process.cwd(), "apps/api/audit-package.json"),
+      resolve(process.cwd(), "audit-package.json"),
+      resolve(process.cwd(), "../../apps/api/audit-package.json"),
+    ].filter((p): p is string => typeof p === "string" && p.length > 0);
+    for (const p of candidates) {
+      if (!existsSync(p)) continue;
+      try {
+        const pkg = JSON.parse(readFileSync(p, "utf8")) as DisclosurePackage;
+        if (Array.isArray(pkg?.openings) && pkg.openings.length === 1) {
+          receipts.set("audit:published", JSON.stringify(pkg));
+          persistInbox();
+          return;
+        }
+      } catch {
+        continue;
+      }
+    }
+  };
+  seedAuditPackage();
   let lastAgent: ReturnType<typeof publicAgentStatusView> | null = null;
 
   let publicEvidence: PublicEvidence | null = null;
