@@ -51,6 +51,7 @@ function storageOf(win: MidnightWindow | undefined): Storage | undefined {
 }
 
 const ADAPTER_KEY = "remit:adapter";
+const MANUAL_DISCONNECT_KEY = "remit:manual-disconnect";
 
 export function rememberedAdapter(win: MidnightWindow = globalThis as MidnightWindow): WalletProviderKind | null {
   try {
@@ -77,6 +78,31 @@ export function forgetAdapter(win: MidnightWindow = globalThis as MidnightWindow
     storageOf(win)?.removeItem(ADAPTER_KEY);
   } catch {
     /* ignore */
+  }
+}
+
+export function markManualDisconnect(win: MidnightWindow = globalThis as MidnightWindow) {
+  try {
+    storageOf(win)?.setItem(MANUAL_DISCONNECT_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+  forgetAdapter(win);
+}
+
+export function clearManualDisconnect(win: MidnightWindow = globalThis as MidnightWindow) {
+  try {
+    storageOf(win)?.removeItem(MANUAL_DISCONNECT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isManualDisconnect(win: MidnightWindow = globalThis as MidnightWindow): boolean {
+  try {
+    return storageOf(win)?.getItem(MANUAL_DISCONNECT_KEY) === "1";
+  } catch {
+    return false;
   }
 }
 
@@ -200,6 +226,7 @@ export async function connectInjectedWallet(
     address = null;
   }
   if (!address) throw new Error("wallet did not return an unshielded address");
+  clearManualDisconnect(win);
   rememberAdapter(kind, win);
   let dustHeader: string | undefined;
   try {

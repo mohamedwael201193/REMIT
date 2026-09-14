@@ -5,6 +5,8 @@ import {
   forgetAdapter,
   rememberAdapter,
   rememberedAdapter,
+  markManualDisconnect,
+  isManualDisconnect,
   type MidnightWindow,
 } from "../../front/src/lib/remit/midnight-connector.ts";
 
@@ -55,5 +57,13 @@ describe("wallet adapter memory vs private vault", () => {
     expect(rememberedAdapter(win)).toBe("1am");
     clearWalletVault(win);
     expect(rememberedAdapter(win)).toBeNull();
+  });
+
+  it("manual disconnect blocks restore until the next explicit connect", () => {
+    const win = memoryWindow();
+    rememberAdapter("1am", win);
+    markManualDisconnect(win);
+    expect(rememberedAdapter(win)).toBeNull();
+    expect(isManualDisconnect(win)).toBe(true);
   });
 });

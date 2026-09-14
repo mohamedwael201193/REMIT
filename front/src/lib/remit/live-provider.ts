@@ -14,7 +14,7 @@ import {
   type MappedExecution,
   type MappedWorkspace,
 } from "./public-client";
-import { connectInjectedWallet, clearPrivateVault, clearWalletVault, forgetAdapter, rememberedAdapter, type ConnectedAPI, type MidnightWindow } from "./midnight-connector";
+import { connectInjectedWallet, clearPrivateVault, clearWalletVault, forgetAdapter, rememberedAdapter, markManualDisconnect, isManualDisconnect, type ConnectedAPI, type MidnightWindow } from "./midnight-connector";
 import { chainAuditRootFromHead } from "./audit-flow";
 import { loadRemitCircuitModule } from "./circuit-call";
 import { getRemitProvider as emptyProvider } from "./local-provider";
@@ -283,6 +283,7 @@ class LiveRemitProvider implements RemitProvider {
   }
   async restoreWallet(): Promise<WalletState> {
     if (typeof window === "undefined") return disconnected();
+    if (isManualDisconnect(window)) return disconnected();
     const kind = rememberedAdapter(window);
     if (!kind) return disconnected();
     this.wallet = {
@@ -320,6 +321,7 @@ class LiveRemitProvider implements RemitProvider {
   async disconnectWallet(): Promise<WalletState> {
     this.connected = null;
     if (typeof window !== "undefined") {
+      markManualDisconnect(window);
       clearWalletVault(window);
       forgetAdapter(window);
     }
