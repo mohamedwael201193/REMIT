@@ -3,7 +3,8 @@ import { openJson, sealJson, rfqKeyPair } from "../../packages/core/src/box.ts";
 import { encryptPrivateState, decryptPrivateState } from "../../packages/core/src/persist.ts";
 import { emptyPrivateState } from "../../packages/core/src/state.ts";
 import { redact } from "../../packages/core/src/redact.ts";
-import { encodingsOfBigint, encodingsOfBytes } from "../../packages/core/src/bytes.ts";
+import { encodingsOfBigint, encodingsOfBytes, fromBase64Url, toBase64Url } from "../../packages/core/src/bytes.ts";
+import { sealTabPrivateState, openTabPrivateState, freshTabWrapKey } from "../../packages/core/src/tab-seal.ts";
 import { makeOfferBox, makeMandateBox, openOfferBox, openMandateBox } from "../../packages/core/src/rfq.ts";
 import { CIRCUIT_CALL_PATH } from "../../packages/core/src/tx.ts";
 import { publicErrorMessage, RemitError } from "../../packages/core/src/errors.ts";
@@ -65,6 +66,37 @@ describe("redaction and typed errors", () => {
     expect(sanitizePublicDetail("fillBase=50 fillQuote=2000 chosenIndex=2")).toBeUndefined();
     expect(publicLeakHits({ rule: "mbbe-eligible-only", k: 3 })).toEqual([]);
     expect(publicLeakHits({ chosenIndex: 2, fillBase: 50 })).toEqual(["fillBase", "chosenIndex"]);
+  });
+});
+
+describe("browser Buffer polyfill (no base64url encoding name)", () => {
+  it("seals RFQ boxes and tab state using std base64 only", () => {
+    const origFrom = Buffer.from;
+    const origToString = Buffer.prototype.toString;
+    (Buffer as unknown as { from: typeof Buffer.from }).from = ((...args: unknown[]) => {
+      if (args[1] === "base64url") throw new Error("Unknown encoding: base64url");
+      return origFrom.apply(Buffer, args as Parameters<typeof Buffer.from>);
+    }) as typeof Buffer.from;
+    Buffer.prototype.toString = function (enc?: BufferEncoding) {
+      if (enc === "base64url") throw new Error("Unknown encoding: base64url");
+      return origToString.call(this, enc);
+    };
+    try {
+      const rec = rfqKeyPair();
+      const boxed = sealJson(rec.publicHex, { side: 1, quoteAmount: "3200" });
+      expect(openJson(rec.secretHex, boxed)).toEqual({ side: 1, quoteAmount: "3200" });
+      expect(boxed.includes("quoteAmount")).toBe(false);
+      const wrap = freshTabWrapKey();
+      const ps = emptyPrivateState("ns-browser");
+      ps.ownerSk = Array.from({ length: 32 }, (_, i) => i);
+      const blob = sealTabPrivateState(ps, wrap);
+      expect(openTabPrivateState(blob, wrap).ownerSk).toEqual(ps.ownerSk);
+      const raw = Uint8Array.from([1, 2, 3, 250, 251, 252]);
+      expect(fromBase64Url(toBase64Url(raw))).toEqual(raw);
+    } finally {
+      Buffer.from = origFrom;
+      Buffer.prototype.toString = origToString;
+    }
   });
 });
 

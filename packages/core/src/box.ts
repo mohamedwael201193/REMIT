@@ -3,7 +3,7 @@ import { xchacha20poly1305 } from "@noble/ciphers/chacha";
 import { randomBytes } from "@noble/ciphers/webcrypto";
 import { blake2b } from "@noble/hashes/blake2b";
 import { RemitError } from "./errors.js";
-import { toHex, fromHex } from "./bytes.js";
+import { toHex, fromHex, toBase64Url, fromBase64Url } from "./bytes.js";
 
 const MAGIC = new TextEncoder().encode("RMTB1");
 
@@ -34,11 +34,11 @@ export function sealTo(recipientPubHex: string, plaintext: Uint8Array): string {
   out.set(ephPub, MAGIC.length);
   out.set(nonce, MAGIC.length + 32);
   out.set(ct, MAGIC.length + 56);
-  return Buffer.from(out).toString("base64url");
+  return toBase64Url(out);
 }
 
 export function openSealed(secretHex: string, boxed: string): Uint8Array {
-  const raw = Buffer.from(boxed, "base64url");
+  const raw = fromBase64Url(boxed);
   if (raw.length < MAGIC.length + 56 + 16) throw new RemitError("SEALED_BOX", "truncated box");
   if (Buffer.from(raw.subarray(0, MAGIC.length)).toString() !== "RMTB1") {
     throw new RemitError("SEALED_BOX", "bad box magic");

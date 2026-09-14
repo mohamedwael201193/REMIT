@@ -2,7 +2,7 @@ import { xchacha20poly1305 } from "@noble/ciphers/chacha";
 import { randomBytes } from "@noble/ciphers/webcrypto";
 import { blake2b } from "@noble/hashes/blake2b";
 import type { RemitPrivateState } from "./state.js";
-import { fromHex, toHex } from "./bytes.js";
+import { fromHex, toHex, toBase64Url, fromBase64Url } from "./bytes.js";
 
 const MAGIC = new TextEncoder().encode("RMTPS1");
 
@@ -27,11 +27,11 @@ export function sealTabPrivateState(ps: RemitPrivateState, wrapKey: Uint8Array):
   out.set(MAGIC, 0);
   out.set(nonce, MAGIC.length);
   out.set(ct, MAGIC.length + 24);
-  return Buffer.from(out).toString("base64url");
+  return toBase64Url(out);
 }
 
 export function openTabPrivateState(blob: string, wrapKey: Uint8Array): RemitPrivateState {
-  const raw = Buffer.from(blob, "base64url");
+  const raw = fromBase64Url(blob);
   if (raw.length < MAGIC.length + 24 + 16) throw new Error("truncated tab private state");
   if (Buffer.from(raw.subarray(0, MAGIC.length)).toString() !== "RMTPS1") {
     throw new Error("bad tab private-state magic");

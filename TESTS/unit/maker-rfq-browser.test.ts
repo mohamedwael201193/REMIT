@@ -19,4 +19,18 @@ describe("Maker browser RFQ path", () => {
     expect(view).toMatch(/My offer is private/);
     expect(view).not.toMatch(/This tab does not post RFQ boxes/);
   });
+
+  it("RFQ and tab seals do not use the Node-only base64url encoding name", () => {
+    const box = readFileSync(resolve("packages/core/src/box.ts"), "utf8");
+    const tab = readFileSync(resolve("packages/core/src/tab-seal.ts"), "utf8");
+    const bytes = readFileSync(resolve("packages/core/src/bytes.ts"), "utf8");
+    expect(bytes).toMatch(/export function toBase64Url/);
+    expect(bytes).toMatch(/export function fromBase64Url/);
+    expect(box).toMatch(/toBase64Url/);
+    expect(tab).toMatch(/fromBase64Url/);
+    expect(box).not.toMatch(/toString\("base64url"\)/);
+    expect(tab).not.toMatch(/toString\("base64url"\)/);
+    expect(box).not.toMatch(/from\([^,]+,\s*"base64url"\)/);
+    expect(tab).not.toMatch(/from\([^,]+,\s*"base64url"\)/);
+  });
 });

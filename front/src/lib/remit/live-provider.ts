@@ -14,7 +14,7 @@ import {
   type MappedWorkspace,
 } from "./public-client";
 import { connectInjectedWallet, type ConnectedAPI } from "./midnight-connector";
-import { openedAuditRoot } from "./audit-flow";
+import { chainAuditRootFromHead } from "./audit-flow";
 import { loadRemitCircuitModule } from "./circuit-call";
 import { getRemitProvider as emptyProvider } from "./local-provider";
 import type {
@@ -185,9 +185,7 @@ class LiveRemitProvider implements RemitProvider {
     let chainRoot = "";
     try {
       const head = await fetchRemitAuditHead(this.cfg.apiUrl);
-      if (head.auditRoot && !openedAuditRoot(head.auditRoot, fillHashes)) {
-        chainRoot = head.auditRoot;
-      }
+      chainRoot = chainAuditRootFromHead(head.auditRoot, fillHashes);
     } catch {
       chainRoot = "";
     }

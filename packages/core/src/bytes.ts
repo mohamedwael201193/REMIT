@@ -33,6 +33,21 @@ export function fromArray(a: number[]): Uint8Array {
   return Uint8Array.from(a);
 }
 
+/** Browser `buffer` polyfill rejects encoding "base64url". Use std base64 + RFC 4648 alphabet. */
+export function toBase64Url(b: Uint8Array): string {
+  return Buffer.from(b)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+export function fromBase64Url(s: string): Uint8Array {
+  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
+  return Uint8Array.from(Buffer.from(b64, "base64"));
+}
+
 export function enc4(hex: string, dec: string, le: string, b64: string): string[] {
   return [hex, dec, le, b64];
 }
@@ -41,7 +56,7 @@ export function encodingsOfBytes(b: Uint8Array): string[] {
   const hex = toHex(b);
   const dec = Array.from(b).map((n) => n.toString(10)).join(",");
   const b64 = Buffer.from(b).toString("base64");
-  const out = [hex, hex.toUpperCase(), dec, b64, Buffer.from(b).toString("base64url")];
+  const out = [hex, hex.toUpperCase(), dec, b64, toBase64Url(b)];
   if (b.length >= 8) {
     out.push(Buffer.from(b.subarray(0, 8)).readBigUInt64LE().toString(10));
     out.push(Buffer.from(b.subarray(0, 8)).toString("hex"));

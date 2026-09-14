@@ -35,6 +35,14 @@ export function openedAuditRoot(
   return v;
 }
 
+/** Copy GET /audit/head onto desk records only when it is a real root, not a fill hash. */
+export function chainAuditRootFromHead(
+  headRoot: string | null | undefined,
+  fillHashes: Array<string | undefined> = [],
+): string {
+  return openedAuditRoot(headRoot ?? "", fillHashes) ?? "";
+}
+
 export function disclosureFlow(state: DisclosureState, requested: boolean): AuditFlowState {
   if (state === "revealed") return "revealed";
   if (state === "requested" || requested) return "requested";
