@@ -1,174 +1,136 @@
 "use client";
 
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { useRef } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowRight, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { EASE } from "@/components/remit/primitives";
-import { CornerTicks } from "./plates";
-import { HeroFlow } from "./hero-flow";
 import { useRemitStore } from "@/store/remit";
 
-const FACTS = [
-  { title: "Private liquidity", label: "Offer terms stay sealed" },
-  { title: "Mandate-bound", label: "The agent cannot exceed its remit" },
-  { title: "Compact proof", label: "Fill is proven before value moves" },
-  { title: "Selective audit", label: "One authorized fact, not the book" },
-];
+gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 export function LandingHero() {
+  const root = useRef<HTMLElement>(null);
   const enterWorkspace = useRemitStore((s) => s.enterWorkspace);
-  const reduced = useReducedMotion();
-  const { scrollY } = useScroll();
-  const flowY = useTransform(scrollY, [0, 600], [0, reduced ? 0 : -46]);
-  const groundY = useTransform(scrollY, [200, 1300], [0, reduced ? 0 : 56]);
+
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+
+      mm.add("(prefers-reduced-motion: reduce)", () => {
+        gsap.set([".hero-copy", ".hero-art", ".hero-ground"], {
+          autoAlpha: 1,
+          y: 0,
+          scale: 1,
+        });
+      });
+
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        gsap.set(".hero-ground", { scale: 1.08, transformOrigin: "50% 82%" });
+
+        const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+        tl.to(".hero-ground", { scale: 1, duration: 1.55 }, 0);
+        tl.from(
+          ".hero-copy",
+          { autoAlpha: 0, y: 22, duration: 0.8, stagger: 0.09 },
+          0.1,
+        );
+        tl.from(".hero-art", { autoAlpha: 0, y: 28, duration: 1.05 }, 0.35);
+
+        gsap.to(".hero-ground", {
+          y: 36,
+          ease: "none",
+          scrollTrigger: {
+            trigger: root.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: 1,
+          },
+        });
+        gsap.to(".hero-art", {
+          y: -16,
+          ease: "none",
+          scrollTrigger: {
+            trigger: root.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: 1,
+          },
+        });
+      });
+    },
+    { scope: root },
+  );
 
   const scrollToHow = () =>
     document.getElementById("how")?.scrollIntoView({ behavior: "smooth" });
 
   return (
-    <section className="relative overflow-hidden bg-ink text-cream">
-      {/* ambience */}
-      <div className="glow-gold pointer-events-none absolute inset-x-0 top-0 h-[560px]" aria-hidden="true" />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
-        aria-hidden="true"
-        style={{
-          backgroundImage:
-            "radial-gradient(rgba(239,235,224,0.05) 1px, transparent 1px)",
-          backgroundSize: "34px 34px",
-        }}
-      />
+    <section
+      ref={root}
+      className="relative min-h-[100dvh] overflow-hidden bg-ink text-cream"
+    >
+      <div className="pointer-events-none absolute inset-0">
+        <img
+          src="/remit-art/hero-ground.webp"
+          alt="Illustrated midnight valley with a keyhole moon over a private path to a single glowing doorway"
+          width={1280}
+          height={720}
+          fetchPriority="high"
+          decoding="async"
+          className="hero-ground absolute inset-0 h-full w-full object-cover object-[center_16%] will-change-transform"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0d1512]/78 via-[#0d1512]/28 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#0d1512] to-transparent" />
+      </div>
 
-      <div className="relative mx-auto max-w-7xl px-5 pb-16 pt-36 sm:px-8 sm:pt-44">
-        <div className="mx-auto max-w-4xl text-center">
-          <motion.p
-            initial={reduced ? false : { opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: EASE }}
-            className="eyebrow justify-center text-gold"
+      <div className="relative z-[2] mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col items-center px-4 pb-40 pt-24 text-center sm:px-8">
+        <p className="hero-copy eyebrow text-gold">
+          Private execution on Midnight
+        </p>
+
+        <h1 className="hero-copy font-display mt-5 max-w-6xl text-balance text-[clamp(3rem,5vw,5.5rem)] font-semibold leading-[1.05] tracking-[-0.015em]">
+          Trade on your rules.
+          <br />
+          Without revealing{" "}
+          <em className="pb-1 italic leading-[1.1] text-gold">the rules.</em>
+        </h1>
+
+        <p className="hero-copy mx-auto mt-6 max-w-xl text-pretty text-[1.05rem] leading-relaxed text-cream/72 sm:text-lg">
+          Seal a mandate. Let an agent fill it. Midnight proves the fill before
+          value moves.
+        </p>
+
+        <div className="hero-copy mt-8 flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
+          <Button
+            size="lg"
+            className="h-13 bg-gold px-8 text-[15px] font-semibold text-[#1a1409] hover:bg-gold-2 active:scale-[0.98]"
+            onClick={enterWorkspace}
           >
-            Private execution infrastructure · built for Midnight
-          </motion.p>
-
-          <motion.h1
-            initial={reduced ? false : { opacity: 0, y: 26 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.85, delay: 0.1, ease: EASE }}
-            className="font-display mt-7 text-balance text-[clamp(3.1rem,7.8vw,6.9rem)] font-semibold leading-[0.98] tracking-[-0.015em]"
+            Explore REMIT
+            <ArrowRight className="ml-2 h-4.5 w-4.5" />
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="h-13 border-[rgba(239,235,224,0.22)] bg-transparent px-7 text-[15px] text-cream/90 hover:bg-[rgba(239,235,224,0.06)] hover:text-cream active:scale-[0.98]"
+            onClick={scrollToHow}
           >
-            Trade on your rules.
-            <br />
-            Without revealing{" "}
-            <em className="italic text-gold">the rules.</em>
-          </motion.h1>
-
-          <motion.p
-            initial={reduced ? false : { opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.24, ease: EASE }}
-            className="mx-auto mt-7 max-w-2xl text-pretty text-[1.08rem] leading-relaxed text-cream/70 sm:text-lg"
-          >
-            REMIT lets an agent execute inside a private mandate. Midnight
-            proves the fill obeyed the mandate before value moves — so you
-            delegate the trade, never the trust.
-          </motion.p>
-
-          <motion.div
-            initial={reduced ? false : { opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.36, ease: EASE }}
-            className="mt-10 flex flex-col items-center justify-center gap-3.5 sm:flex-row"
-          >
-            <Button
-              size="lg"
-              className="h-13 bg-gold px-8 text-[15px] font-semibold text-[#1a1409] hover:bg-gold-2"
-              onClick={enterWorkspace}
-            >
-              Explore REMIT
-              <ArrowRight className="ml-2 h-4.5 w-4.5" />
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-13 border-[rgba(239,235,224,0.2)] bg-transparent px-7 text-[15px] text-cream/85 hover:bg-[rgba(239,235,224,0.06)] hover:text-cream"
-              onClick={scrollToHow}
-            >
-              <Play className="mr-2 h-4 w-4 text-gold" />
-              See how private execution works
-            </Button>
-          </motion.div>
-        </div>
-
-        {/* the flow illustration */}
-        <motion.div
-          style={{ y: flowY }}
-          initial={reduced ? false : { opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.5, ease: EASE }}
-          className="mx-auto mt-16 max-w-5xl sm:mt-20"
-        >
-          <HeroFlow />
-        </motion.div>
-
-        {/* the engraved ground — the hero settles onto this plate */}
-        <motion.div
-          style={{ y: groundY }}
-          initial={reduced ? false : { opacity: 0, y: 56 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.2, delay: 0.72, ease: EASE }}
-          className="mx-auto mt-16 max-w-6xl sm:mt-20"
-        >
-          <figure className="relative">
-            <div className="relative overflow-hidden rounded-2xl border border-[rgba(239,235,224,0.12)] bg-ink">
-              { }
-              <img
-                src="/remit-art/hero-ground.webp"
-                alt="Copperplate engraving of a neoclassical exchange rotunda at night, its keyhole doorway glowing gold"
-                loading="eager"
-                decoding="async"
-                className="block h-[260px] w-full select-none object-cover sm:h-[340px] lg:h-[420px]"
-                style={{
-                  maskImage:
-                    "linear-gradient(to bottom, transparent 0%, black 16%, black 92%, rgba(0,0,0,0.55) 100%)",
-                  WebkitMaskImage:
-                    "linear-gradient(to bottom, transparent 0%, black 16%, black 92%, rgba(0,0,0,0.55) 100%)",
-                }}
-              />
-              <div className="glow-gold-soft pointer-events-none absolute inset-0" aria-hidden="true" />
-              <CornerTicks />
-            </div>
-            <figcaption className="mt-3 flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1">
-              <span className="font-data text-[10px] font-medium uppercase tracking-[0.24em] text-gold/80">
-                PLATE I — THE EXCHANGE AT MIDNIGHT
-              </span>
-              <span className="font-display text-[13px] italic text-cream/45">
-                One keyhole. No keys on display.
-              </span>
-            </figcaption>
-          </figure>
-        </motion.div>
-
-        {/* stat strip */}
-        <div className="mx-auto mt-14 grid max-w-5xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[rgba(239,235,224,0.07)] sm:mt-16 lg:grid-cols-4">
-          {FACTS.map((s, i) => (
-            <motion.div
-              key={s.label}
-              initial={reduced ? false : { opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, delay: i * 0.09, ease: EASE }}
-              className="flex flex-col gap-1.5 bg-[#101915] px-6 py-6 text-center sm:py-7"
-            >
-              <span className="text-[1.15rem] font-medium tracking-tight text-cream sm:text-[1.25rem]">
-                {s.title}
-              </span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-sage">
-                {s.label}
-              </span>
-            </motion.div>
-          ))}
+            <Play className="mr-2 h-4 w-4 text-gold" />
+            See how it works
+          </Button>
         </div>
       </div>
+
+      <img
+        src="/remit-art/hero-courier.png"
+        alt="Illustrated REMIT courier holding a sealed mandate"
+        width={318}
+        height={720}
+        decoding="async"
+        className="hero-art pointer-events-none absolute bottom-[4%] right-[2%] z-[3] hidden w-[min(240px,26vw)] drop-shadow-[0_18px_32px_rgb(0_0_0_/_0.55)] lg:block"
+      />
     </section>
   );
 }
