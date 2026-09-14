@@ -49,14 +49,17 @@ Live contracts (Preprod, ledger 8):
 
 | artifact | address | tx | block |
 |---|---|---|---|
-| quote REMIT-Q | `7559e38693725dafef73486f2ee3aa30ee0b5b543e22d0aa5ad7303c37b55e3f` | `04800c4ca43dd572d77ca1e5cf604702c609ff091ecb567f942ff15e17c08008` | 2538374 |
-| pool | `e82dea02b2397332df0bb10e2df6d9e257c8ceba696415ed3c10f639f68d43d4` | `f8b9b32446234af794a6d9fe33c27cd12e0815593c8e18816caa4b549418ba2c` | 2538382 |
-| compliant fill | | `22c76487e28d09b1bd1150fe7ba2f3e8007b81ebe48b65ff276ef62455bafe8e` | 2538634 |
-| 1AM createMandate (Chrome) | | `e860c49a915837f17e39a2da46989e0a6e37eb42bbc105d3b6d283e214f5156b` | 2539639 |
+| quote REMIT-Q (reused) | `7559e38693725dafef73486f2ee3aa30ee0b5b543e22d0aa5ad7303c37b55e3f` | `04800c4ca43dd572d77ca1e5cf604702c609ff091ecb567f942ff15e17c08008` | 2538374 |
+| pool **v1** (historical single-offer fill) | `e82dea02b2397332df0bb10e2df6d9e257c8ceba696415ed3c10f639f68d43d4` | `f8b9b32446234af794a6d9fe33c27cd12e0815593c8e18816caa4b549418ba2c` | 2538382 |
+| pool **MBBE K=3** (new immutable address) | `01bebd52ad1b243b390c853bbc2c1588d1cf0f487934d54d79f8a590505c105e` | `55224e41e1b68f5cc65286f19e7269b199563158806fc5ae03fe9f536c61798a` | 2541620 |
+| v1 compliant fill (not MBBE evidence) | | `22c76487e28d09b1bd1150fe7ba2f3e8007b81ebe48b65ff276ef62455bafe8e` | 2538634 |
+| 1AM createMandate (v1 pool, Chrome) | | `e860c49a915837f17e39a2da46989e0a6e37eb42bbc105d3b6d283e214f5156b` | 2539639 |
+
+MBBE pool deploy reused the existing REMIT-Q faucet and the same operator wallet. A 3-maker fill on this address is not yet indexer-confirmed. Do not treat v1 fill `22c76487…` as K-set best-compliant evidence.
 
 Over-cap and price-limit fills are **rejected in Compact** (no settlement tx). Executor visibility is a constrained broker, not MPC.
 
-The live Preprod pool address above is the **v1** desk (single-offer `fill`). Mandate-bound best execution among a private K=3 candidate set is implemented in `CONTRACT/src/remit_pool.compact` and `constructFillK`. It will deploy as a **new** immutable pool address. Do not treat v1 fill `22c76487…` as MBBE evidence.
+The live Preprod **MBBE K=3** pool is `01bebd52…` (tx `55224e41…`, block 2541620). The v1 pool `e82dea02…` remains historical single-offer evidence. Compact `fill` in this repo proves best-of-K, not global-book best execution.
 
 ## Honest limits
 

@@ -27,6 +27,7 @@
     "test:contract": "vitest run TESTS/unit/contract-sim.test.ts TESTS/security TESTS/privacy",
     "test:integration": "vitest run TESTS/integration",
     "deploy:preprod": "npx tsx scripts/preprod-deploy.ts",
+    "deploy:preprod-mbbe": "npx tsx scripts/preprod-deploy-mbbe-pool.ts",
     "lifecycle:preprod": "npx tsx scripts/preprod-lifecycle.ts",
     "render:smoke": "npx tsx scripts/render-smoke.ts",
     "front:env": "npx tsx scripts/write-front-public-env.ts",
