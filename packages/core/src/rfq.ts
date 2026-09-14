@@ -109,5 +109,10 @@ export const EXECUTOR_VISIBILITY = {
     "mandate openings it is given by the principal",
     "public ledger commitments/nullifiers/auditRoot",
   ],
-  neverStoredOnApi: ["plaintext openings", "witnesses", "salts after process exit"],
+  neverStoredOnApi: [
+    "plaintext openings (sealed RMTB1 boxes only)",
+    "witnesses",
+    "salts after authenticated-inbox decrypt in logs",
+  ],
+  disk: "sealed boxes + replay nonces, AES-256-GCM at rest keyed from rfqSk",
 } as const;

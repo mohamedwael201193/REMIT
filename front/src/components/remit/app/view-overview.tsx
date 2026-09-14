@@ -198,7 +198,10 @@ function SpotlightCard({ mandate }: { mandate: Mandate | undefined }) {
 
             <PaperFact label="Limit">
               <span className="font-data font-semibold">
-                {formatUsd(mandate.limitPrice, mandate.limitPrice < 10)}
+                {formatUsd(
+                  mandate.limitPrice,
+                  mandate.limitPrice != null && mandate.limitPrice < 10,
+                )}
               </span>
             </PaperFact>
 
@@ -209,13 +212,21 @@ function SpotlightCard({ mandate }: { mandate: Mandate | undefined }) {
             </PaperFact>
 
             <PaperFact label="Budget" className="col-span-2">
-              <ProgressTrack value={mandate.spent} max={mandate.totalBudget} />
-              <p className="mt-2 font-data text-[11.5px] text-muted-foreground">
-                <span className="font-semibold text-gold-deep">
-                  {formatCompactUsd(mandate.spent)}
-                </span>{" "}
-                spent of {formatCompactUsd(mandate.totalBudget)}
-              </p>
+              {mandate.spent == null || mandate.totalBudget == null ? (
+                <p className="mt-2 font-data text-[11.5px] text-muted-foreground">
+                  Sealed
+                </p>
+              ) : (
+                <>
+                  <ProgressTrack value={mandate.spent} max={mandate.totalBudget} />
+                  <p className="mt-2 font-data text-[11.5px] text-muted-foreground">
+                    <span className="font-semibold text-gold-deep">
+                      {formatCompactUsd(mandate.spent)}
+                    </span>{" "}
+                    spent of {formatCompactUsd(mandate.totalBudget)}
+                  </p>
+                </>
+              )}
             </PaperFact>
 
             <PaperFact label="Executor" className="col-span-2">
@@ -472,7 +483,7 @@ function ExecutorBanner() {
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-medium text-cream">
-          Corvus Execution Engine
+          Constrained executor
         </p>
         <p className="text-[11.5px] text-sage">awaiting instructions</p>
       </div>
@@ -528,7 +539,7 @@ function OverviewSkeleton() {
           <Skeleton key={i} className="h-[104px] rounded-xl" />
         ))}
       </div>
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+        className="grid gap-6 lg:grid-cols-2"
         <Skeleton className="h-[430px] rounded-2xl" />
         <div className="space-y-6">
           <Skeleton className="h-[290px] rounded-2xl" />
@@ -566,7 +577,10 @@ export function ViewOverview() {
     portfolio.principalName ||
     wallet.address ||
     (wallet.status === "connected" ? "Connected principal" : "Principal");
-  const remainingBudget = portfolio.totalBudget - portfolio.committedBudget;
+  const remainingBudget =
+    portfolio.totalBudget == null || portfolio.committedBudget == null
+      ? null
+      : portfolio.totalBudget - portfolio.committedBudget;
   const verifiedAudits = audits.filter((a) => a.proofStatus === "verified");
   const spotlight = mandates.find((m) => m.status === "active");
 
@@ -598,9 +612,17 @@ export function ViewOverview() {
         <KpiCard
           label="Remaining budget"
           value={
-            <CountUp value={remainingBudget} format={(n) => formatUsd(n)} />
+            remainingBudget == null ? (
+              "Sealed"
+            ) : (
+              <CountUp value={remainingBudget} format={(n) => formatUsd(n)} />
+            )
           }
-          sub={`of ${formatCompactUsd(portfolio.totalBudget)} authorized`}
+          sub={
+            portfolio.totalBudget == null
+              ? "Not disclosed"
+              : `of ${formatCompactUsd(portfolio.totalBudget)} authorized`
+          }
         />
         <KpiCard
           label="Open offers"
@@ -622,7 +644,7 @@ export function ViewOverview() {
       {/* main grid */}
       <Reveal
         delay={0.08}
-        className="grid gap-6 lg:grid-cols-[1.4fr_1fr]"
+        className="grid gap-6 lg:grid-cols-2"
       >
         <div className="flex flex-col gap-6">
           <SpotlightCard mandate={spotlight} />

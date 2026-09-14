@@ -62,6 +62,15 @@ describe("public Preprod config for the supplied frontend", () => {
     expect(ws.executions.filter((e) => e.reference === "OVER-CAP").every((e) => e.status === "rejected")).toBe(true);
     expect(ws.executions.filter((e) => e.reference === "PRICE").every((e) => e.status === "rejected")).toBe(true);
     expect(ws.mandates[0]?.status).toBe("revoked");
+    expect(ws.mandates[0]?.maxFill).toBeNull();
+    expect(ws.mandates[0]?.limitPrice).toBeNull();
+    expect(ws.mandates[0]?.totalBudget).toBeNull();
+    expect(ws.mandates[0]?.spent).toBeNull();
+    expect(ws.mandates[0]?.amountPrivacy).toBe("sealed");
+    expect(ws.portfolio.totalBudget).toBeNull();
+    expect(ws.portfolio.committedBudget).toBeNull();
+    expect(ws.portfolio.amountPrivacy).toBe("sealed");
+    expect(ws.offers.every((o) => o.price == null && o.size == null && o.amountPrivacy === "sealed")).toBe(true);
     expect(explorerTxUrl("f1")).toContain("f1");
   });
 

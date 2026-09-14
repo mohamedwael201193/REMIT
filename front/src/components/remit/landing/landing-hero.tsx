@@ -3,17 +3,16 @@
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CountUp, EASE } from "@/components/remit/primitives";
+import { EASE } from "@/components/remit/primitives";
 import { CornerTicks } from "./plates";
 import { HeroFlow } from "./hero-flow";
 import { useRemitStore } from "@/store/remit";
-import { formatCompactUsd } from "@/lib/remit/format";
 
-const STATS = [
-  { value: 2_400_000_000, format: (n: number) => formatCompactUsd(n), label: "Private notional settled" },
-  { value: 31_918, format: (n: number) => Math.round(n).toLocaleString("en-US"), label: "Policy proofs verified" },
-  { value: 0, format: (n: number) => Math.round(n).toLocaleString("en-US"), label: "Mandates ever revealed" },
-  { value: 100, format: (n: number) => `${Math.round(n)}%`, label: "Fills checked before value moves" },
+const FACTS = [
+  { title: "Private liquidity", label: "Offer terms stay sealed" },
+  { title: "Mandate-bound", label: "The agent cannot exceed its remit" },
+  { title: "Compact proof", label: "Fill is proven before value moves" },
+  { title: "Selective audit", label: "One authorized fact, not the book" },
 ];
 
 export function LandingHero() {
@@ -151,7 +150,7 @@ export function LandingHero() {
 
         {/* stat strip */}
         <div className="mx-auto mt-14 grid max-w-5xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[rgba(239,235,224,0.07)] sm:mt-16 lg:grid-cols-4">
-          {STATS.map((s, i) => (
+          {FACTS.map((s, i) => (
             <motion.div
               key={s.label}
               initial={reduced ? false : { opacity: 0, y: 16 }}
@@ -160,11 +159,9 @@ export function LandingHero() {
               transition={{ duration: 0.7, delay: i * 0.09, ease: EASE }}
               className="flex flex-col gap-1.5 bg-[#101915] px-6 py-6 text-center sm:py-7"
             >
-              <CountUp
-                value={s.value}
-                format={s.format}
-                className="text-[1.65rem] font-medium tracking-tight text-cream sm:text-[1.8rem]"
-              />
+              <span className="text-[1.15rem] font-medium tracking-tight text-cream sm:text-[1.25rem]">
+                {s.title}
+              </span>
               <span className="text-[11px] uppercase tracking-[0.14em] text-sage">
                 {s.label}
               </span>

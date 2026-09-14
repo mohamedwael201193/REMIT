@@ -93,7 +93,7 @@ function MandateDoc() {
             Private mandate
           </p>
           <p className="font-display mt-1 text-base font-semibold text-[#1a231e]">
-            MD-2901
+            Sealed mandate
           </p>
         </div>
         <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#8c6a1f]/40 bg-[#8c6a1f]/10">

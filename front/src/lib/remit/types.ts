@@ -9,6 +9,14 @@
 
 export type Role = "principal" | "executor" | "auditor";
 
+/** Private terms with no public opening. Never format the absence as $0. */
+export type PrivacyLabel = "sealed" | "not-disclosed";
+
+export const PRIVACY_LABEL_COPY: Record<PrivacyLabel, string> = {
+  sealed: "Sealed",
+  "not-disclosed": "Not disclosed",
+};
+
 export type Side = "buy" | "sell";
 
 export type AssetClass =
@@ -62,12 +70,13 @@ export interface Mandate {
   reference: string;
   asset: string;
   side: Side;
-  /** Hard ceiling for a single fill, in USD. */
-  maxFill: number;
-  /** Worst acceptable price. */
-  limitPrice: number;
-  totalBudget: number;
-  spent: number;
+  /** Hard ceiling for a single fill, in USD. Null when the opening is sealed. */
+  maxFill: number | null;
+  /** Worst acceptable price. Null when the opening is sealed. */
+  limitPrice: number | null;
+  totalBudget: number | null;
+  spent: number | null;
+  amountPrivacy?: PrivacyLabel;
   /** Counterparty classes admitted by this mandate. */
   counterpartyClasses: string[];
   counterpartyIds: string[];
@@ -96,9 +105,10 @@ export interface Offer {
   mandateId: string;
   asset: string;
   side: Side;
-  price: number;
-  /** Offered size in USD. */
-  size: number;
+  price: number | null;
+  /** Offered size in USD. Null when the opening is sealed. */
+  size: number | null;
+  amountPrivacy?: PrivacyLabel;
   counterpartyId: string;
   /** 0–100: how well the offer fits the mandate envelope. */
   compatibility: number;
@@ -137,11 +147,11 @@ export interface Execution {
   offerId?: string;
   asset: string;
   side: Side;
-  /** Size the executor attempted, in USD. */
-  attemptedFill: number;
-  /** Size that actually settled, in USD. Undefined when rejected. */
-  settledFill?: number;
-  price: number;
+  /** Size the executor attempted, in USD. Null when the opening is sealed. */
+  attemptedFill: number | null;
+  /** Size that actually settled, in USD. Undefined when rejected. Null when sealed. */
+  settledFill?: number | null;
+  price: number | null;
   counterpartyId: string;
   status: ExecutionStatus;
   /** Human-readable reason when the attempt was refused. */
@@ -210,8 +220,9 @@ export interface PortfolioSnapshot {
   principalName: string;
   deskName: string;
   activeMandates: number;
-  totalBudget: number;
-  committedBudget: number;
+  totalBudget: number | null;
+  committedBudget: number | null;
+  amountPrivacy?: PrivacyLabel;
   openOffers: number;
   settledNotional: number;
   verificationRate: number;

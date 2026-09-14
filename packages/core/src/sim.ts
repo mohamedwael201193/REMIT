@@ -5,13 +5,14 @@ import {
   dummyContractAddress,
   type CircuitContext,
 } from "@midnight-ntwrk/compact-runtime";
-import { Contract, ledger, pureCircuits, type Mandate, type Offer } from "@remit/contracts/pool";
+import { Contract, ledger, pureCircuits, type Mandate, type Offer, type OfferSlot } from "@remit/contracts/pool";
 import { toArray, randomBytes32 } from "./bytes.js";
 import { RemitError } from "./errors.js";
 import { dumpPublicLedger } from "./privacy.js";
 import { emptyPrivateState, type JsonPath, type OwnedNote, type RemitPrivateState } from "./state.js";
 import { jsonPath } from "./paths.js";
 import { stage, witnesses } from "./witnesses.js";
+import { padBook, withOfferDefaults, type LooseOffer } from "./mbbe.js";
 
 const CPK = "11".repeat(32);
 const ADDR = dummyContractAddress();
@@ -72,16 +73,30 @@ export function notePath(sim: Sim, note: OwnedNote): JsonPath {
   return jsonPath(p);
 }
 
+function offerPending(offer: LooseOffer) {
+  const o = withOfferDefaults(offer);
+  return {
+    side: o.side.toString(),
+    baseAmount: o.baseAmount.toString(),
+    quoteAmount: o.quoteAmount.toString(),
+    maker: toArray(o.maker),
+    payNonce: toArray(o.payNonce),
+    expiry: o.expiry.toString(),
+    minFillBase: o.minFillBase.toString(),
+  };
+}
+
 export function placeOffer(
   sim: Sim,
   ownerSk: Uint8Array,
   note: OwnedNote,
-  offer: Offer,
+  offer: LooseOffer,
   offerRand = randomBytes32(),
   changeNonce = randomBytes32(),
 ): { sim: Sim; offer: Offer; offerRand: Uint8Array; change: OwnedNote } {
-  const escrowAsset = offer.side === 0n ? 0n : 1n;
-  const escrowAmount = offer.side === 0n ? offer.baseAmount : offer.quoteAmount;
+  const o = withOfferDefaults(offer);
+  const escrowAsset = o.side === 0n ? 0n : 1n;
+  const escrowAmount = o.side === 0n ? o.baseAmount : o.quoteAmount;
   const change: OwnedNote = {
     asset: note.asset,
     amount: note.amount - escrowAmount,
@@ -93,21 +108,15 @@ export function placeOffer(
     spendNote: { asset: note.asset.toString(), amount: note.amount.toString(), owner: toArray(note.owner) },
     spendNoteNonce: toArray(note.nonce),
     spendNotePath: notePath(sim, note),
-    offerData: {
-      side: offer.side.toString(),
-      baseAmount: offer.baseAmount.toString(),
-      quoteAmount: offer.quoteAmount.toString(),
-      maker: toArray(offer.maker),
-      payNonce: toArray(offer.payNonce),
-    },
+    offerData: offerPending(o),
     offerRand: toArray(offerRand),
     freshNonce: toArray(changeNonce),
   });
-  return { sim: next, offer, offerRand, change };
+  return { sim: next, offer: o, offerRand, change };
 }
 
-export function offerPath(sim: Sim, offer: Offer, rand: Uint8Array): JsonPath {
-  const c = pureCircuits.offerCommitment(offer, rand);
+export function offerPath(sim: Sim, offer: LooseOffer, rand: Uint8Array): JsonPath {
+  const c = pureCircuits.offerCommitment(withOfferDefaults(offer), rand);
   const p = publicLedger(sim).offers.findPathForLeaf(c);
   if (!p) throw new RemitError("INTERNAL", "offer not in tree");
   return jsonPath(p);
@@ -163,12 +172,16 @@ export type FillArgs = {
   mandateRand: Uint8Array;
   remaining: bigint;
   stateNonce: Uint8Array;
-  offer: Offer;
+  offer: LooseOffer;
   offerRand: Uint8Array;
   nowBound: bigint;
   auditSeed?: Uint8Array;
   getNonce?: Uint8Array;
   nextStateNonce?: Uint8Array;
+  fillBase?: bigint;
+  fillQuote?: bigint;
+  chosenIndex?: bigint;
+  book?: OfferSlot[];
   /** Test-only: a path that does not match this offer (Compact must reject). */
   offerPathOverride?: JsonPath;
 };
@@ -207,21 +220,16 @@ export function revokeMandate(
 export function cancelOffer(
   sim: Sim,
   ownerSk: Uint8Array,
-  offer: Offer,
+  offer: LooseOffer,
   offerRand: Uint8Array,
   refundNonce = randomBytes32(),
 ): Sim {
+  const o = withOfferDefaults(offer);
   return callCircuit(sim, (ctx) => sim.contract.impureCircuits.cancelOffer(ctx), {
     ownerSecret: toArray(ownerSk),
-    offerData: {
-      side: offer.side.toString(),
-      baseAmount: offer.baseAmount.toString(),
-      quoteAmount: offer.quoteAmount.toString(),
-      maker: toArray(offer.maker),
-      payNonce: toArray(offer.payNonce),
-    },
+    offerData: offerPending(o),
     offerRand: toArray(offerRand),
-    offerPath: offerPath(sim, offer, offerRand),
+    offerPath: offerPath(sim, o, offerRand),
     freshNonce: toArray(refundNonce),
   });
 }
@@ -248,6 +256,17 @@ export function fill(sim: Sim, args: FillArgs): Sim {
   const seed = args.auditSeed ?? randomBytes32();
   const getNonce = args.getNonce ?? randomBytes32();
   const nextStateNonce = args.nextStateNonce ?? randomBytes32();
+  const o = withOfferDefaults(args.offer);
+  const selectedPath = args.offerPathOverride ?? offerPath(sim, o, args.offerRand);
+  const live: OfferSlot[] = args.book ?? [{ offer: o, rand: args.offerRand, live: true }];
+  const slots = padBook(live);
+  const paths = slots.map((s) =>
+    args.offerPathOverride && s.live && s.offer === o ? selectedPath : offerPath(sim, s.offer, s.rand),
+  );
+  if (args.offerPathOverride) paths[0] = args.offerPathOverride;
+  const fillBase = args.fillBase ?? o.baseAmount;
+  const fillQuote = args.fillQuote ?? o.quoteAmount;
+  const chosenIndex = args.chosenIndex ?? 0n;
   return callCircuit(sim, (ctx) => sim.contract.impureCircuits.fill(ctx, args.nowBound), {
     executorSecret: toArray(args.esk),
     mandateData: {
@@ -266,15 +285,18 @@ export function fill(sim: Sim, args: FillArgs): Sim {
     mandateStateData: { mandateId: toArray(args.mandate.mandateId), remaining: args.remaining.toString() },
     mandateStateNonce: toArray(args.stateNonce),
     mandateStatePath: mandateStatePath(sim, args.mandate.mandateId, args.remaining, args.stateNonce),
-    offerData: {
-      side: args.offer.side.toString(),
-      baseAmount: args.offer.baseAmount.toString(),
-      quoteAmount: args.offer.quoteAmount.toString(),
-      maker: toArray(args.offer.maker),
-      payNonce: toArray(args.offer.payNonce),
-    },
+    offerData: offerPending(o),
     offerRand: toArray(args.offerRand),
-    offerPath: args.offerPathOverride ?? offerPath(sim, args.offer, args.offerRand),
+    offerPath: selectedPath,
+    book: slots.map((s) => ({
+      offer: offerPending(s.offer),
+      rand: toArray(s.rand),
+      live: s.live,
+    })),
+    bookPaths: paths,
+    chosenIndex: chosenIndex.toString(),
+    fillBase: fillBase.toString(),
+    fillQuote: fillQuote.toString(),
     auditSeed: toArray(seed),
     freshNonce: toArray(getNonce),
     freshNonce2: toArray(nextStateNonce),

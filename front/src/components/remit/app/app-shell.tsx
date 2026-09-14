@@ -32,9 +32,9 @@ import { ViewSettings } from "./view-settings";
 
 const NAV: { view: AppView; label: string; icon: React.ElementType }[] = [
   { view: "overview", label: "Overview", icon: LayoutDashboard },
+  { view: "offers", label: "Private liquidity", icon: Inbox },
   { view: "mandates", label: "Mandates", icon: FileLock2 },
-  { view: "offers", label: "Offers", icon: Inbox },
-  { view: "executions", label: "Executions", icon: ArrowLeftRight },
+  { view: "executions", label: "Agent", icon: ArrowLeftRight },
   { view: "audit", label: "Audit", icon: SearchCheck },
   { view: "settings", label: "Settings", icon: Settings },
 ];
@@ -48,8 +48,8 @@ const ROLES: { role: Role; label: string }[] = [
 const VIEW_TITLES: Record<AppView, string> = {
   overview: "Overview",
   mandates: "Mandates",
-  offers: "Offers",
-  executions: "Executions",
+  offers: "Private liquidity",
+  executions: "Agent",
   audit: "Audit",
   settings: "Settings",
 };
@@ -64,7 +64,7 @@ function RoleSwitcher({ className }: { className?: string }) {
         className,
       )}
       role="tablist"
-      aria-label="Workspace role"
+      aria-label="Demo lens — not authorization"
     >
       {ROLES.map((r) => (
         <button
@@ -107,7 +107,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             }}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors",
+              "group flex min-h-11 min-w-11 items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors",
               active
                 ? "bg-gold/12 text-gold"
                 : "text-cream/60 hover:bg-[rgba(239,235,224,0.05)] hover:text-cream",
@@ -189,7 +189,7 @@ export function AppShell() {
           </div>
           <div className="space-y-3 border-t border-[rgba(239,235,224,0.08)] p-4">
             <p className="px-1 text-[10.5px] uppercase tracking-[0.18em] text-cream/35">
-              Signed in as {role}
+              Demo lens · {role}
             </p>
             <Button
               variant="ghost"
@@ -214,7 +214,7 @@ export function AppShell() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 text-cream lg:hidden"
+                    className="h-11 w-11 min-h-11 min-w-11 text-cream lg:hidden"
                     aria-label="Open navigation"
                   >
                     <Menu className="h-5 w-5" />

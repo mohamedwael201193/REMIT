@@ -31,6 +31,25 @@ export function evaluatePolicy(
   mandate: Mandate,
   attempt: FillAttempt,
 ): PolicyEvaluation {
+  if (
+    mandate.maxFill == null ||
+    mandate.limitPrice == null ||
+    mandate.totalBudget == null ||
+    mandate.spent == null
+  ) {
+    return {
+      passed: false,
+      checks: [
+        {
+          label: "Openings available",
+          passed: false,
+          detail: "Mandate terms are sealed — Compact evaluates them; this tab does not invent amounts",
+        },
+      ],
+      refusalReason: "Mandate openings are sealed.",
+    };
+  }
+
   const at = attempt.at ?? new Date();
   const cpName = attempt.counterpartyId;
 

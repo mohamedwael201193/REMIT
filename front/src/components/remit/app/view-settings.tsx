@@ -28,6 +28,7 @@ import { DataChip, Reveal } from "@/components/remit/primitives";
 import { LaceMark, OneAmMark } from "@/components/remit/brand";
 import { useRemitStore } from "@/store/remit";
 import { useToast } from "@/hooks/use-toast";
+import { shortAddress } from "@/lib/remit/format";
 
 function roleLabel(role: string): string {
   return role.charAt(0).toUpperCase() + role.slice(1);
@@ -125,9 +126,9 @@ export function ViewSettings() {
                   {wallet.address ? wallet.address.slice(3, 5).toUpperCase() : roleLabel(role).slice(0, 2)}
                 </AvatarFallback>
               </Avatar>
-              <div className="space-y-1.5">
-                <p className="font-display text-lg font-semibold tracking-tight">
-                  {wallet.address ?? "Not connected"}
+              <div className="min-w-0 space-y-1.5">
+                <p className="font-display text-lg font-semibold tracking-tight" title={wallet.address ?? undefined}>
+                  {wallet.address ? shortAddress(wallet.address) : "Not connected"}
                 </p>
                 <p className="text-[12.5px] text-muted-foreground">
                   Midnight Preprod · {roleLabel(role)}

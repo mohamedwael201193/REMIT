@@ -194,9 +194,12 @@ function LiveExecutionPanel() {
                     </p>
                     <p className="font-data mt-1 text-[11.5px] text-cream/70">
                       {lastExecution.reference} ·{" "}
-                      {formatUsd(lastExecution.settledFill ?? 0)}{" "}
+                      {formatUsd(lastExecution.settledFill)}{" "}
                       {assetBySymbol(lastExecution.asset).symbol} @{" "}
-                      {formatUsd(lastExecution.price, lastExecution.price < 10)}
+                      {formatUsd(
+                        lastExecution.price,
+                        lastExecution.price != null && lastExecution.price < 10,
+                      )}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -240,10 +243,11 @@ function LiveExecutionPanel() {
 
 function EnforcementShowcase() {
   const executions = useRemitStore((s) => s.executions);
-  const over = executions.find((e) => e.reference === "OVER-CAP");
+  const over = executions.find((e) => e.status === "rejected");
   const fill = executions.find((e) => e.status === "settled");
-  const attempted = over?.attemptedFill ?? 0;
-  const settled = fill?.settledFill ?? fill?.attemptedFill ?? 0;
+  if (!over && !fill) return null;
+  const attempted = over?.attemptedFill ?? null;
+  const settled = fill?.settledFill ?? fill?.attemptedFill ?? null;
   const receipt = fill?.txHash ? fill.txHash.slice(0, 12) : null;
 
   return (
@@ -263,7 +267,7 @@ function EnforcementShowcase() {
           <div>
             <p className="eyebrow text-muted-foreground">Attempted fill</p>
             <p className="font-data mt-2 text-4xl font-semibold tracking-tight text-clay sm:text-5xl">
-              {formatUsd(attempted || 60)}
+              {formatUsd(attempted)}
             </p>
           </div>
 
@@ -279,26 +283,31 @@ function EnforcementShowcase() {
           <div className="sm:text-right">
             <p className="eyebrow text-muted-foreground">Mandate limit</p>
             <p className="font-data mt-2 text-4xl font-semibold tracking-tight text-gold sm:text-5xl">
-              {formatUsd(50)}
+              {formatUsd(null)}
             </p>
           </div>
         </div>
 
+        {over ? (
         <div className="mt-7 rounded-xl border border-clay/40 bg-clay/10 p-4">
           <p className="text-[13px] font-semibold tracking-wide text-clay">
-            REJECTED BEFORE SETTLEMENT — OVER-CAP Compact fill, no settlement tx.
+            REJECTED BEFORE SETTLEMENT — Compact refused the fill. No settlement tx.
           </p>
           <p className="mt-1 text-[12.5px] leading-relaxed text-cream/70">
             No value moved. The attempt is provable, the rules are not.
           </p>
         </div>
+        ) : null}
 
+        {fill ? (
+        <>
         <Hairline className="my-5" />
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <ProofSeal tone="mint" label="Proof verified" className="h-8 w-8 shrink-0" />
           <p className="font-data text-[15px] text-cream/85">
-            <span className="text-mint">{formatUsd(settled || 40)}</span> attempted →{" "}
+            <span className="text-mint">{formatUsd(settled)}</span>
+            {" → "}
             <span className="text-mint">VERIFIED — Mandate satisfied</span>
           </p>
           {receipt ? (
@@ -307,6 +316,8 @@ function EnforcementShowcase() {
             </DataChip>
           ) : null}
         </div>
+        </>
+        ) : null}
       </section>
     </Reveal>
   );

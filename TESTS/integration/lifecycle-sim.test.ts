@@ -110,7 +110,8 @@ describe("local compact-runtime lifecycle (not a Midnight node, not a mock of Pr
     expect(publicLedger(sim).fills).toBe(1n);
 
     sim = cancelOffer(sim, makerSk, over, placedOver.offerRand);
-    expect(publicLedger(sim).openOffers).toBe(0n);
+    // fill no longer decrements openOffers (residual remains committed).
+    expect(publicLedger(sim).openOffers).toBe(1n);
 
     sim = withdraw(sim, principalSk, leftover.note, 10n);
     const pub = serializedPublicState(sim);

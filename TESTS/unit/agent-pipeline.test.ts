@@ -28,6 +28,8 @@ describe("encrypted RFQ executor tick", () => {
       quoteAmount: "1280",
       maker,
       payNonce: Array.from(randomBytes32()),
+      expiry: "2000000000",
+      minFillBase: "1",
     }, Array.from(randomBytes32()));
     const over = makeOfferBox(rec.publicHex, {
       side: "1",
@@ -35,6 +37,8 @@ describe("encrypted RFQ executor tick", () => {
       quoteAmount: "1920",
       maker,
       payNonce: Array.from(randomBytes32()),
+      expiry: "2000000000",
+      minFillBase: "60",
     }, Array.from(randomBytes32()));
     const tick = runEncryptedRfqTick({
       rfqSecretHex: rec.secretHex,

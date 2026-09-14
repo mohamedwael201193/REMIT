@@ -34,8 +34,8 @@ type Stage = "idle" | "checking" | "rejected" | "verified";
 const CHECKS = [
   { label: "Within price limit", detail: `${usd(ATTEMPT_PRICE)} ≤ $1.0002 limit` },
   { label: "Within size limit", detail: "" }, // dynamic
-  { label: "Counterparty allowed", detail: "Northline Capital · Tier-1 OTC" },
-  { label: "Mandate active", detail: "MD-2901 · expires in 40 days" },
+  { label: "Counterparty allowed", detail: "Allow-listed maker (illustration)" },
+  { label: "Mandate active", detail: "Sealed example · Compact-enforced cap" },
 ];
 
 export function SectionEnforcement() {
@@ -117,19 +117,19 @@ export function SectionEnforcement() {
                   <p className="font-data text-[10px] font-medium uppercase tracking-[0.2em] text-gold-deep">
                     Private mandate
                   </p>
-                  <p className="font-display mt-1 text-2xl font-semibold">MD-2901</p>
+                  <p className="font-display mt-1 text-2xl font-semibold">Sealed example</p>
                 </div>
                 <ProofSeal className="h-11 w-11" tone="gold" />
               </div>
 
               <dl className="mt-6 space-y-3.5 text-[13px]">
                 {[
-                  ["Asset", "USDC.n · USD Coin"],
+                  ["Asset", "tNIGHT (illustration)"],
                   ["Side", "Buy"],
-                  ["Limit price", "$1.0002"],
-                  ["Total budget", "$50,000"],
-                  ["Expiry", "40 days"],
-                  ["Executor", "Corvus Execution Engine"],
+                  ["Limit price", "Sealed"],
+                  ["Total budget", "Sealed"],
+                  ["Expiry", "Sealed"],
+                  ["Executor", "Constrained executor"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex items-baseline justify-between gap-4">
                     <dt className="uppercase tracking-[0.12em] text-[#5d6a61] text-[10.5px]">{k}</dt>
@@ -158,7 +158,7 @@ export function SectionEnforcement() {
             <div className="flex flex-col">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="font-data text-[10px] font-medium uppercase tracking-[0.2em] text-sage">
-                  Executor console · Corvus
+                  Illustration · not live Preprod
                 </p>
                 <DataChip>
                   <span className="h-1.5 w-1.5 rounded-full bg-mint" />

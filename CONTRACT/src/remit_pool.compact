@@ -3,21 +3,20 @@ pragma language_version >= 0.22 && <= 0.23;
 import CompactStandardLibrary;
 
 // ============================================================================
-// REMIT pool — mandate-bound dark RFQ desk (Preprod / ledger 8).
+// REMIT pool — Mandate-Bound Best Execution (MBBE) on ledger 8.
 //
 // Asset 0 = native unshielded NIGHT (tNIGHT on Preprod).
 // Asset 1 = constructor-supplied quote colour (REMIT-Q test token; not a
 //           stablecoin — see remit_quote.compact).
 //
-// Impure circuits (7 verifier keys):
-//   deposit(asset, amount)   PUBLIC: asset, amount, colour, depositor wallet
-//   withdraw(asset, amount)  PUBLIC: asset, amount, colour, recipient
-//   placeOffer()             PUBLIC: note nullifier, change commit, offer commit
-//   cancelOffer()            PUBLIC: offer nullifier, refund commit
-//   createMandate()          PUBLIC: note nullifier, mandate + state commits
-//   revokeMandate()          PUBLIC: revoke tag, state nullifier, refund commit
-//   fill(nowBound)           PUBLIC: nowBound, two nullifiers, three commits,
-//                            auditRoot. NEVER the mandate/offer openings.
+// Impure circuits (7 verifier keys — do not add an 8th):
+//   deposit / withdraw / placeOffer / cancelOffer / createMandate /
+//   revokeMandate / fill(nowBound)
+//
+// fill evaluates a K=3 padded private candidate book and settles only the
+// selected slot. PUBLIC: nowBound, selected offer nullifier, mandate-state
+// nullifier, residual offer commit, two payout commits, next state commit,
+// auditRoot, fills++. NEVER openings, chosenIndex, prices, sizes, expiry.
 // ============================================================================
 
 export sealed ledger quoteColor: Bytes<32>;
@@ -34,6 +33,14 @@ export struct Offer {
   quoteAmount: Uint<64>;
   maker: Bytes<32>;
   payNonce: Bytes<32>;
+  expiry: Uint<64>;
+  minFillBase: Uint<64>;
+}
+
+export struct OfferSlot {
+  offer: Offer;
+  rand: Bytes<32>;
+  live: Boolean;
 }
 
 export struct Mandate {
@@ -98,6 +105,11 @@ witness mandateStatePath(): MerkleTreePath<16, Bytes<32>>;
 witness counterpartyPath(): MerkleTreePath<8, Bytes<32>>;
 witness auditSeed(): Bytes<32>;
 witness withdrawTo(): Either<ContractAddress, UserAddress>;
+witness book(): Vector<3, OfferSlot>;
+witness bookPaths(): Vector<3, MerkleTreePath<16, Bytes<32>>>;
+witness chosenIndex(): Uint<8>;
+witness fillBase(): Uint<64>;
+witness fillQuote(): Uint<64>;
 
 export pure circuit ownerKey(sk: Bytes<32>): Bytes<32> {
   return persistentHash<Vector<2, Bytes<32>>>([pad(32, "remit:pk"), sk]);
@@ -144,6 +156,62 @@ export pure circuit priceAtLeast(base: Uint<64>, quote: Uint<64>, num: Uint<64>,
 export pure circuit priceAtMost(base: Uint<64>, quote: Uint<64>, num: Uint<64>, den: Uint<64>): Boolean {
   return quote * den <= base * num;
 }
+export pure circuit residualPayNonceOf(n: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "remit:residual"), n]);
+}
+export pure circuit residualRandOf(rand: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "remit:rrand"), rand]);
+}
+export pure circuit minU64(a: Uint<64>, b: Uint<64>): Uint<64> {
+  return a < b ? a : b;
+}
+export pure circuit bytesLt(a: Bytes<32>, b: Bytes<32>): Boolean {
+  if (a[0] != b[0]) { return a[0] < b[0]; }
+  if (a[1] != b[1]) { return a[1] < b[1]; }
+  if (a[2] != b[2]) { return a[2] < b[2]; }
+  if (a[3] != b[3]) { return a[3] < b[3]; }
+  if (a[4] != b[4]) { return a[4] < b[4]; }
+  if (a[5] != b[5]) { return a[5] < b[5]; }
+  if (a[6] != b[6]) { return a[6] < b[6]; }
+  if (a[7] != b[7]) { return a[7] < b[7]; }
+  if (a[8] != b[8]) { return a[8] < b[8]; }
+  if (a[9] != b[9]) { return a[9] < b[9]; }
+  if (a[10] != b[10]) { return a[10] < b[10]; }
+  if (a[11] != b[11]) { return a[11] < b[11]; }
+  if (a[12] != b[12]) { return a[12] < b[12]; }
+  if (a[13] != b[13]) { return a[13] < b[13]; }
+  if (a[14] != b[14]) { return a[14] < b[14]; }
+  if (a[15] != b[15]) { return a[15] < b[15]; }
+  if (a[16] != b[16]) { return a[16] < b[16]; }
+  if (a[17] != b[17]) { return a[17] < b[17]; }
+  if (a[18] != b[18]) { return a[18] < b[18]; }
+  if (a[19] != b[19]) { return a[19] < b[19]; }
+  if (a[20] != b[20]) { return a[20] < b[20]; }
+  if (a[21] != b[21]) { return a[21] < b[21]; }
+  if (a[22] != b[22]) { return a[22] < b[22]; }
+  if (a[23] != b[23]) { return a[23] < b[23]; }
+  if (a[24] != b[24]) { return a[24] < b[24]; }
+  if (a[25] != b[25]) { return a[25] < b[25]; }
+  if (a[26] != b[26]) { return a[26] < b[26]; }
+  if (a[27] != b[27]) { return a[27] < b[27]; }
+  if (a[28] != b[28]) { return a[28] < b[28]; }
+  if (a[29] != b[29]) { return a[29] < b[29]; }
+  if (a[30] != b[30]) { return a[30] < b[30]; }
+  if (a[31] != b[31]) { return a[31] < b[31]; }
+  return false;
+}
+export pure circuit fillableBaseOf(o: Offer, maxFillBase: Uint<64>, remaining: Uint<64>, side: Uint<8>): Uint<64> {
+  const cap = minU64(o.baseAmount, maxFillBase);
+  return side == 0 ? minU64(cap, remaining) : cap;
+}
+export pure circuit betterPrice(a: Offer, b: Offer, side: Uint<8>): Boolean {
+  return side == 0
+    ? a.quoteAmount * b.baseAmount > b.quoteAmount * a.baseAmount
+    : a.quoteAmount * b.baseAmount < b.quoteAmount * a.baseAmount;
+}
+export pure circuit samePrice(a: Offer, b: Offer): Boolean {
+  return a.quoteAmount * b.baseAmount == b.quoteAmount * a.baseAmount;
+}
 
 circuit colorOf(asset: Uint<8>): Bytes<32> {
   return asset == 0 ? nativeToken() : quoteColor;
@@ -164,6 +232,57 @@ circuit consumeNote(sk: Bytes<32>): Note {
 
 circuit mintNote(asset: Uint<8>, amount: Uint<64>, owner: Bytes<32>, nonce: Bytes<32>): [] {
   notes.insert(disclose(noteCommitment(Note { asset: asset, amount: amount, owner: owner }, nonce)));
+}
+
+circuit slotEligible(s: OfferSlot, m: Mandate, nowBound: Uint<64>, remaining: Uint<64>): Boolean {
+  const o = s.offer;
+  const priceOk = m.side == 0
+    ? priceAtLeast(o.baseAmount, o.quoteAmount, m.limitNum, m.limitDen)
+    : priceAtMost(o.baseAmount, o.quoteAmount, m.limitNum, m.limitDen);
+  const cap = minU64(o.baseAmount, m.maxFillBase);
+  const fullBudget = m.side == 0 ? o.baseAmount <= remaining : o.quoteAmount <= remaining;
+  const fullOk = cap == o.baseAmount && fullBudget;
+  const minSlice = o.minFillBase;
+  const sliceBudget = m.side == 0
+    ? minSlice <= remaining
+    : minSlice * o.quoteAmount <= remaining * o.baseAmount;
+  const sliceOk = minSlice > 0 && minSlice <= cap && sliceBudget;
+  return s.live
+    && o.baseAmount > 0
+    && o.quoteAmount > 0
+    && o.side != m.side
+    && nowBound <= o.expiry
+    && priceOk
+    && (fullOk || sliceOk);
+}
+
+circuit strictlyBetter(
+  a: OfferSlot,
+  b: OfferSlot,
+  m: Mandate,
+  remaining: Uint<64>
+): Boolean {
+  const oa = a.offer;
+  const ob = b.offer;
+  const fa = fillableBaseOf(oa, m.maxFillBase, remaining, m.side);
+  const fb = fillableBaseOf(ob, m.maxFillBase, remaining, m.side);
+  const ca = offerCommitment(oa, a.rand);
+  const cb = offerCommitment(ob, b.rand);
+  return betterPrice(oa, ob, m.side)
+    || (samePrice(oa, ob) && fa > fb)
+    || (samePrice(oa, ob) && fa == fb && bytesLt(ca, cb));
+}
+
+circuit notDominated(challenger: OfferSlot, winner: OfferSlot, chEl: Boolean, m: Mandate, remaining: Uint<64>): Boolean {
+  return !chEl || !strictlyBetter(challenger, winner, m, remaining);
+}
+
+circuit bindSlot(
+  s: OfferSlot,
+  p: MerkleTreePath<16, Bytes<32>>
+): [] {
+  assert(p.leaf == offerCommitment(s.offer, s.rand), "offer path mismatch");
+  assert(offers.checkRoot(disclose(merkleTreePathRoot<16, Bytes<32>>(p))), "unknown offer");
 }
 
 export circuit deposit(asset: Uint<8>, amount: Uint<64>): [] {
@@ -192,6 +311,9 @@ export circuit placeOffer(): [] {
   assert(o.maker == ownerKey(sk), "offer maker must be caller");
   assert(o.side <= 1, "bad side");
   assert(o.baseAmount > 0 && o.quoteAmount > 0, "zero amounts");
+  assert(o.expiry > 0, "offer expiry required");
+  assert(o.minFillBase > 0, "minFill required");
+  assert(o.minFillBase <= o.baseAmount, "minFill exceeds size");
   const escrowAsset = o.side == 0 ? 0 : 1;
   const escrowAmount = o.side == 0 ? o.baseAmount : o.quoteAmount;
   assert(note.asset == escrowAsset, "escrow wrong asset");
@@ -289,30 +411,64 @@ export circuit fill(nowBound: Uint<64>): [] {
   assert(!mandateStateNullifiers.member(disclose(snul)), "state already consumed");
   mandateStateNullifiers.insert(disclose(snul));
 
-  const o = offerData();
-  const orand = offerRand();
-  const op = offerPath();
-  const oc = offerCommitment(o, orand);
-  assert(op.leaf == oc, "offer path mismatch");
-  assert(offers.checkRoot(disclose(merkleTreePathRoot<16, Bytes<32>>(op))), "unknown offer");
-  const onul = offerNullifier(oc);
-  assert(!offerNullifiers.member(disclose(onul)), "offer already used");
-  offerNullifiers.insert(disclose(onul));
+  const slots = book();
+  const paths = bookPaths();
+  bindSlot(slots[0], paths[0]);
+  bindSlot(slots[1], paths[1]);
+  bindSlot(slots[2], paths[2]);
 
+  const idx = chosenIndex();
+  assert(idx < 3, "chosen index out of range");
+  const q = idx == 0 ? slots[0] : (idx == 1 ? slots[1] : slots[2]);
+  const el0 = slotEligible(slots[0], m, nowBound, s.remaining);
+  const el1 = slotEligible(slots[1], m, nowBound, s.remaining);
+  const el2 = slotEligible(slots[2], m, nowBound, s.remaining);
+  const elSel = idx == 0 ? el0 : (idx == 1 ? el1 : el2);
+  assert(q.live, "chosen slot is empty");
+  const o = q.offer;
+  const orand = q.rand;
   assert(o.baseAmount > 0 && o.quoteAmount > 0, "zero amounts");
   assert(o.side != m.side, "offer must be on the opposite side");
-  assert(o.baseAmount <= m.maxFillBase, "fill exceeds per-fill cap");
+  assert(nowBound <= o.expiry, "offer expired");
   const priceOk = m.side == 0
     ? priceAtLeast(o.baseAmount, o.quoteAmount, m.limitNum, m.limitDen)
     : priceAtMost(o.baseAmount, o.quoteAmount, m.limitNum, m.limitDen);
   assert(priceOk, "price outside mandate limit");
-  const principalPays = m.side == 0 ? o.baseAmount : o.quoteAmount;
-  const principalGets = m.side == 0 ? o.quoteAmount : o.baseAmount;
+  assert(elSel, "selected slot is not eligible");
+  assert(notDominated(slots[0], q, el0, m, s.remaining), "slot 0 is strictly better");
+  assert(notDominated(slots[1], q, el1, m, s.remaining), "slot 1 is strictly better");
+  assert(notDominated(slots[2], q, el2, m, s.remaining), "slot 2 is strictly better");
+
+  const oc = offerCommitment(o, orand);
+  const onul = offerNullifier(oc);
+  assert(!offerNullifiers.member(disclose(onul)), "offer already used");
+  offerNullifiers.insert(disclose(onul));
+
+  const fb = fillBase();
+  const fq = fillQuote();
+  assert(fb > 0, "zero fill base");
+  assert(fb <= o.baseAmount, "fill exceeds offer base");
+  assert(fb <= m.maxFillBase, "fill exceeds per-fill cap");
+  assert(fb == o.baseAmount || fb >= o.minFillBase, "below minFill");
+  assert(fq * o.baseAmount == fb * o.quoteAmount, "fill ratio mismatch");
+  const principalPays = m.side == 0 ? fb : fq;
+  const principalGets = m.side == 0 ? fq : fb;
   assert(principalPays <= s.remaining, "fill exceeds remaining budget");
   const anyCp = m.cpRoot == 0;
   const cpp = counterpartyPath();
   const cpOk = anyCp || (cpp.leaf == o.maker && merkleTreePathRoot<8, Bytes<32>>(cpp).field == m.cpRoot);
   assert(cpOk, "counterparty not allowed");
+
+  const residual = Offer {
+    side: o.side,
+    baseAmount: o.baseAmount - fb,
+    quoteAmount: o.quoteAmount - fq,
+    maker: o.maker,
+    payNonce: residualPayNonceOf(o.payNonce),
+    expiry: o.expiry,
+    minFillBase: o.minFillBase
+  };
+  offers.insert(disclose(offerCommitment(residual, residualRandOf(orand))));
 
   const payAsset = m.side == 0 ? 0 : 1;
   const getAsset = m.side == 0 ? 1 : 0;
@@ -324,13 +480,12 @@ export circuit fill(nowBound: Uint<64>): [] {
   const seed = auditSeed();
   const cs: Vector<6, Bytes<32>> = [
     persistentCommit<Uint<8>>(o.side, fieldSalt(seed, 0)),
-    persistentCommit<Uint<64>>(o.baseAmount, fieldSalt(seed, 1)),
-    persistentCommit<Uint<64>>(o.quoteAmount, fieldSalt(seed, 2)),
+    persistentCommit<Uint<64>>(fb, fieldSalt(seed, 1)),
+    persistentCommit<Uint<64>>(fq, fieldSalt(seed, 2)),
     persistentCommit<Bytes<32>>(m.principal, fieldSalt(seed, 3)),
     persistentCommit<Bytes<32>>(o.maker, fieldSalt(seed, 4)),
     persistentCommit<Bytes<32>>(m.mandateId, fieldSalt(seed, 5))
   ];
   auditRoots.pushFront(disclose(auditRootOf(cs)));
   fills.increment(1);
-  openOffers.decrement(1);
 }

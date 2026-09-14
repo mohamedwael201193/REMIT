@@ -8,6 +8,14 @@ import { pureCircuits } from "@remit/contracts/pool";
 import { bindDeployed } from "../../core/src/tx.ts";
 import { compiledPoolHttp } from "../../core/src/compiled-http.ts";
 import { emptyPrivateState, walletNamespace, type RemitPrivateState } from "../../core/src/state.ts";
+import {
+  freshTabWrapKey,
+  openTabPrivateState,
+  sealTabPrivateState,
+  tabStorageKeys,
+  wrapKeyHex,
+  tabWrapKeyFromHex,
+} from "../../core/src/tab-seal.ts";
 import { fetchContractAction, requireContractAction } from "../../core/src/indexer.ts";
 import { fromHex, randomBytes32 } from "../../core/src/bytes.ts";
 import { pendingCreateMandate, pendingDeposit, pendingRevokeMandate } from "../../core/src/pending.ts";
@@ -65,9 +73,9 @@ async function poolProviders(args: BrowserCircuitArgs) {
     initialPrivateState: initial,
   });
   providers.privateStateProvider.setContractAddress(args.pool as never);
-  const restored = readTabPrivate(args.network, args.pool);
+  const restored = readTabPrivate(args.network, args.pool, addr);
   if (restored) await providers.privateStateProvider.set("remit-pool", restored);
-  return { providers, compiled, config, ns, initial: restored ?? initial };
+  return { providers, compiled, config, ns, addr, initial: restored ?? initial };
 }
 
 async function ledger(indexer: string, pool: string) {
@@ -81,23 +89,28 @@ function ownerSkOf(ps: RemitPrivateState): Uint8Array {
   return randomBytes32();
 }
 
-function tabPrivateKey(network: string, pool: string) {
-  return `remit:ps:${network}:${pool}`;
-}
-
-function readTabPrivate(network: string, pool: string): RemitPrivateState | null {
+function readTabPrivate(network: string, pool: string, wallet: string): RemitPrivateState | null {
   try {
-    const raw = globalThis.sessionStorage?.getItem(tabPrivateKey(network, pool));
-    if (!raw) return null;
-    return JSON.parse(raw) as RemitPrivateState;
+    const keys = tabStorageKeys(network, pool, wallet);
+    const wrapHex = globalThis.sessionStorage?.getItem(keys.wrap);
+    const blob = globalThis.sessionStorage?.getItem(keys.blob);
+    if (!wrapHex || !blob) return null;
+    return openTabPrivateState(blob, tabWrapKeyFromHex(wrapHex));
   } catch {
     return null;
   }
 }
 
-function writeTabPrivate(network: string, pool: string, ps: RemitPrivateState) {
+function writeTabPrivate(network: string, pool: string, wallet: string, ps: RemitPrivateState) {
   try {
-    globalThis.sessionStorage?.setItem(tabPrivateKey(network, pool), JSON.stringify(ps));
+    const keys = tabStorageKeys(network, pool, wallet);
+    let wrapHex = globalThis.sessionStorage?.getItem(keys.wrap);
+    if (!wrapHex) {
+      wrapHex = wrapKeyHex(freshTabWrapKey());
+      globalThis.sessionStorage?.setItem(keys.wrap, wrapHex);
+    }
+    const blob = sealTabPrivateState(ps, tabWrapKeyFromHex(wrapHex));
+    globalThis.sessionStorage?.setItem(keys.blob, blob);
   } catch {
     /* private mode / quota */
   }
@@ -106,7 +119,7 @@ function writeTabPrivate(network: string, pool: string, ps: RemitPrivateState) {
 export async function createMandateFromWallet(args: BrowserCircuitArgs) {
   const input = args.input;
   if (!input) throw new Error("createMandate requires mandate input");
-  const { providers, compiled, config, ns, initial } = await poolProviders(args);
+  const { providers, compiled, config, ns, addr, initial } = await poolProviders(args);
   if (!config.executorKey) throw new Error("API does not expose the public executor key");
   providers.privateStateProvider.setContractAddress(args.pool as never);
   let ps = ((await providers.privateStateProvider.get("remit-pool")) as RemitPrivateState | null) ?? initial;
@@ -183,7 +196,7 @@ export async function createMandateFromWallet(args: BrowserCircuitArgs) {
     ],
   };
   await providers.privateStateProvider.set("remit-pool", nextPs);
-  writeTabPrivate(args.network, args.pool, nextPs);
+  writeTabPrivate(args.network, args.pool, addr, nextPs);
   const after = await ledger(config.indexer, args.pool);
   return {
     id: `mandate:${args.pool}`,
@@ -208,7 +221,7 @@ export async function createMandateFromWallet(args: BrowserCircuitArgs) {
 }
 
 export async function revokeMandatesFromWallet(args: BrowserCircuitArgs) {
-  const { providers, compiled, config, ns, initial } = await poolProviders(args);
+  const { providers, compiled, config, ns, addr, initial } = await poolProviders(args);
   providers.privateStateProvider.setContractAddress(args.pool as never);
   const ps = ((await providers.privateStateProvider.get("remit-pool")) as RemitPrivateState | null) ?? initial;
   const ownerSk = ownerSkOf(ps);
@@ -250,6 +263,6 @@ export async function revokeMandatesFromWallet(args: BrowserCircuitArgs) {
   if (!revoked.txId && !revoked.txHash) throw new Error("revokeMandate missing tx id");
   const cleared: RemitPrivateState = { ...ps, mandates: [], mandateStates: [] };
   await providers.privateStateProvider.set("remit-pool", cleared);
-  writeTabPrivate(args.network, args.pool, cleared);
+  writeTabPrivate(args.network, args.pool, addr, cleared);
   return { txHash: revoked.txHash ?? hit.txHash, block: revoked.blockHeight ?? hit.blockHeight, ns };
 }

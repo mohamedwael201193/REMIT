@@ -65,6 +65,9 @@ export type MappedActivity = {
   privateToWorkspace: boolean;
 };
 
+/** Private openings are not on the public ledger. UI must not format these as $0. */
+export type PrivacyLabel = "sealed" | "not-disclosed";
+
 export type MappedExecution = {
   id: string;
   reference: string;
@@ -72,9 +75,9 @@ export type MappedExecution = {
   offerId?: string;
   asset: string;
   side: "buy" | "sell";
-  attemptedFill: number;
-  settledFill?: number;
-  price: number;
+  attemptedFill: number | null;
+  settledFill?: number | null;
+  price: number | null;
   counterpartyId: string;
   status: "settled" | "rejected" | "proof-pending";
   refusalReason?: string;
@@ -94,10 +97,11 @@ export type MappedMandate = {
   reference: string;
   asset: string;
   side: "buy";
-  maxFill: number;
-  limitPrice: number;
-  totalBudget: number;
-  spent: number;
+  maxFill: number | null;
+  limitPrice: number | null;
+  totalBudget: number | null;
+  spent: number | null;
+  amountPrivacy: PrivacyLabel;
   counterpartyClasses: string[];
   counterpartyIds: string[];
   expiry: string;
@@ -114,8 +118,9 @@ export type MappedOffer = {
   mandateId: string;
   asset: string;
   side: "sell";
-  price: number;
-  size: number;
+  price: number | null;
+  size: number | null;
+  amountPrivacy: PrivacyLabel;
   counterpartyId: string;
   compatibility: number;
   executionScore: number;
@@ -131,8 +136,9 @@ export type MappedWorkspace = {
     principalName: string;
     deskName: string;
     activeMandates: number;
-    totalBudget: number;
-    committedBudget: number;
+    totalBudget: number | null;
+    committedBudget: number | null;
+    amountPrivacy: PrivacyLabel;
     openOffers: number;
     settledNotional: number;
     verificationRate: number;
@@ -190,6 +196,7 @@ function stepKind(name: string): MappedActivity["kind"] {
   return KIND_BY_STEP[name] ?? "proof";
 }
 
+/** Indexer/evidence → workspace. Private openings stay null ("sealed"), never numeric 0. */
 export function mapPublicWorkspace(args: {
   chain: RemitChainSnapshot;
   evidence: RemitPublicEvidence;
@@ -286,7 +293,7 @@ export function mapPublicWorkspace(args: {
         asset: "tNIGHT",
         side: "buy",
         attemptedFill: 40,
-        price: 0,
+        price: null,
         counterpartyId: "cp-onchain",
         status: "rejected",
         refusalReason: s.ok ? "Compact rejected price-limit violation" : s.detail,
@@ -311,10 +318,11 @@ export function mapPublicWorkspace(args: {
       reference: poolAddr ? `MD-${poolAddr.slice(0, 6)}` : "MD-LIVE",
       asset: "tNIGHT",
       side: "buy",
-      maxFill: 0,
-      limitPrice: 0,
-      totalBudget: 0,
-      spent: 0,
+      maxFill: null,
+      limitPrice: null,
+      totalBudget: null,
+      spent: null,
+      amountPrivacy: "sealed",
       counterpartyClasses: [],
       counterpartyIds: ["cp-onchain"],
       expiry: now,
@@ -344,8 +352,9 @@ export function mapPublicWorkspace(args: {
       mandateId,
       asset: "tNIGHT",
       side: "sell",
-      price: 0,
-      size: 0,
+      price: null,
+      size: null,
+      amountPrivacy: "sealed",
       counterpartyId: "cp-onchain",
       compatibility: frictions.length ? 0 : 100,
       executionScore: frictions.length ? 0 : 100,
@@ -366,8 +375,9 @@ export function mapPublicWorkspace(args: {
       principalName: args.principalName ?? "",
       deskName: args.chain.live ? "Midnight Preprod" : "",
       activeMandates,
-      totalBudget: 0,
-      committedBudget: 0,
+      totalBudget: null,
+      committedBudget: null,
+      amountPrivacy: "sealed",
       openOffers,
       settledNotional: fills,
       verificationRate: fills > 0 ? 100 : 0,

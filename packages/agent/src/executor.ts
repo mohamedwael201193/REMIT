@@ -24,7 +24,7 @@ export type ExecutorDecision =
  * unless the caller deliberately bypasses the local pre-check (for the overreach demo).
  */
 export function decideFill(input: ExecutorInput): ExecutorDecision {
-  const ranked = rankOffers({
+  const rankArgs = {
     esk: input.esk,
     mandate: input.mandate,
     remaining: input.remaining,
@@ -32,13 +32,14 @@ export function decideFill(input: ExecutorInput): ExecutorDecision {
     revoked: input.revoked,
     candidates: input.candidates,
     allowCounterparty: input.allowCounterparty,
-  });
+  };
+  const ranked = rankOffers(rankArgs);
   if (input.bypassLocalPrecheck) {
     const first = input.candidates[0];
     if (!first) return { action: "reject", reason: "no-compliant-offer", ranked };
     return { action: "fill", id: first.id, offer: first.offer, ranked };
   }
-  const id = pickBest(ranked);
+  const id = pickBest(ranked, rankArgs);
   if (!id) return { action: "reject", reason: "no-compliant-offer", ranked };
   const chosen = input.candidates.find((c) => c.id === id)!;
   const gate = checkFillPolicy({

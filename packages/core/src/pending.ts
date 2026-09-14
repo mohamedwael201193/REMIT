@@ -1,6 +1,6 @@
-import type { Mandate, Offer } from "@remit/contracts/pool";
+import type { Mandate, Offer, OfferSlot } from "@remit/contracts/pool";
 import { toArray } from "./bytes.js";
-import type { OwnedNote, PendingWitness } from "./state.js";
+import type { JsonPath, OwnedNote, PendingWitness } from "./state.js";
 import {
   mandateLeaf,
   mandateStateLeaf,
@@ -9,6 +9,7 @@ import {
   requireLeafPath,
   type PoolLedger,
 } from "./paths.js";
+import { padBook, withOfferDefaults, type LooseOffer } from "./mbbe.js";
 
 function mandateJson(m: Mandate) {
   return {
@@ -31,6 +32,8 @@ function offerJson(o: Offer) {
     quoteAmount: o.quoteAmount.toString(),
     maker: toArray(o.maker),
     payNonce: toArray(o.payNonce),
+    expiry: o.expiry.toString(),
+    minFillBase: o.minFillBase.toString(),
   };
 }
 
@@ -107,15 +110,30 @@ export type FillPendingArgs = {
   mandateRand: Uint8Array;
   remaining: bigint;
   stateNonce: Uint8Array;
-  offer: Offer;
+  offer: LooseOffer;
   offerRand: Uint8Array;
   auditSeed: Uint8Array;
   getNonce: Uint8Array;
   nextStateNonce: Uint8Array;
+  fillBase?: bigint;
+  fillQuote?: bigint;
+  chosenIndex?: bigint;
+  book?: OfferSlot[];
+  bookPaths?: JsonPath[];
 };
 
-/** Witnesses for fill: circuit still enforces the mandate. */
+/** Witnesses for fill: circuit still enforces the mandate and MBBE relation. */
 export function pendingFill(ld: PoolLedger, args: FillPendingArgs): PendingWitness {
+  const offer = withOfferDefaults(args.offer);
+  const selectedPath = requireLeafPath(ld.offers, offerLeaf(offer, args.offerRand), "offer");
+  const live: OfferSlot[] = args.book ?? [{ offer, rand: args.offerRand, live: true }];
+  const slots = padBook(live);
+  const paths =
+    args.bookPaths ??
+    slots.map((s) => requireLeafPath(ld.offers, offerLeaf(s.offer, s.rand), "offer"));
+  const fillBase = args.fillBase ?? offer.baseAmount;
+  const fillQuote = args.fillQuote ?? offer.quoteAmount;
+  const chosenIndex = args.chosenIndex ?? 0n;
   return {
     executorSecret: toArray(args.esk),
     mandateData: mandateJson(args.mandate),
@@ -128,9 +146,14 @@ export function pendingFill(ld: PoolLedger, args: FillPendingArgs): PendingWitne
       mandateStateLeaf(args.mandate.mandateId, args.remaining, args.stateNonce),
       "mandate-state",
     ),
-    offerData: offerJson(args.offer),
+    offerData: offerJson(offer),
     offerRand: toArray(args.offerRand),
-    offerPath: requireLeafPath(ld.offers, offerLeaf(args.offer, args.offerRand), "offer"),
+    offerPath: selectedPath,
+    book: slots.map((s) => ({ offer: offerJson(s.offer), rand: toArray(s.rand), live: s.live })),
+    bookPaths: paths,
+    chosenIndex: chosenIndex.toString(),
+    fillBase: fillBase.toString(),
+    fillQuote: fillQuote.toString(),
     auditSeed: toArray(args.auditSeed),
     freshNonce: toArray(args.getNonce),
     freshNonce2: toArray(args.nextStateNonce),

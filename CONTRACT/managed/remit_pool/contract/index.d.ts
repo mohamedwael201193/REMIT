@@ -6,8 +6,12 @@ export type Offer = { side: bigint;
                       baseAmount: bigint;
                       quoteAmount: bigint;
                       maker: Uint8Array;
-                      payNonce: Uint8Array
+                      payNonce: Uint8Array;
+                      expiry: bigint;
+                      minFillBase: bigint
                     };
+
+export type OfferSlot = { offer: Offer; rand: Uint8Array; live: boolean };
 
 export type Mandate = { principal: Uint8Array;
                         executor: Uint8Array;
@@ -80,6 +84,16 @@ export type Witnesses<PS> = {
                                                                            right: { bytes: Uint8Array
                                                                                   }
                                                                          }];
+  book(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, OfferSlot[]];
+  bookPaths(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, { leaf: Uint8Array,
+                                                                          path: { sibling: { field: bigint
+                                                                                           },
+                                                                                  goes_left: boolean
+                                                                                }[]
+                                                                        }[]];
+  chosenIndex(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, bigint];
+  fillBase(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, bigint];
+  fillQuote(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, bigint];
 }
 
 export type ImpureCircuits<PS> = {
@@ -126,6 +140,16 @@ export type PureCircuits = {
   auditRootOf(cs_0: Uint8Array[]): Uint8Array;
   priceAtLeast(base_0: bigint, quote_0: bigint, num_0: bigint, den_0: bigint): boolean;
   priceAtMost(base_0: bigint, quote_0: bigint, num_0: bigint, den_0: bigint): boolean;
+  residualPayNonceOf(n_0: Uint8Array): Uint8Array;
+  residualRandOf(rand_0: Uint8Array): Uint8Array;
+  minU64(a_0: bigint, b_0: bigint): bigint;
+  bytesLt(a_0: Uint8Array, b_0: Uint8Array): boolean;
+  fillableBaseOf(o_0: Offer,
+                 maxFillBase_0: bigint,
+                 remaining_0: bigint,
+                 side_0: bigint): bigint;
+  betterPrice(a_0: Offer, b_0: Offer, side_0: bigint): boolean;
+  samePrice(a_0: Offer, b_0: Offer): boolean;
 }
 
 export type Circuits<PS> = {
@@ -169,6 +193,24 @@ export type Circuits<PS> = {
               quote_0: bigint,
               num_0: bigint,
               den_0: bigint): __compactRuntime.CircuitResults<PS, boolean>;
+  residualPayNonceOf(context: __compactRuntime.CircuitContext<PS>,
+                     n_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
+  residualRandOf(context: __compactRuntime.CircuitContext<PS>,
+                 rand_0: Uint8Array): __compactRuntime.CircuitResults<PS, Uint8Array>;
+  minU64(context: __compactRuntime.CircuitContext<PS>, a_0: bigint, b_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  bytesLt(context: __compactRuntime.CircuitContext<PS>,
+          a_0: Uint8Array,
+          b_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
+  fillableBaseOf(context: __compactRuntime.CircuitContext<PS>,
+                 o_0: Offer,
+                 maxFillBase_0: bigint,
+                 remaining_0: bigint,
+                 side_0: bigint): __compactRuntime.CircuitResults<PS, bigint>;
+  betterPrice(context: __compactRuntime.CircuitContext<PS>,
+              a_0: Offer,
+              b_0: Offer,
+              side_0: bigint): __compactRuntime.CircuitResults<PS, boolean>;
+  samePrice(context: __compactRuntime.CircuitContext<PS>, a_0: Offer, b_0: Offer): __compactRuntime.CircuitResults<PS, boolean>;
   deposit(context: __compactRuntime.CircuitContext<PS>,
           asset_0: bigint,
           amount_0: bigint): __compactRuntime.CircuitResults<PS, []>;

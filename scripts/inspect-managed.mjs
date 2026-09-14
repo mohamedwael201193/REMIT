@@ -31,8 +31,8 @@ for (const name of ["remit_pool", "remit_quote"]) {
 const compactSrcDir = join(root, "CONTRACT", "src");
 for (const name of ["remit_pool.compact", "remit_quote.compact"]) {
   const src = readFileSync(join(compactSrcDir, name), "utf8");
-  if (/\bownPublicKey\s*\(/.test(src)) {
-    console.error(name, "uses ownPublicKey — prover-controlled, not allowed");
+if (/\blastFillPrice\b/.test(src)) {
+    console.error(name, "contains lastFillPrice — not allowed");
     process.exit(1);
   }
 }

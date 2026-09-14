@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import { randomBytes32, encodingsOfBytes, encodingsOfBigint, toHex } from "../../packages/core/src/bytes.ts";
 import { makeDisclosure, verifyDisclosure } from "../../packages/core/src/audit.ts";
 import { assertAbsent } from "../../packages/core/src/privacy.ts";
-import { bootPool, createMandate, deposit, fill, placeOffer, publicLedger, serializedPublicState } from "../../packages/core/src/sim.ts";
+import { bootPool, createMandate, deposit, publicLedger, serializedPublicState } from "../../packages/core/src/sim.ts";
 import { pureCircuits } from "../../CONTRACT/managed/remit_pool/contract/index.js";
+import { withOfferDefaults } from "../../packages/core/src/mbbe.ts";
+import { fillAttack, paddedBook, placeQuoted } from "../security/mbbe-harness.ts";
 
 describe("selective audit", () => {
   it("verifies one field and rejects a wrong salt, value, or root", () => {
@@ -40,16 +42,14 @@ describe("serialized public ledger privacy", () => {
     let sim = bootPool();
     const dP = deposit(sim, principalSk, 0n, 100n);
     sim = dP.sim;
-    const dM = deposit(sim, makerSk, 1n, 5000n);
-    sim = dM.sim;
-    const offer = {
+    const offer = withOfferDefaults({
       side: 1n,
       baseAmount: 40n,
       quoteAmount: 1280n,
       maker: pureCircuits.ownerKey(makerSk),
       payNonce: randomBytes32(),
-    };
-    const placed = placeOffer(sim, makerSk, dM.note, offer);
+    });
+    const placed = placeQuoted(sim, makerSk, offer);
     sim = placed.sim;
     const mandateId = randomBytes32();
     const mandate = {
@@ -66,16 +66,16 @@ describe("serialized public ledger privacy", () => {
     const created = createMandate(sim, principalSk, dP.note, mandate);
     sim = created.sim;
     const auditSeed = randomBytes32();
-    sim = fill(sim, {
+    sim = fillAttack(sim, {
       esk,
       mandate,
       mandateRand: created.mandateRand,
       remaining: 100n,
       stateNonce: created.stateNonce,
-      offer,
-      offerRand: placed.offerRand,
       nowBound: 1_800_000_000n,
       auditSeed,
+      book: paddedBook([{ offer, rand: placed.offerRand, live: true }]),
+      chosenIndex: 0n,
     });
     const pub = serializedPublicState(sim);
     const hay = `${pub.text}\n${pub.hex}`;

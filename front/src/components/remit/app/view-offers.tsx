@@ -141,7 +141,7 @@ function OfferCard({
         <div className="space-y-1">
           <p className="eyebrow text-muted-foreground">Price</p>
           <p className="font-data text-[15px] font-medium tracking-tight text-cream">
-            {formatUsd(offer.price, offer.price < 10)}
+            {formatUsd(offer.price, offer.price != null && offer.price < 10)}
           </p>
         </div>
         <div className="space-y-1">
@@ -311,7 +311,7 @@ function ExecutionDialog({
         { label: "Asset", value: asset?.symbol ?? offer.asset },
         {
           label: "Price",
-          value: formatUsd(offer.price, offer.price < 10),
+          value: formatUsd(offer.price, offer.price != null && offer.price < 10),
         },
         { label: "Size", value: formatUsd(offer.size) },
         { label: "Counterparty", value: counterparty?.name ?? "—" },

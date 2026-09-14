@@ -253,6 +253,8 @@ async function main() {
       quoteAmount: 1280n,
       maker: quoteNote.owner,
       payNonce: randomBytes32(),
+      expiry: 4_000_000_000n,
+      minFillBase: 1n,
     };
     const over = {
       ...offer,

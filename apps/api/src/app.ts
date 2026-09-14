@@ -17,7 +17,13 @@ import {
   poolLedgerFromStateHex,
   publicExecutorKeyHex,
   indexerWsFromHttp,
+  loadInbox,
+  saveInbox,
+  withOfferDefaults,
+  fromHex,
+  type InboxItem,
 } from "@remit/core";
+import { rankOffers } from "@remit/agent";
 
 export type ApiConfig = {
   cors: string;
@@ -29,15 +35,29 @@ export type ApiConfig = {
   network: string;
   indexer: string;
   keysDir?: string;
+  inboxFile?: string;
 };
 
-type InboxItem = { id: string; boxed: string; receivedAt: number; nonce?: string };
-
 export async function buildApp(cfg: ApiConfig) {
-  const offers: InboxItem[] = [];
-  const mandates: InboxItem[] = [];
-  const receipts = new Map<string, string>();
-  const nonces = new Set<string>();
+  const snap =
+    cfg.inboxFile && cfg.rfqSk && cfg.rfqSk.length === 64
+      ? loadInbox(cfg.inboxFile, cfg.rfqSk)
+      : { v: 1 as const, offers: [] as InboxItem[], mandates: [] as InboxItem[], nonces: [] as string[], receipts: [] as [string, string][] };
+  const offers: InboxItem[] = [...snap.offers];
+  const mandates: InboxItem[] = [...snap.mandates];
+  const receipts = new Map<string, string>(snap.receipts);
+  const nonces = new Set<string>(snap.nonces);
+
+  const persistInbox = () => {
+    if (!cfg.inboxFile || !cfg.rfqSk) return;
+    saveInbox(cfg.inboxFile, cfg.rfqSk, {
+      v: 1,
+      offers,
+      mandates,
+      nonces: [...nonces],
+      receipts: [...receipts.entries()],
+    });
+  };
   let publicEvidence: {
     present: boolean;
     network: string;
@@ -346,6 +366,7 @@ export async function buildApp(cfg: ApiConfig) {
     }
     const id = `${Date.now()}-${offers.length}`;
     offers.push({ id, boxed: body.box, receivedAt: Date.now() });
+    persistInbox();
     return { id };
   });
 
@@ -369,6 +390,7 @@ export async function buildApp(cfg: ApiConfig) {
     }
     const id = `m-${Date.now()}`;
     mandates.push({ id, boxed: body.box, receivedAt: Date.now() });
+    persistInbox();
     return { id };
   });
 
@@ -388,9 +410,98 @@ export async function buildApp(cfg: ApiConfig) {
     return verifyDisclosure(body.package, root);
   });
 
-  app.post("/agent/rank", async (_req, reply) =>
-    reply.code(501).send({ error: "fill is executed by the operator process, not this HTTP path" }),
-  );
+  app.post("/agent/rank", async (req, reply) => {
+    const token = String((req.headers.authorization ?? "").replace(/^Bearer\s+/i, ""));
+    if (!cfg.admin || token !== cfg.admin) return reply.code(401).send({ error: "unauthorized" });
+    if (!cfg.rfqSk || !cfg.execSk) return reply.code(503).send({ error: "executor not configured" });
+    const body = req.body as {
+      remaining?: string;
+      nowBound?: string;
+      mandate?: {
+        principal: number[];
+        executor: number[];
+        side: string;
+        maxFillBase: string;
+        limitNum: string;
+        limitDen: string;
+        cpRoot: string;
+        expiry: string;
+        mandateId: number[];
+      };
+    };
+    if (!body?.mandate) return reply.code(400).send({ error: "mandate opening required" });
+    const esk = fromHex(cfg.execSk);
+    const mandate = {
+      principal: Uint8Array.from(body.mandate.principal),
+      executor: Uint8Array.from(body.mandate.executor),
+      side: BigInt(body.mandate.side),
+      maxFillBase: BigInt(body.mandate.maxFillBase),
+      limitNum: BigInt(body.mandate.limitNum),
+      limitDen: BigInt(body.mandate.limitDen),
+      cpRoot: BigInt(body.mandate.cpRoot),
+      expiry: BigInt(body.mandate.expiry),
+      mandateId: Uint8Array.from(body.mandate.mandateId),
+    };
+    const remaining = BigInt(body.remaining ?? "0");
+    const nowBound = BigInt(body.nowBound ?? Math.floor(Date.now() / 1000) + 86_400);
+    const candidates = offers.flatMap((item) => {
+      try {
+        const opened = openJson<{
+          kind?: string;
+          offer?: {
+            side: string;
+            baseAmount: string;
+            quoteAmount: string;
+            maker: number[];
+            payNonce: number[];
+            expiry?: string;
+            minFillBase?: string;
+          };
+          offerRand?: number[];
+        }>(cfg.rfqSk, item.boxed);
+        if (opened.kind && opened.kind !== "offer") return [];
+        if (!opened.offer) return [];
+        const offer = withOfferDefaults({
+          side: BigInt(opened.offer.side),
+          baseAmount: BigInt(opened.offer.baseAmount),
+          quoteAmount: BigInt(opened.offer.quoteAmount),
+          maker: Uint8Array.from(opened.offer.maker),
+          payNonce: Uint8Array.from(opened.offer.payNonce),
+          expiry: opened.offer.expiry ? BigInt(opened.offer.expiry) : undefined,
+          minFillBase: opened.offer.minFillBase ? BigInt(opened.offer.minFillBase) : undefined,
+        });
+        return [
+          {
+            id: item.id,
+            offer,
+            remaining,
+            receivedAt: item.receivedAt,
+            rand: opened.offerRand ? Uint8Array.from(opened.offerRand) : undefined,
+          },
+        ];
+      } catch {
+        return [];
+      }
+    });
+    const live = candidates.filter((c) => c.offer.baseAmount > 0n);
+    const ranked = rankOffers({
+      esk,
+      mandate,
+      remaining,
+      nowBound,
+      revoked: false,
+      candidates: live,
+      allowCounterparty: () => true,
+    });
+    return {
+      ranked: ranked.map((r) => (r.ok ? { id: r.id, ok: true as const } : { id: r.id, ok: false as const, reason: r.reason })),
+      eligibleCount: ranked.filter((r) => r.ok).length,
+      rejected: ranked.filter((r) => !r.ok).map((r) => ({ id: r.id, reason: r.ok ? undefined : r.reason })),
+      candidateCount: live.length,
+      rule: "mbbe-eligible-only",
+      mpc: false,
+    };
+  });
 
   app.setErrorHandler((err, _req, reply) => {
     reply.code(500).send({ error: publicErrorMessage(err) });

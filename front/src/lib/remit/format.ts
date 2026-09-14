@@ -4,6 +4,8 @@
  * stays consistent when the real SDK replaces the local provider.
  */
 
+import { PRIVACY_LABEL_COPY } from "./types";
+
 const usdFmt = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -17,11 +19,13 @@ const usdFmtCents = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-export function formatUsd(n: number, cents = false): string {
+export function formatUsd(n: number | null | undefined, cents = false): string {
+  if (n == null) return PRIVACY_LABEL_COPY.sealed;
   return cents ? usdFmtCents.format(n) : usdFmt.format(n);
 }
 
-export function formatCompactUsd(n: number): string {
+export function formatCompactUsd(n: number | null | undefined): string {
+  if (n == null) return PRIVACY_LABEL_COPY.sealed;
   if (Math.abs(n) >= 1_000_000)
     return `$${(n / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 2 })}M`;
   if (Math.abs(n) >= 1_000)

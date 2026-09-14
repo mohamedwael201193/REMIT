@@ -27,6 +27,8 @@ function offer(o: {
   quoteAmount: string;
   maker: number[];
   payNonce: number[];
+  expiry: string;
+  minFillBase: string;
 }): Offer {
   return {
     side: BigInt(o.side),
@@ -34,6 +36,8 @@ function offer(o: {
     quoteAmount: BigInt(o.quoteAmount),
     maker: b(o.maker),
     payNonce: b(o.payNonce),
+    expiry: BigInt(o.expiry),
+    minFillBase: BigInt(o.minFillBase),
   };
 }
 
@@ -99,6 +103,30 @@ export const witnesses: Witnesses<RemitPrivateState> = {
   offerPath: ({ privateState }) => [
     privateState,
     path(requirePending(privateState.pending.offerPath, "offerPath")),
+  ],
+  book: ({ privateState }) => [
+    privateState,
+    requirePending(privateState.pending.book, "book").map((s) => ({
+      offer: offer(s.offer),
+      rand: b(s.rand),
+      live: s.live,
+    })),
+  ],
+  bookPaths: ({ privateState }) => [
+    privateState,
+    requirePending(privateState.pending.bookPaths, "bookPaths").map(path),
+  ],
+  chosenIndex: ({ privateState }) => [
+    privateState,
+    BigInt(requirePending(privateState.pending.chosenIndex, "chosenIndex")),
+  ],
+  fillBase: ({ privateState }) => [
+    privateState,
+    BigInt(requirePending(privateState.pending.fillBase, "fillBase")),
+  ],
+  fillQuote: ({ privateState }) => [
+    privateState,
+    BigInt(requirePending(privateState.pending.fillQuote, "fillQuote")),
   ],
   mandateData: ({ privateState }) => [privateState, mandate(privateState.pending.mandateData)],
   mandateRand: ({ privateState }) => [

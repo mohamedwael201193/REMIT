@@ -1,4 +1,4 @@
-import { openOfferBox, rfqPublicFromSecret } from "@remit/core";
+import { openOfferBox, rfqPublicFromSecret, withOfferDefaults } from "@remit/core";
 import type { Mandate, Offer } from "@remit/contracts/pool";
 import { decideFill, type ExecutorDecision } from "./executor.js";
 
@@ -10,14 +10,18 @@ function offerFromJson(o: {
   quoteAmount: string;
   maker: number[];
   payNonce: number[];
+  expiry?: string;
+  minFillBase?: string;
 }): Offer {
-  return {
+  return withOfferDefaults({
     side: BigInt(o.side),
     baseAmount: BigInt(o.baseAmount),
     quoteAmount: BigInt(o.quoteAmount),
     maker: Uint8Array.from(o.maker),
     payNonce: Uint8Array.from(o.payNonce),
-  };
+    expiry: o.expiry ? BigInt(o.expiry) : undefined,
+    minFillBase: o.minFillBase ? BigInt(o.minFillBase) : undefined,
+  });
 }
 
 /**

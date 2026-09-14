@@ -328,6 +328,147 @@ describe("pool compact-runtime simulator", () => {
     expectCompactFail(() => withdraw(sim, k.principalSk, dM.note, 1n), "not your note");
   });
 
+  it("MBBE: cheapest ineligible live offer does not abort a worse eligible fill", () => {
+    const k = keys();
+    let sim = bootPool();
+    const dP = deposit(sim, k.principalSk, 0n, 100n);
+    sim = dP.sim;
+    const cheapNote = deposit(sim, k.makerSk, 1n, 40n);
+    sim = cheapNote.sim;
+    const midNote = deposit(sim, k.makerSk, 1n, 2000n);
+    sim = midNote.sim;
+    const bestNote = deposit(sim, k.makerSk, 1n, 5000n);
+    sim = bestNote.sim;
+
+    const cheap = {
+      side: 1n,
+      baseAmount: 40n,
+      quoteAmount: 1n,
+      maker: k.maker,
+      payNonce: randomBytes32(),
+    };
+    const mid = {
+      side: 1n,
+      baseAmount: 40n,
+      quoteAmount: 1400n,
+      maker: k.maker,
+      payNonce: randomBytes32(),
+    };
+    const best = {
+      side: 1n,
+      baseAmount: 40n,
+      quoteAmount: 1600n,
+      maker: k.maker,
+      payNonce: randomBytes32(),
+    };
+    const placedCheap = placeOffer(sim, k.makerSk, cheapNote.note, cheap);
+    sim = placedCheap.sim;
+    const placedMid = placeOffer(sim, k.makerSk, midNote.note, mid);
+    sim = placedMid.sim;
+    const placedBest = placeOffer(sim, k.makerSk, bestNote.note, best);
+    sim = placedBest.sim;
+
+    const mandate = {
+      principal: k.principal,
+      executor: k.executor,
+      side: 0n,
+      maxFillBase: 50n,
+      limitNum: 30n,
+      limitDen: 1000n,
+      cpRoot: 0n,
+      expiry: 4_000_000_000n,
+      mandateId: randomBytes32(),
+    };
+    const created = createMandate(sim, k.principalSk, dP.note, mandate);
+    sim = created.sim;
+    const nowBound = 1_800_000_000n;
+    const book = [
+      { offer: placedCheap.offer, rand: placedCheap.offerRand, live: true },
+      { offer: placedMid.offer, rand: placedMid.offerRand, live: true },
+      { offer: placedBest.offer, rand: placedBest.offerRand, live: true },
+    ];
+    expectCompactFail(
+      () =>
+        fill(sim, {
+          esk: k.esk,
+          mandate,
+          mandateRand: created.mandateRand,
+          remaining: 100n,
+          stateNonce: created.stateNonce,
+          offer: cheap,
+          offerRand: placedCheap.offerRand,
+          nowBound,
+          book,
+          chosenIndex: 0n,
+        }),
+      "price outside mandate limit",
+    );
+    sim = fill(sim, {
+      esk: k.esk,
+      mandate,
+      mandateRand: created.mandateRand,
+      remaining: 100n,
+      stateNonce: created.stateNonce,
+      offer: best,
+      offerRand: placedBest.offerRand,
+      nowBound,
+      book,
+      chosenIndex: 2n,
+    });
+    expect(publicLedger(sim).fills).toBe(1n);
+    expect(publicLedger(sim).openOffers).toBe(3n);
+  });
+
+  it("MBBE: padding cannot be selected; zero-live book fails", () => {
+    const k = keys();
+    let sim = bootPool();
+    const dP = deposit(sim, k.principalSk, 0n, 100n);
+    sim = dP.sim;
+    const dM = deposit(sim, k.makerSk, 1n, 5000n);
+    sim = dM.sim;
+    const offer = {
+      side: 1n,
+      baseAmount: 40n,
+      quoteAmount: 1280n,
+      maker: k.maker,
+      payNonce: randomBytes32(),
+    };
+    const placed = placeOffer(sim, k.makerSk, dM.note, offer);
+    sim = placed.sim;
+    const mandate = {
+      principal: k.principal,
+      executor: k.executor,
+      side: 0n,
+      maxFillBase: 50n,
+      limitNum: 30n,
+      limitDen: 1000n,
+      cpRoot: 0n,
+      expiry: 4_000_000_000n,
+      mandateId: randomBytes32(),
+    };
+    const created = createMandate(sim, k.principalSk, dP.note, mandate);
+    sim = created.sim;
+    const nowBound = 1_800_000_000n;
+    const live = { offer: placed.offer, rand: placed.offerRand, live: true };
+    const pad = { offer: placed.offer, rand: placed.offerRand, live: false };
+    expectCompactFail(
+      () =>
+        fill(sim, {
+          esk: k.esk,
+          mandate,
+          mandateRand: created.mandateRand,
+          remaining: 100n,
+          stateNonce: created.stateNonce,
+          offer,
+          offerRand: placed.offerRand,
+          nowBound,
+          book: [live, pad, pad],
+          chosenIndex: 1n,
+        }),
+      "chosen slot is empty",
+    );
+  });
+
   it("CompactError is the enforcement layer, not a TypeScript pre-check", () => {
     expect(CompactError).toBeDefined();
   });

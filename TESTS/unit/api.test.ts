@@ -94,6 +94,8 @@ describe("api (no private openings stored in plaintext)", () => {
       quoteAmount: "1280",
       maker: Array.from({ length: 32 }, () => 1),
       payNonce: Array.from({ length: 32 }, () => 2),
+      expiry: "4000000000",
+      minFillBase: "1",
     }, Array.from({ length: 32 }, () => 3));
     const ok = await app.inject({ method: "POST", url: "/rfq/offer", payload: { box: boxed } });
     expect(ok.statusCode).toBe(200);
@@ -108,6 +110,33 @@ describe("api (no private openings stored in plaintext)", () => {
     expect(mOk.statusCode).toBe(200);
     const mReplay = await app.inject({ method: "POST", url: "/mandate", payload: { box: mandateBox } });
     expect(mReplay.statusCode).toBe(409);
+
+    const unauthRank = await app.inject({ method: "POST", url: "/agent/rank", payload: {} });
+    expect(unauthRank.statusCode).toBe(401);
+    const rank = await app.inject({
+      method: "POST",
+      url: "/agent/rank",
+      headers: { authorization: "Bearer admin-token-not-for-prod" },
+      payload: {
+        remaining: "100",
+        nowBound: "1700000000",
+        mandate: {
+          principal: Array.from({ length: 32 }, () => 1),
+          executor: Array.from({ length: 32 }, () => 2),
+          side: "0",
+          maxFillBase: "50",
+          limitNum: "30",
+          limitDen: "1000",
+          cpRoot: "0",
+          expiry: "2000000000",
+          mandateId: Array.from({ length: 32 }, () => 5),
+        },
+      },
+    });
+    expect(rank.statusCode).toBe(200);
+    expect(rank.json().rule).toBe("mbbe-eligible-only");
+    expect(rank.json().mpc).toBe(false);
+    expect(JSON.stringify(rank.json()).includes(rec.secretHex)).toBe(false);
     await app.close();
   });
 });

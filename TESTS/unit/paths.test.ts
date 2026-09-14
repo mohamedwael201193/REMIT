@@ -93,7 +93,7 @@ describe("indexer ContractState round-trip", () => {
         remaining: 100n,
         nowBound: 1_800_000_000n,
         revoked: false,
-        offer: { ...offer, baseAmount: 60n, quoteAmount: 1920n },
+        offer: { ...offer, baseAmount: 60n, quoteAmount: 1920n, minFillBase: 60n },
         mandateRand: created.mandateRand,
         stateNonce: created.stateNonce,
         offerRand: placed.offerRand,

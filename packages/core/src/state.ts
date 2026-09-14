@@ -28,6 +28,14 @@ export type JsonOffer = {
   quoteAmount: string;
   maker: number[];
   payNonce: number[];
+  expiry: string;
+  minFillBase: string;
+};
+
+export type JsonOfferSlot = {
+  offer: JsonOffer;
+  rand: number[];
+  live: boolean;
 };
 
 export type JsonMandate = {
@@ -63,6 +71,11 @@ export type PendingWitness = {
   offerData?: JsonOffer;
   offerRand?: number[];
   offerPath?: JsonPath;
+  book?: JsonOfferSlot[];
+  bookPaths?: JsonPath[];
+  chosenIndex?: string;
+  fillBase?: string;
+  fillQuote?: string;
   mandateData?: JsonMandate;
   mandateRand?: number[];
   mandatePath?: JsonPath;
