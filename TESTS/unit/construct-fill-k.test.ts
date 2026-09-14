@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { constructFill, constructFillK } from "../../packages/agent/src/fill-circuit.ts";
 import { decideFill } from "../../packages/agent/src/executor.ts";
-import { randomBytes32 } from "../../packages/core/src/bytes.ts";
+import { planFillFromInbox } from "../../packages/agent/src/daemon.ts";
+import { constructRankedFill } from "../../packages/agent/src/prove-submit.ts";
+import { randomBytes32, toArray } from "../../packages/core/src/bytes.ts";
+import { rfqKeyPair } from "../../packages/core/src/box.ts";
+import { makeOfferBox } from "../../packages/core/src/rfq.ts";
 import { legalSlice, padBook, pickChosenIndex } from "../../packages/core/src/mbbe.ts";
 import { bootPool, createMandate, deposit, fill, publicLedger } from "../../packages/core/src/sim.ts";
 import { buyMandate, keys, placeQuoted, sellOffer } from "../security/mbbe-harness.ts";
@@ -108,5 +112,53 @@ describe("constructFillK — Compact-identical K-set", () => {
       }),
     ).toThrow(/rejected fill/);
     expect(padBook([{ offer: o, rand: randomBytes32(), live: true }])).toHaveLength(3);
+  });
+});
+
+describe("constructRankedFill matches Compact-chosen candidate", () => {
+  it("binds the ranked id to constructFillK witnesses", () => {
+    const k = keys();
+    let sim = bootPool();
+    const best = sellOffer(k.maker, { quoteAmount: 1600n });
+    const p = placeQuoted(sim, k.makerSk, best);
+    sim = p.sim;
+    const dPrincipal = deposit(sim, k.principalSk, 0n, 100n);
+    sim = dPrincipal.sim;
+    const mandate = buyMandate(k);
+    const created = createMandate(sim, k.principalSk, dPrincipal.note, mandate);
+    sim = created.sim;
+    const rec = rfqKeyPair();
+    const jsonOffer = {
+      side: p.offer.side.toString(),
+      baseAmount: p.offer.baseAmount.toString(),
+      quoteAmount: p.offer.quoteAmount.toString(),
+      maker: toArray(p.offer.maker),
+      payNonce: toArray(p.offer.payNonce),
+      expiry: p.offer.expiry.toString(),
+      minFillBase: p.offer.minFillBase.toString(),
+    };
+    const { boxed } = makeOfferBox(rec.publicHex, jsonOffer, toArray(p.offerRand));
+    const planned = planFillFromInbox({
+      rfqSk: rec.secretHex,
+      offers: [{ id: "best", boxed, receivedAt: 1 }],
+      esk: k.esk,
+      mandate,
+      remaining: 100n,
+      nowBound: 1_800_000_000n,
+    });
+    expect(planned.decision.action).toBe("fill");
+    if (planned.decision.action !== "fill") throw new Error("expected fill");
+    const built = constructRankedFill({
+      ledger: publicLedger(sim),
+      planned,
+      esk: k.esk,
+      mandate,
+      remaining: 100n,
+      nowBound: 1_800_000_000n,
+      mandateRand: created.mandateRand,
+      stateNonce: created.stateNonce,
+    });
+    expect(built.chosenMatches).toBe(true);
+    expect(built.pending.chosenIndex).toBe(planned.decision.chosenIndex.toString());
   });
 });

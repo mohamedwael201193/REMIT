@@ -136,6 +136,10 @@ describe("api (no private openings stored in plaintext)", () => {
     expect(rank.statusCode).toBe(200);
     expect(rank.json().selectedId === null || typeof rank.json().selectedId === "string").toBe(true);
     expect(rank.json().globalBest).toBe(false);
+    expect(rank.json().constructed).toBe(false);
+    expect(rank.json().submitted).toBe(false);
+    expect(JSON.stringify(rank.json()).includes("fillBase")).toBe(false);
+    expect(JSON.stringify(rank.json()).includes("chosenIndex")).toBe(false);
     expect(JSON.stringify(rank.json()).includes(rec.secretHex)).toBe(false);
 
     const status = await app.inject({ method: "GET", url: "/agent/status" });

@@ -10,6 +10,7 @@ import type {
   FillAttemptInput,
   Mandate,
   NewMandateInput,
+  NewOfferInput,
   Offer,
   PortfolioSnapshot,
   RemitProvider,
@@ -53,6 +54,9 @@ class HonestEmptyProvider implements RemitProvider {
   }
   async createMandate(_input: NewMandateInput): Promise<Mandate> {
     throw new Error("Preprod pool is not live — mandate creation is not available");
+  }
+  async placeOffer(_input: NewOfferInput): Promise<Offer> {
+    throw new Error("Preprod pool is not live — placeOffer is not available");
   }
   async executeFill(_input: FillAttemptInput): Promise<Execution> {
     throw new Error("Preprod pool is not live — fills are not available");

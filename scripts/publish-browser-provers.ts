@@ -14,6 +14,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const keysDir = resolve(root, "CONTRACT/managed/remit_pool/keys");
 const archive = resolve(root, "browser-provers.tar.gz");
 const files = ["deposit.prover", "createMandate.prover", "revokeMandate.prover"];
+if (existsSync(resolve(keysDir, "placeOffer.prover")) && statSync(resolve(keysDir, "placeOffer.prover")).size > 1_000_000) {
+  files.push("placeOffer.prover");
+}
 const tag = "zk-provers-compact-0.31.1";
 const token = process.env.GITHUB_TOKEN;
 if (!token) throw new Error("GITHUB_TOKEN missing");

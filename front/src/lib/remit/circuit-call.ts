@@ -5,6 +5,7 @@
 export type CircuitBundle = {
   createMandateFromWallet: (args: unknown) => Promise<unknown>;
   revokeMandatesFromWallet: (args: unknown) => Promise<unknown>;
+  placeOfferFromWallet: (args: unknown) => Promise<unknown>;
 };
 
 export async function loadRemitCircuitModule(apiUrl: string): Promise<CircuitBundle> {
@@ -12,10 +13,14 @@ export async function loadRemitCircuitModule(apiUrl: string): Promise<CircuitBun
   const url = `${root}/browser/remit-circuit.js?v=ps1`;
   try {
     const mod = (await import(/* webpackIgnore: true */ url)) as Partial<CircuitBundle>;
-    if (typeof mod.createMandateFromWallet === "function" && typeof mod.revokeMandatesFromWallet === "function") {
+    if (
+      typeof mod.createMandateFromWallet === "function" &&
+      typeof mod.revokeMandatesFromWallet === "function" &&
+      typeof mod.placeOfferFromWallet === "function"
+    ) {
       return mod as CircuitBundle;
     }
-    throw new Error(`${url} missing createMandateFromWallet/revokeMandatesFromWallet`);
+    throw new Error(`${url} missing createMandateFromWallet/revokeMandatesFromWallet/placeOfferFromWallet`);
   } catch (e) {
     const last = e instanceof Error ? e.message : "circuit bundle not hosted";
     throw new Error(

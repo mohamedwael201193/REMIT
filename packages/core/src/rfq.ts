@@ -1,7 +1,7 @@
 import { randomBytes32, toHex } from "./bytes.js";
 import { RemitError } from "./errors.js";
 import { openJson, sealJson } from "./box.js";
-import type { JsonOffer } from "./state.js";
+import type { JsonMandate, JsonOffer } from "./state.js";
 
 export type SealedRfqOffer = {
   v: 1;
@@ -20,6 +20,10 @@ export type SealedMandateHint = {
   expiresAt: number;
   recipientBinding: string;
   mandateId: number[];
+  mandate?: JsonMandate;
+  mandateRand?: number[];
+  remaining?: string;
+  stateNonce?: number[];
 };
 
 export type SealedReceipt = {
@@ -57,6 +61,12 @@ export function makeMandateBox(
   recipientPubHex: string,
   mandateId: number[],
   ttlMs = 15 * 60_000,
+  opening?: {
+    mandate: JsonMandate;
+    mandateRand: number[];
+    remaining: string;
+    stateNonce: number[];
+  },
 ): { boxed: string; nonce: string } {
   const nonce = toHex(randomBytes32());
   const payload: SealedMandateHint = {
@@ -66,6 +76,14 @@ export function makeMandateBox(
     expiresAt: Date.now() + ttlMs,
     recipientBinding: recipientPubHex,
     mandateId,
+    ...(opening
+      ? {
+          mandate: opening.mandate,
+          mandateRand: opening.mandateRand,
+          remaining: opening.remaining,
+          stateNonce: opening.stateNonce,
+        }
+      : {}),
   };
   return { boxed: sealJson(recipientPubHex, payload), nonce };
 }
@@ -104,7 +122,7 @@ export const EXECUTOR_VISIBILITY = {
   model: "constrained-broker",
   mpc: false,
   sees: [
-    "offer side/amounts/maker/payNonce (opening)",
+    "offer side/amounts/maker/payment nonce (opening)",
     "offer randomness",
     "mandate openings it is given by the principal",
     "public ledger commitments/nullifiers/auditRoot",
@@ -114,5 +132,5 @@ export const EXECUTOR_VISIBILITY = {
     "witnesses",
     "salts after authenticated-inbox decrypt in logs",
   ],
-  disk: "sealed boxes + replay nonces, AES-256-GCM at rest keyed from rfqSk",
+  disk: "sealed boxes + replay nonces, AES-256-GCM at rest keyed from the RFQ box secret",
 } as const;

@@ -211,6 +211,38 @@ export async function postRemitRfqOffer(apiUrl: string, boxed: string): Promise<
   return (await res.json()) as { id: string };
 }
 
+export type RemitDisclosurePackage = {
+  fillIndex: number;
+  auditRootHex: string;
+  commitmentsHex: string[];
+  openings: { idx: number; field: string; valueHex?: string; valueDec?: string; saltHex: string }[];
+};
+
+export async function fetchRemitAuditPackage(apiUrl: string): Promise<RemitDisclosurePackage> {
+  const res = await fetch(new URL("/audit/package", apiRoot(apiUrl)));
+  if (res.status === 404) throw new Error("Executor has not authorized a one-field disclosure package");
+  if (!res.ok) throw new Error(`audit/package ${res.status}`);
+  const pkg = (await res.json()) as RemitDisclosurePackage;
+  if (!Array.isArray(pkg.openings) || pkg.openings.length !== 1) {
+    throw new Error("authorized package is not a one-field disclosure");
+  }
+  return pkg;
+}
+
+export async function postRemitAuditVerify(
+  apiUrl: string,
+  pkg: RemitDisclosurePackage,
+  rootHex?: string,
+): Promise<{ ok: boolean; failed: string[]; auditRoot?: string }> {
+  const res = await fetch(new URL("/audit/verify", apiRoot(apiUrl)), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ package: pkg, rootHex }),
+  });
+  if (!res.ok) throw new Error(`audit/verify ${res.status}`);
+  return (await res.json()) as { ok: boolean; failed: string[]; auditRoot?: string };
+}
+
 /** Public GET /agent/status — no admin token. Do not invent rank/K/globalBest. */
 export type RemitAgentStatus = {
   ok?: boolean;
@@ -267,6 +299,7 @@ const KIND_BY_STEP: Record<string, MappedActivity["kind"]> = {
   "price-violation-compact": "proof",
   "pool-fill": "settlement",
   "pool-k3-fill": "settlement",
+  "pool-k3-residual-consume": "settlement",
   "mbbe-padded-fill-historical": "settlement",
   "pool-place-maker-a-ineligible": "offer",
   "pool-place-maker-b-eligible": "offer",
@@ -283,7 +316,7 @@ function stepKind(name: string): MappedActivity["kind"] {
 }
 
 function isFillStep(name: string): boolean {
-  return name === "pool-fill" || name === "pool-k3-fill" || name === "mbbe-padded-fill-historical";
+  return name === "pool-fill" || name === "pool-k3-fill" || name === "pool-k3-residual-consume" || name === "mbbe-padded-fill-historical";
 }
 
 /** Latest indexer tx is often a fill. Never label it as the mandate when evidence already named it. */

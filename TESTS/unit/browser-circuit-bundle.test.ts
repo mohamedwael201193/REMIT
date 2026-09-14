@@ -37,6 +37,7 @@ describe("1AM circuit bundle graph", () => {
     expect(src).toMatch(/deposit\.prover/);
     expect(src).toMatch(/createMandate\.prover/);
     expect(src).toMatch(/revokeMandate\.prover/);
+    expect(src).toMatch(/placeOffer\.prover/);
     const ignore = readFileSync(resolve(".gitignore"), "utf8");
     expect(ignore).toMatch(/keys\/\*\.prover/);
     expect(ignore).not.toMatch(/managed\/\*\*\/zkir\//);
@@ -55,6 +56,7 @@ describe("1AM circuit bundle graph", () => {
     const text = readFileSync(js, "utf8");
     expect(text).toMatch(/createMandateFromWallet/);
     expect(text).toMatch(/revokeMandatesFromWallet/);
+    expect(text).toMatch(/placeOfferFromWallet/);
     expect(text).not.toMatch(/new WebAssembly\.Module/);
     expect(text).toMatch(/WebAssembly\.instantiate/);
     expect(text).toMatch(/Buffer/);

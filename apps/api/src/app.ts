@@ -11,6 +11,7 @@ import {
   publicErrorMessage,
   rfqPublicFromSecret,
   verifyDisclosure,
+  type DisclosurePackage,
   fetchBlock,
   assertLedger8,
   fetchContractAction,
@@ -25,7 +26,7 @@ import {
   stripPublicLeaks,
   type InboxItem,
 } from "@remit/core";
-import { planFillFromInbox, publicAgentRankView, publicAgentStatusView } from "@remit/agent";
+import { constructRankedFill, mandateOpeningFromInbox, planFillFromInbox, publicAgentRankView, publicAgentStatusView, agentHttpHasLeakKeys } from "@remit/agent";
 
 export type ApiConfig = {
   cors: string;
@@ -38,6 +39,8 @@ export type ApiConfig = {
   indexer: string;
   keysDir?: string;
   inboxFile?: string;
+  httpSubmit?: boolean;
+  submitFill?: (pending: unknown, nowBound: bigint) => Promise<{ txHash: string; block: number }>;
 };
 
 type PublicEvidence = {
@@ -224,7 +227,7 @@ export async function buildApp(cfg: ApiConfig) {
       k: 3,
       globalBest: false,
       semantics: "mbbe-k3",
-      agent: { rank: true, httpSubmit: false },
+      agent: { rank: true, httpSubmit: Boolean(cfg.httpSubmit && cfg.submitFill) },
     };
   });
 
@@ -232,7 +235,7 @@ export async function buildApp(cfg: ApiConfig) {
     return stripPublicLeaks({
       ok: true,
       rank: true,
-      httpSubmit: false,
+      httpSubmit: Boolean(cfg.httpSubmit && cfg.submitFill),
       k: 3,
       globalBest: false,
       mpc: false,
@@ -319,6 +322,32 @@ export async function buildApp(cfg: ApiConfig) {
       fields: Array.isArray(body.package.openings) ? body.package.openings.map((o) => o.field) : [],
       auditRoot: rootHex,
     });
+  });
+
+  app.post("/audit/publish", async (req, reply) => {
+    const token = String((req.headers.authorization ?? "").replace(/^Bearer\s+/i, ""));
+    if (!cfg.admin || token !== cfg.admin) return reply.code(401).send({ error: "unauthorized" });
+    const body = req.body as { package?: DisclosurePackage };
+    if (!body?.package || !Array.isArray(body.package.openings) || body.package.openings.length !== 1) {
+      return reply.code(400).send({ error: "one-field package required" });
+    }
+    receipts.set("audit:published", JSON.stringify(body.package));
+    persistInbox();
+    return { ok: true, field: body.package.openings[0]?.field };
+  });
+
+  app.get("/audit/package", async (_req, reply) => {
+    const raw = receipts.get("audit:published");
+    if (!raw) return reply.code(404).send({ error: "no authorized package" });
+    try {
+      const pkg = JSON.parse(raw) as DisclosurePackage;
+      if (!Array.isArray(pkg.openings) || pkg.openings.length !== 1) {
+        return reply.code(404).send({ error: "no authorized package" });
+      }
+      return pkg;
+    } catch {
+      return reply.code(404).send({ error: "no authorized package" });
+    }
   });
 
   app.get("/chain", async () => {
@@ -517,21 +546,26 @@ export async function buildApp(cfg: ApiConfig) {
         mandateId: number[];
       };
     };
-    if (!body?.mandate) return reply.code(400).send({ error: "mandate opening required" });
     try {
       const esk = fromHex(cfg.execSk);
-      const mandate = {
-        principal: Uint8Array.from(body.mandate.principal),
-        executor: Uint8Array.from(body.mandate.executor),
-        side: BigInt(body.mandate.side),
-        maxFillBase: BigInt(body.mandate.maxFillBase),
-        limitNum: BigInt(body.mandate.limitNum),
-        limitDen: BigInt(body.mandate.limitDen),
-        cpRoot: BigInt(body.mandate.cpRoot),
-        expiry: BigInt(body.mandate.expiry),
-        mandateId: Uint8Array.from(body.mandate.mandateId),
-      };
-      const remaining = BigInt(body.remaining ?? "0");
+      const inboxOpening = mandateOpeningFromInbox(cfg.rfqSk, mandates);
+      const mandate = inboxOpening
+        ? inboxOpening.mandate
+        : body?.mandate
+          ? {
+              principal: Uint8Array.from(body.mandate.principal),
+              executor: Uint8Array.from(body.mandate.executor),
+              side: BigInt(body.mandate.side),
+              maxFillBase: BigInt(body.mandate.maxFillBase),
+              limitNum: BigInt(body.mandate.limitNum),
+              limitDen: BigInt(body.mandate.limitDen),
+              cpRoot: BigInt(body.mandate.cpRoot),
+              expiry: BigInt(body.mandate.expiry),
+              mandateId: Uint8Array.from(body.mandate.mandateId),
+            }
+          : null;
+      if (!mandate) return reply.code(400).send({ error: "mandate opening required" });
+      const remaining = BigInt(body.remaining ?? inboxOpening?.remaining ?? "0");
       const nowBound = BigInt(body.nowBound ?? Math.floor(Date.now() / 1000) + 86_400);
       const planned = planFillFromInbox({
         rfqSk: cfg.rfqSk,
@@ -543,7 +577,40 @@ export async function buildApp(cfg: ApiConfig) {
         revoked: false,
       });
       lastAgent = publicAgentStatusView(planned.receipt);
-      return stripPublicLeaks(publicAgentRankView(planned));
+      const view = publicAgentRankView(planned);
+      if (planned.decision.action === "fill" && inboxOpening && cfg.pool) {
+        try {
+          const hit = await fetchContractAction(cfg.indexer, cfg.pool);
+          if (hit?.stateHex) {
+            const ld = poolLedgerFromStateHex(hit.stateHex);
+            const built = constructRankedFill({
+              ledger: ld,
+              planned,
+              esk,
+              mandate,
+              remaining,
+              nowBound,
+              mandateRand: inboxOpening.mandateRand,
+              stateNonce: inboxOpening.stateNonce,
+            });
+            view.constructed = built.chosenMatches;
+            if (cfg.httpSubmit && cfg.submitFill && built.chosenMatches) {
+              view.proving = true;
+              const settled = await cfg.submitFill(built.pending, nowBound);
+              view.submitted = true;
+              view.proving = false;
+              view.txHash = settled.txHash;
+              view.block = settled.block;
+            }
+          }
+        } catch {
+          view.constructed = false;
+          view.submitted = false;
+          view.proving = false;
+        }
+      }
+      if (agentHttpHasLeakKeys(view).length > 0) return reply.code(500).send({ error: "refusing leaky rank body" });
+      return stripPublicLeaks(view);
     } catch (err) {
       return reply.code(400).send({ error: publicErrorMessage(err) });
     }

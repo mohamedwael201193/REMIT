@@ -26,7 +26,7 @@ export type PublicAgentStatus = {
   mpc: false;
 };
 
-/** HTTP `/agent/rank` body — ids and policy reasons only. */
+/** HTTP `/agent/rank` body — ids and policy reasons only. Never fill sizes or chosenIndex. */
 export type PublicAgentRank = {
   ranked: Array<{ id: string; ok: true } | { id: string; ok: false; reason: string }>;
   eligibleCount: number;
@@ -37,6 +37,11 @@ export type PublicAgentRank = {
   rule: "mbbe-eligible-only";
   mpc: false;
   globalBest: false;
+  constructed: boolean;
+  submitted: boolean;
+  proving: boolean;
+  txHash?: string;
+  block?: number;
 };
 
 export type PlannedFill = {
@@ -77,7 +82,7 @@ function offerFromOpened(opened: {
 
 /**
  * Deterministic agent tick: decrypt RFQ inbox → rank identical to Compact → receipt.
- * Proof/submit stay on the operator process (not this HTTP-safe planner).
+ * constructFillK binds the selected candidate. Proof/submit require a Node fill host.
  */
 export function planFillFromInbox(input: {
   rfqSk: string;
@@ -145,6 +150,59 @@ export function planFillFromInbox(input: {
   return { opened: candidates.length, dropped, decision, receipt, candidates };
 }
 
+export function mandateOpeningFromInbox(
+  rfqSk: string,
+  items: InboxItem[],
+): {
+  mandate: Mandate;
+  mandateRand: Uint8Array;
+  remaining: bigint;
+  stateNonce: Uint8Array;
+} | null {
+  for (const item of items) {
+    try {
+      const opened = openJson<{
+        kind?: string;
+        mandate?: {
+          principal: number[];
+          executor: number[];
+          side: string;
+          maxFillBase: string;
+          limitNum: string;
+          limitDen: string;
+          cpRoot: string;
+          expiry: string;
+          mandateId: number[];
+        };
+        mandateRand?: number[];
+        remaining?: string;
+        stateNonce?: number[];
+      }>(rfqSk, item.boxed);
+      if (opened.kind && opened.kind !== "mandate") continue;
+      if (!opened.mandate || !opened.mandateRand || !opened.stateNonce) continue;
+      return {
+        mandate: {
+          principal: Uint8Array.from(opened.mandate.principal),
+          executor: Uint8Array.from(opened.mandate.executor),
+          side: BigInt(opened.mandate.side),
+          maxFillBase: BigInt(opened.mandate.maxFillBase),
+          limitNum: BigInt(opened.mandate.limitNum),
+          limitDen: BigInt(opened.mandate.limitDen),
+          cpRoot: BigInt(opened.mandate.cpRoot),
+          expiry: BigInt(opened.mandate.expiry),
+          mandateId: Uint8Array.from(opened.mandate.mandateId),
+        },
+        mandateRand: Uint8Array.from(opened.mandateRand),
+        remaining: BigInt(opened.remaining ?? opened.mandate.maxFillBase),
+        stateNonce: Uint8Array.from(opened.stateNonce),
+      };
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 export function publicAgentStatusView(receipt: AgentReceipt): PublicAgentStatus {
   return {
     at: receipt.at,
@@ -171,6 +229,9 @@ export function publicAgentRankView(planned: PlannedFill): PublicAgentRank {
     rule: "mbbe-eligible-only",
     mpc: false,
     globalBest: false,
+    constructed: false,
+    submitted: false,
+    proving: false,
   };
 }
 

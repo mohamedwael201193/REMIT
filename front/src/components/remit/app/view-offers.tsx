@@ -12,6 +12,8 @@ import * as React from "react";
 import { Inbox, Loader2, Play, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -32,7 +34,7 @@ import {
 } from "@/components/remit/primitives";
 import { assetBySymbol, counterpartyById, executorById } from "@/lib/remit/catalog";
 import { formatUsd, timeAgo } from "@/lib/remit/format";
-import { isIndexerSettled, type Offer, type OfferState } from "@/lib/remit/types";
+import { isIndexerSettled, type Offer, type OfferState, type Side } from "@/lib/remit/types";
 import { useRemitStore } from "@/store/remit";
 import { useToast } from "@/hooks/use-toast";
 
@@ -114,7 +116,7 @@ function OfferCard({
         ) : null}
         {makerLens ? (
           <StatusPill tone={offer.state === "executed" ? "settled" : "sealed"}>
-            {offer.state === "executed" ? "Filled" : offer.txHash ? "Committed" : "Sealed"}
+            {offer.state === "executed" ? "Filled" : offer.rfqId ? "Committed · RFQ sealed" : offer.txHash ? "Committed" : "Sealed"}
           </StatusPill>
         ) : (
           <StatusPill tone={pill.tone}>{pill.label}</StatusPill>
@@ -383,11 +385,23 @@ export function ViewOffers() {
   const offers = useRemitStore((s) => s.offers);
   const role = useRemitStore((s) => s.role);
   const syncStatus = useRemitStore((s) => s.syncStatus);
+  const wallet = useRemitStore((s) => s.wallet);
+  const openWalletDialog = useRemitStore((s) => s.openWalletDialog);
+  const placeOffer = useRemitStore((s) => s.placeOffer);
+  const circuitBusy = useRemitStore((s) => s.circuitBusy);
+  const circuitStatus = useRemitStore((s) => s.circuitStatus);
+  const lastError = useRemitStore((s) => s.lastError);
+  const { toast } = useToast();
   const [filter, setFilter] = React.useState<OfferFilter>("all");
   const [confirmOffer, setConfirmOffer] = React.useState<Offer | null>(null);
   const [desk, setDesk] = React.useState<"inbox" | "posted">(
     role === "maker" ? "posted" : "inbox",
   );
+  const [side, setSide] = React.useState<Side>("sell");
+  const [baseAmount, setBaseAmount] = React.useState("80");
+  const [quoteAmount, setQuoteAmount] = React.useState("3200");
+  const [minFill, setMinFill] = React.useState("10");
+  const [until, setUntil] = React.useState("30");
 
   React.useEffect(() => {
     setDesk(role === "maker" ? "posted" : "inbox");
@@ -430,7 +444,7 @@ export function ViewOffers() {
             </h2>
             <p className="max-w-lg text-[13.5px] leading-relaxed text-muted-foreground">
               {makerLens
-                ? "Posted commitments. You never see the principal's mandate. Compact enforces it."
+                ? "My offer is private. Compact commits it. The RFQ to the executor is ciphertext only."
                 : "Executor inbox of private RFQ openings. Demo lens is not authorization."}
             </p>
           </div>
@@ -483,10 +497,118 @@ export function ViewOffers() {
       </Reveal>
 
       {makerLens ? (
-        <p className="rounded-xl border border-gold/20 bg-gold/5 px-4 py-3 text-[13px] leading-relaxed text-cream/80">
-          This tab does not post RFQ boxes. Operator-placed commitments appear as sealed inventory.
-          You never see the principal&apos;s mandate. Compact enforces it.
-        </p>
+        <form
+          className="min-w-0 space-y-4 rounded-2xl border border-gold/20 bg-gold/5 p-4 sm:p-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void (async () => {
+              if (wallet.status !== "connected") {
+                openWalletDialog(true);
+                toast({ title: "Connect a wallet to continue." });
+                return;
+              }
+              const base = Number(baseAmount);
+              const quote = Number(quoteAmount);
+              const min = Number(minFill);
+              const expiryDays = Number(until);
+              if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(quote) || quote <= 0) {
+                toast({ title: "Base and quote must be positive circuit units", variant: "destructive" });
+                return;
+              }
+              try {
+                const posted = await placeOffer({
+                  side,
+                  baseAmount: base,
+                  quoteAmount: quote,
+                  minFillBase: Number.isFinite(min) && min > 0 ? min : 1,
+                  expiryDays: Number.isFinite(expiryDays) && expiryDays > 0 ? expiryDays : 30,
+                });
+                toast({
+                  title: "Private offer committed — RFQ sealed",
+                  description: posted.rfqId ? `Inbox ${posted.rfqId}` : posted.txHash,
+                  duration: 8000,
+                });
+              } catch (error) {
+                toast({
+                  title: "Offer was not placed",
+                  description: error instanceof Error ? error.message : "Compact circuit-call required",
+                  variant: "destructive",
+                  duration: 20000,
+                });
+              }
+            })();
+          }}
+        >
+          <p className="eyebrow text-gold">Place a private offer</p>
+          <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+            Deposit escrow, prove placeOffer on Preprod, encrypt the opening for the executor, then POST
+            /rfq/offer. Price and size stay SEALED on this desk. You never see the principal&apos;s mandate.
+          </p>
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="min-w-0 space-y-1.5">
+              <Label htmlFor="offer-side">Side</Label>
+              <select
+                id="offer-side"
+                value={side}
+                onChange={(e) => setSide(e.target.value as Side)}
+                className="min-h-11 w-full rounded-md border border-[rgba(239,235,224,0.14)] bg-[#0f1814] px-3 font-data text-sm text-cream"
+              >
+                <option value="sell">Sell base (quote escrow)</option>
+                <option value="buy">Buy base (tNIGHT escrow)</option>
+              </select>
+            </div>
+            <div className="min-w-0 space-y-1.5">
+              <Label htmlFor="offer-base">Base</Label>
+              <Input
+                id="offer-base"
+                inputMode="numeric"
+                value={baseAmount}
+                onChange={(e) => setBaseAmount(e.target.value)}
+                className="min-h-11 border-[rgba(239,235,224,0.14)] bg-[#0f1814] font-data text-cream"
+              />
+            </div>
+            <div className="min-w-0 space-y-1.5">
+              <Label htmlFor="offer-quote">Quote</Label>
+              <Input
+                id="offer-quote"
+                inputMode="numeric"
+                value={quoteAmount}
+                onChange={(e) => setQuoteAmount(e.target.value)}
+                className="min-h-11 border-[rgba(239,235,224,0.14)] bg-[#0f1814] font-data text-cream"
+              />
+            </div>
+            <div className="min-w-0 space-y-1.5">
+              <Label htmlFor="offer-min">Min fill</Label>
+              <Input
+                id="offer-min"
+                inputMode="numeric"
+                value={minFill}
+                onChange={(e) => setMinFill(e.target.value)}
+                className="min-h-11 border-[rgba(239,235,224,0.14)] bg-[#0f1814] font-data text-cream"
+              />
+            </div>
+            <div className="min-w-0 space-y-1.5">
+              <Label htmlFor="offer-until">Expiry days</Label>
+              <Input
+                id="offer-until"
+                inputMode="numeric"
+                value={until}
+                onChange={(e) => setUntil(e.target.value)}
+                className="min-h-11 border-[rgba(239,235,224,0.14)] bg-[#0f1814] font-data text-cream"
+              />
+            </div>
+          </div>
+          <Button
+            type="submit"
+            disabled={circuitBusy}
+            className="min-h-11 bg-gold px-5 text-[#1a1409] hover:bg-gold-2"
+          >
+            {circuitBusy ? circuitStatus ?? "Proving on Preprod…" : "Place private offer"}
+          </Button>
+          {lastError ? (
+            <p className="max-w-2xl text-[12.5px] leading-relaxed text-clay">{lastError}</p>
+          ) : null}
+        </form>
       ) : null}
 
       {/* list */}

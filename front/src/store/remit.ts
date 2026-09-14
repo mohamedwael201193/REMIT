@@ -21,6 +21,7 @@ import {
   type FillAttemptInput,
   type Mandate,
   type NewMandateInput,
+  type NewOfferInput,
   type Offer,
   type PortfolioSnapshot,
   type RemitProvider,
@@ -60,6 +61,7 @@ interface RemitState {
   portfolio: PortfolioSnapshot | null;
   mandates: Mandate[];
   offers: Offer[];
+  postedOffers: Offer[];
   executions: Execution[];
   audits: AuditRecord[];
   activity: ActivityItem[];
@@ -94,6 +96,7 @@ interface RemitState {
 
   syncWorkspace: () => Promise<void>;
   createMandate: (input: NewMandateInput) => Promise<Mandate>;
+  placeOffer: (input: NewOfferInput) => Promise<Offer>;
   executeFill: (input: FillAttemptInput) => Promise<Execution>;
   declineOffer: (offerId: string) => void;
   revokeMandates: () => Promise<void>;
@@ -127,6 +130,7 @@ export const useRemitStore = create<RemitState>((set, get) => ({
   portfolio: null,
   mandates: [],
   offers: [],
+  postedOffers: [],
   executions: [],
   audits: [],
   activity: [],
@@ -205,10 +209,16 @@ export const useRemitStore = create<RemitState>((set, get) => ({
           agentStatusError = err instanceof Error ? err.message : "GET /agent/status failed";
         }
       }
+      const posted = get().postedOffers;
+      const seen = new Set(offers.map((o) => o.txHash || o.id));
+      const mergedOffers = [
+        ...offers,
+        ...posted.filter((o) => (o.txHash ? !seen.has(o.txHash) : !seen.has(o.id))),
+      ];
       set({
         portfolio,
         mandates,
-        offers,
+        offers: mergedOffers,
         executions,
         audits,
         activity,
@@ -244,6 +254,22 @@ export const useRemitStore = create<RemitState>((set, get) => ({
         ),
       });
       return mandate;
+    } catch (error) {
+      const message = explainCircuitError(error instanceof Error ? error.message : "Compact circuit-call required");
+      set({ lastError: message });
+      throw error;
+    } finally {
+      set({ circuitBusy: false, circuitStatus: null });
+    }
+  },
+
+  placeOffer: async (input) => {
+    set({ circuitBusy: true, circuitStatus: "Proving deposit, placeOffer, and posting encrypted RFQ", lastError: null });
+    try {
+      const offer = await provider.placeOffer(input);
+      set({ postedOffers: [offer, ...get().postedOffers.filter((o) => o.id !== offer.id)] });
+      await get().syncWorkspace();
+      return offer;
     } catch (error) {
       const message = explainCircuitError(error instanceof Error ? error.message : "Compact circuit-call required");
       set({ lastError: message });
@@ -308,6 +334,7 @@ export const useRemitStore = create<RemitState>((set, get) => ({
           ? a
           : {
               ...a,
+              proofStatus: "verified",
               disclosures: a.disclosures.map((d) =>
                 d.id === disclosure.id ? disclosure : d,
               ),

@@ -18,9 +18,11 @@ import {
 } from "../../core/src/tab-seal.ts";
 import { fetchContractAction, requireContractAction } from "../../core/src/indexer.ts";
 import { fromHex, randomBytes32 } from "../../core/src/bytes.ts";
-import { pendingCreateMandate, pendingDeposit, pendingRevokeMandate } from "../../core/src/pending.ts";
+import { pendingCreateMandate, pendingDeposit, pendingPlaceOffer, pendingRevokeMandate } from "../../core/src/pending.ts";
 import { poolLedgerFromStateHex } from "../../core/src/paths.ts";
 import { submitStagedCircuit } from "../../core/src/stage-call.ts";
+import { FAR_EXPIRY } from "../../core/src/mbbe.ts";
+import { makeMandateBox, makeOfferBox } from "../../core/src/rfq.ts";
 import { createRemitBrowserProviders } from "./browser-session.ts";
 import { fetchRemitConfig } from "./public.ts";
 
@@ -38,6 +40,15 @@ export type BrowserCircuitArgs = {
     side: "buy" | "sell";
     intent?: string;
   };
+  offer?: PlaceOfferCircuitInput;
+};
+
+export type PlaceOfferCircuitInput = {
+  side: "buy" | "sell";
+  baseAmount: number;
+  quoteAmount: number;
+  minFillBase?: number;
+  expiryDays?: number;
 };
 
 async function poolProviders(args: BrowserCircuitArgs) {
@@ -197,6 +208,22 @@ export async function createMandateFromWallet(args: BrowserCircuitArgs) {
   };
   await providers.privateStateProvider.set("remit-pool", nextPs);
   writeTabPrivate(args.network, args.pool, addr, nextPs);
+  if (!config.rfqPublic) throw new Error("API does not expose rfqPublic — mandate box cannot be delivered");
+  const jsonMandate = nextPs.mandates[0]!.mandate;
+  const { boxed: mandateBox } = makeMandateBox(config.rfqPublic, Array.from(mandate.mandateId), 15 * 60_000, {
+    mandate: jsonMandate,
+    mandateRand: Array.from(mandateRand),
+    remaining: amount.toString(),
+    stateNonce: Array.from(stateNonce),
+  });
+  const mandatePost = await fetch(`${args.apiUrl.replace(/\/$/, "")}/mandate`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ box: mandateBox }),
+  });
+  if (!mandatePost.ok && mandatePost.status !== 409) {
+    throw new Error(`mandate inbox ${mandatePost.status}`);
+  }
   const after = await ledger(config.indexer, args.pool);
   return {
     id: `mandate:${args.pool}`,
@@ -265,4 +292,121 @@ export async function revokeMandatesFromWallet(args: BrowserCircuitArgs) {
   await providers.privateStateProvider.set("remit-pool", cleared);
   writeTabPrivate(args.network, args.pool, addr, cleared);
   return { txHash: revoked.txHash ?? hit.txHash, block: revoked.blockHeight ?? hit.blockHeight, ns };
+}
+
+/**
+ * Maker path: deposit escrow → placeOffer → encrypt RFQ → POST /rfq/offer.
+ * Openings stay in tab-sealed private state. HTTP sees ciphertext only.
+ */
+export async function placeOfferFromWallet(args: BrowserCircuitArgs) {
+  const input = args.offer;
+  if (!input) throw new Error("placeOffer requires offer input");
+  const { providers, compiled, config, ns, addr, initial } = await poolProviders(args);
+  if (!config.rfqPublic) throw new Error("API does not expose rfqPublic — RFQ box cannot be delivered");
+  providers.privateStateProvider.setContractAddress(args.pool as never);
+  let ps = ((await providers.privateStateProvider.get("remit-pool")) as RemitPrivateState | null) ?? initial;
+  const ownerSk = ownerSkOf(ps);
+  ps = { ...ps, ownerSk: Array.from(ownerSk) };
+  await providers.privateStateProvider.set("remit-pool", ps);
+
+  const sell = input.side !== "buy";
+  const baseAmount = BigInt(Math.max(1, Math.floor(input.baseAmount)));
+  const quoteAmount = BigInt(Math.max(1, Math.floor(input.quoteAmount)));
+  const minFillBase = BigInt(Math.max(1, Math.floor(input.minFillBase ?? 1)));
+  const escrowAsset = sell ? 1n : 0n;
+  const escrowAmount = sell ? quoteAmount : baseAmount;
+  const depositNonce = randomBytes32();
+  const deposited = await submitStagedCircuit(providers, {
+    contractAddress: args.pool,
+    compiledContract: compiled,
+    privateStateId: "remit-pool",
+    circuitId: "deposit",
+    circuitArgs: [escrowAsset, escrowAmount],
+    pending: pendingDeposit(ownerSk, depositNonce),
+    fallback: ps,
+  });
+  if (!deposited.txId && !deposited.txHash) throw new Error("deposit missing tx id");
+  const afterDep = await ledger(config.indexer, args.pool);
+
+  const note = {
+    asset: escrowAsset,
+    amount: escrowAmount,
+    owner: pureCircuits.ownerKey(ownerSk),
+    nonce: depositNonce,
+  };
+  const offer = {
+    side: sell ? 1n : 0n,
+    baseAmount,
+    quoteAmount,
+    maker: note.owner,
+    payNonce: randomBytes32(),
+    expiry:
+      input.expiryDays && input.expiryDays > 0
+        ? BigInt(Math.floor(Date.now() / 1000) + Math.max(1, input.expiryDays) * 86400)
+        : FAR_EXPIRY,
+    minFillBase,
+  };
+  const offerRand = randomBytes32();
+  const placed = await submitStagedCircuit(providers, {
+    contractAddress: args.pool,
+    compiledContract: compiled,
+    privateStateId: "remit-pool",
+    circuitId: "placeOffer",
+    circuitArgs: [],
+    pending: pendingPlaceOffer(afterDep.ld, ownerSk, note, offer, offerRand, randomBytes32()),
+    fallback: ps,
+  });
+  if (!placed.txId && !placed.txHash) throw new Error("placeOffer missing tx id");
+
+  const jsonOffer = {
+    side: offer.side.toString(),
+    baseAmount: offer.baseAmount.toString(),
+    quoteAmount: offer.quoteAmount.toString(),
+    maker: Array.from(offer.maker),
+    payNonce: Array.from(offer.payNonce),
+    expiry: offer.expiry.toString(),
+    minFillBase: offer.minFillBase.toString(),
+  };
+  const nextPs: RemitPrivateState = {
+    ...ps,
+    ownerSk: Array.from(ownerSk),
+    offers: [...ps.offers, { offer: jsonOffer, rand: Array.from(offerRand) }],
+  };
+  await providers.privateStateProvider.set("remit-pool", nextPs);
+  writeTabPrivate(args.network, args.pool, addr, nextPs);
+
+  const { boxed } = makeOfferBox(config.rfqPublic, jsonOffer, Array.from(offerRand));
+  const rfqPost = await fetch(`${args.apiUrl.replace(/\/$/, "")}/rfq/offer`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ box: boxed }),
+  });
+  if (rfqPost.status === 409) throw new Error("RFQ nonce already delivered");
+  if (!rfqPost.ok) throw new Error(`rfq/offer ${rfqPost.status}`);
+  const rfq = (await rfqPost.json()) as { id?: string };
+  if (!rfq.id) throw new Error("rfq/offer did not return an inbox id");
+  const after = await ledger(config.indexer, args.pool);
+  const txHash = placed.txHash ?? after.hit.txHash;
+  const block = placed.blockHeight ?? after.hit.blockHeight;
+  return {
+    id: `offer:${txHash ?? rfq.id}`,
+    reference: txHash ? `OF-${txHash.slice(0, 6)}` : `OF-${rfq.id.slice(0, 6)}`,
+    mandateId: `mandate:${args.pool}`,
+    asset: "tNIGHT",
+    side: input.side,
+    price: null,
+    size: null,
+    amountPrivacy: "sealed" as const,
+    counterpartyId: "cp-onchain",
+    compatibility: null,
+    executionScore: null,
+    receivedAt: new Date().toISOString(),
+    expiresAt: new Date(Number(offer.expiry) * 1000).toISOString(),
+    state: "new" as const,
+    frictions: [],
+    txHash,
+    block,
+    rfqId: rfq.id,
+    ns,
+  };
 }

@@ -4,10 +4,12 @@
  */
 import {
   fetchRemitAuditHead,
+  fetchRemitAuditPackage,
   fetchRemitChain,
   fetchRemitConfig,
   fetchRemitEvidence,
   mapPublicWorkspace,
+  postRemitAuditVerify,
   type MappedExecution,
   type MappedWorkspace,
 } from "./public-client";
@@ -23,6 +25,7 @@ import type {
   FillAttemptInput,
   Mandate,
   NewMandateInput,
+  NewOfferInput,
   Offer,
   PortfolioSnapshot,
   RemitProvider,
@@ -139,6 +142,29 @@ class LiveRemitProvider implements RemitProvider {
     }
     return created;
   }
+  async placeOffer(input: NewOfferInput): Promise<Offer> {
+    await this.load();
+    if (this.wallet.status !== "connected" || !this.connected) {
+      throw new Error("Connect 1AM or Lace in a click handler before placeOffer");
+    }
+    const circuit = await loadRemitCircuitModule(this.cfg.apiUrl);
+    const created = (await circuit.placeOfferFromWallet({
+      wallet: this.connected,
+      kind: this.wallet.provider,
+      apiUrl: this.cfg.apiUrl,
+      pool: this.cfg.pool,
+      quote: this.cfg.quote,
+      network: this.cfg.network,
+      offer: input,
+    })) as Offer;
+    if (!created?.id || !created.rfqId) {
+      throw new Error("placeOffer did not deliver an encrypted RFQ to the durable inbox");
+    }
+    if (!created.txHash) {
+      throw new Error("placeOffer did not return an indexer-backed transaction");
+    }
+    return created;
+  }
   async executeFill(input: FillAttemptInput): Promise<Execution> {
     const ws = await this.load();
     const hit = ws.executions.find((e) => e.offerId === input.offerId);
@@ -202,9 +228,27 @@ class LiveRemitProvider implements RemitProvider {
       ],
     }));
   }
-  async revealFact(_auditId: string, _disclosureId: string): Promise<Disclosure> {
+  async revealFact(_auditId: string, disclosureId: string): Promise<Disclosure> {
     await this.load();
-    throw new Error("Field opening requires a real audit package verified against the on-chain auditRoot");
+    if (disclosureId !== "fill-amount") {
+      throw new Error("Unauthorized field — executor authorized a fill-amount opening only");
+    }
+    const pkg = await fetchRemitAuditPackage(this.cfg.apiUrl);
+    const field = pkg.openings[0]?.field;
+    if (field !== "baseAmount") {
+      throw new Error("Authorized package is not a fill-amount opening");
+    }
+    const verified = await postRemitAuditVerify(this.cfg.apiUrl, pkg);
+    if (!verified.ok) {
+      throw new Error(`verifyDisclosure rejected (${(verified.failed ?? []).join(",") || "failed"})`);
+    }
+    return {
+      id: "fill-amount",
+      fact: "fill-amount",
+      label: "Fill amount",
+      state: "revealed",
+      value: pkg.openings[0]?.valueDec ?? "REVEALED",
+    };
   }
   async getActivity(): Promise<ActivityItem[]> {
     return (await this.load()).activity;

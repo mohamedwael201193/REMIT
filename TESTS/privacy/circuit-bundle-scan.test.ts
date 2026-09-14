@@ -62,7 +62,8 @@ describe("circuit bundle / source-map secret scan", () => {
     expect(text.includes("sourceMappingURL"), "circuit bundle embeds a source map").toBe(false);
     expect(bundleHasEnvSecret(text), "circuit bundle contains an env secret value").toBe(false);
     expect(text.includes("REMIT_OPERATOR_MNEMONIC")).toBe(false);
-    expect(text.includes("JSON.stringify(ps)")).toBe(false);
+    expect(text).not.toMatch(/sessionStorage\.setItem\([^)]*JSON\.stringify/);
+    expect(circuits).not.toMatch(/JSON\.stringify\(\s*ps\s*\)/);
     for (const p of walkJs(resolve("dist/browser"))) {
       expect(p.endsWith(".map"), `source map artifact ${p}`).toBe(false);
     }

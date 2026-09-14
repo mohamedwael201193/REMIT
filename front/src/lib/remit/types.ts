@@ -124,6 +124,9 @@ export interface Offer {
   frictions: string[];
   /** Place-offer tx when the commitment is on the indexer. */
   txHash?: string;
+  block?: number;
+  /** Durable RFQ inbox id after POST /rfq/offer. */
+  rfqId?: string;
 }
 
 export interface PolicyCheck {
@@ -279,6 +282,14 @@ export interface NewMandateInput {
   intent: string;
 }
 
+export interface NewOfferInput {
+  side: Side;
+  baseAmount: number;
+  quoteAmount: number;
+  minFillBase?: number;
+  expiryDays?: number;
+}
+
 export interface FillAttemptInput {
   offerId: string;
   /** Override the attempted size; defaults to the offer size. */
@@ -291,6 +302,7 @@ export interface RemitProvider {
   getMandates(): Promise<Mandate[]>;
   getOffers(): Promise<Offer[]>;
   createMandate(input: NewMandateInput): Promise<Mandate>;
+  placeOffer(input: NewOfferInput): Promise<Offer>;
   executeFill(input: FillAttemptInput): Promise<Execution>;
   getExecutions(): Promise<Execution[]>;
   getAudit(): Promise<AuditRecord[]>;

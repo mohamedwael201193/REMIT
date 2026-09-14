@@ -12,6 +12,7 @@ const { app } = await buildApp({
   network: process.env.MIDNIGHT_NETWORK ?? "preprod",
   indexer: process.env.MIDNIGHT_INDEXER_URL ?? "https://indexer.preprod.midnight.network/api/v4/graphql",
   inboxFile: process.env.REMIT_RFQ_INBOX_FILE ?? "private-state/rfq-inbox.rmt1",
+  httpSubmit: process.env.REMIT_AGENT_SUBMIT === "1",
 });
 
 await app.listen({ port: PORT, host: "0.0.0.0" });

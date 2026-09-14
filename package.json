@@ -31,6 +31,7 @@
     "deploy:preprod-mbbe": "npx tsx scripts/preprod-deploy-mbbe-pool.ts",
     "lifecycle:preprod": "npx tsx scripts/preprod-lifecycle.ts",
     "lifecycle:mbbe-k3": "npx tsx scripts/preprod-mbbe-three-maker.ts",
+    "lifecycle:mbbe-residual": "npx tsx scripts/preprod-mbbe-residual-consume.ts",
     "render:smoke": "npx tsx scripts/render-smoke.ts",
     "front:env": "npx tsx scripts/write-front-public-env.ts",
     "front:circuit": "node scripts/build-browser-circuit.mjs",

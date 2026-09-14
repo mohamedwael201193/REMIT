@@ -152,7 +152,8 @@ function AgentStatusCard() {
               <p className="text-[13px] leading-relaxed text-cream/80">
                 Ranker is {status.rank ? "on" : "off"} · HTTP fill submit is{" "}
                 {status.httpSubmit ? "on" : "off"} · K={kLabel} · global-book best is not claimed ·
-                MPC is off.
+                MPC is off. Agent states: RFQs received → compatible → rejected → selected → proving
+                → settled.
               </p>
             )}
             <p className="text-[12.5px] leading-relaxed text-muted-foreground">
