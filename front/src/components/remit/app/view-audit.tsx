@@ -3,9 +3,9 @@
 /**
  * Audit — the selective disclosure desk.
  *
- * An auditor verifies one fact at a time against a proof. The mandate
- * itself is never handed over: sealed facts stay sealed until they are
- * individually revealed on request.
+ * States are distinguishable: SEALED / REQUESTED / REVEALED / VERIFIED.
+ * A fill tx hash is never an auditRoot. Verified requires verifyDisclosure
+ * against the on-chain auditRoots head — a hash alone does not verify.
  */
 
 import * as React from "react";
@@ -23,51 +23,71 @@ import {
 } from "@/components/remit/primitives";
 import { assetBySymbol } from "@/lib/remit/catalog";
 import { timeAgo } from "@/lib/remit/format";
-import type { AuditRecord, Disclosure } from "@/lib/remit/types";
+import {
+  AUDIT_FLOW_COPY,
+  openedAuditRoot,
+  recordAuditFlow,
+  disclosureFlow,
+} from "@/lib/remit/audit-flow";
+import type { AuditFlowState, AuditRecord, Disclosure } from "@/lib/remit/types";
 import { useRemitStore } from "@/store/remit";
 import { useToast } from "@/hooks/use-toast";
 
-/* ── presentation helpers ──────────────────────────────────────────── */
-
-function proofPill(status: AuditRecord["proofStatus"]): {
-  tone: PillTone;
-  label: string;
-} {
-  return status === "verified"
-    ? { tone: "verified", label: "Proof verified" }
-    : { tone: "pending", label: "Proof pending" };
+function flowPill(state: AuditFlowState): { tone: PillTone; label: string } {
+  switch (state) {
+    case "verified":
+      return { tone: "verified", label: AUDIT_FLOW_COPY.verified };
+    case "revealed":
+      return { tone: "settled", label: AUDIT_FLOW_COPY.revealed };
+    case "requested":
+      return { tone: "pending", label: AUDIT_FLOW_COPY.requested };
+    case "sealed":
+      return { tone: "sealed", label: AUDIT_FLOW_COPY.sealed };
+  }
 }
 
 function roleLabel(role: string): string {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
-/* ── disclosure tile ───────────────────────────────────────────────── */
-
 function DisclosureTile({
   disclosure,
   onReveal,
   busy,
+  requested,
 }: {
   disclosure: Disclosure;
   onReveal: (disclosure: Disclosure) => void;
   busy: boolean;
+  requested: boolean;
 }) {
-  if (disclosure.state === "disclosed") {
+  const flow = disclosureFlow(disclosure.state, requested);
+
+  if (flow === "revealed") {
     return (
       <div className="flex min-h-[92px] flex-col justify-between gap-2 rounded-lg border border-mint/35 bg-mint/5 p-3">
-        <p className="text-[12px] font-medium text-cream/85">
-          {disclosure.label}
-        </p>
+        <p className="text-[12px] font-medium text-cream/85">{disclosure.label}</p>
         <div className="flex items-start gap-2">
-          <Unlock
-            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-mint"
-            aria-hidden="true"
-          />
+          <Unlock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-mint" aria-hidden="true" />
           <p className="font-data text-[11px] leading-relaxed break-words text-mint">
-            {disclosure.value ?? "Revealed on request"}
+            {disclosure.value ?? "REVEALED"}
           </p>
         </div>
+        <StatusPill tone="settled" className="self-start">
+          {AUDIT_FLOW_COPY.revealed}
+        </StatusPill>
+      </div>
+    );
+  }
+
+  if (flow === "requested") {
+    return (
+      <div className="flex min-h-[92px] flex-col justify-between gap-2 rounded-lg border border-gold/35 bg-gold/5 p-3">
+        <p className="text-[12px] font-medium text-cream/85">{disclosure.label}</p>
+        <p className="text-[11px] text-gold">REQUESTED — opening not returned yet</p>
+        <StatusPill tone="pending" className="self-start">
+          {AUDIT_FLOW_COPY.requested}
+        </StatusPill>
       </div>
     );
   }
@@ -77,36 +97,36 @@ function DisclosureTile({
       type="button"
       onClick={() => onReveal(disclosure)}
       disabled={busy}
-      aria-label={`Reveal ${disclosure.label}`}
+      aria-label={`Request ${disclosure.label}`}
       className="group flex min-h-[92px] flex-col justify-between gap-2 rounded-lg border border-[rgba(239,235,224,0.1)] bg-[#0f1814] p-3 text-left transition-colors hover:border-gold/35 disabled:opacity-60"
     >
-      <p className="text-[12px] font-medium text-cream/85">
-        {disclosure.label}
-      </p>
+      <p className="text-[12px] font-medium text-cream/85">{disclosure.label}</p>
       <span className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
           <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
-          <span className="truncate">SEALED — reveal on request</span>
+          <span className="truncate">SEALED — request an opening</span>
         </span>
-        <span className="inline-flex h-8 shrink-0 items-center rounded-md px-2.5 text-[11px] font-medium text-gold transition-colors group-hover:bg-gold/10">
-          Reveal
+        <span className="inline-flex h-11 shrink-0 items-center rounded-md px-2.5 text-[11px] font-medium text-gold transition-colors group-hover:bg-gold/10">
+          Request
         </span>
       </span>
     </button>
   );
 }
 
-/* ── audit record card ─────────────────────────────────────────────── */
-
-function AuditRecordCard({ record }: { record: AuditRecord }) {
+function AuditRecordCard({ record, fillHashes }: { record: AuditRecord; fillHashes: Array<string | undefined> }) {
   const wallet = useRemitStore((s) => s.wallet);
   const openWalletDialog = useRemitStore((s) => s.openWalletDialog);
   const revealFact = useRemitStore((s) => s.revealFact);
   const { toast } = useToast();
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [requestedId, setRequestedId] = React.useState<string | null>(null);
 
   const asset = assetBySymbol(record.asset);
-  const pill = proofPill(record.proofStatus);
+  const requestedIds = requestedId ? new Set([requestedId]) : new Set<string>();
+  const flow = recordAuditFlow(record, requestedIds, fillHashes);
+  const pill = flowPill(flow);
+  const root = openedAuditRoot(record.auditRoot, fillHashes);
 
   const handleReveal = async (disclosure: Disclosure) => {
     if (wallet.status !== "connected") {
@@ -115,6 +135,7 @@ function AuditRecordCard({ record }: { record: AuditRecord }) {
       return;
     }
     setBusyId(disclosure.id);
+    setRequestedId(disclosure.id);
     try {
       await revealFact(record.id, disclosure.id);
       toast({
@@ -123,22 +144,22 @@ function AuditRecordCard({ record }: { record: AuditRecord }) {
       });
     } catch (error) {
       toast({
-        title: "Disclosure stays sealed",
+        title: "Opening not available — fact stays SEALED",
         description:
           error instanceof Error
             ? error.message
-            : "Field opening requires a real audit package verified against the on-chain auditRoot",
+            : "verifyDisclosure against the on-chain auditRoot is not wired in this tab",
         variant: "destructive",
         duration: 12000,
       });
     } finally {
       setBusyId(null);
+      setRequestedId(null);
     }
   };
 
   return (
-    <article className="flex flex-col gap-4 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:p-6">
-      {/* header */}
+    <article className="flex min-w-0 flex-col gap-4 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:p-6">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h3 className="font-display text-lg font-semibold tracking-tight">
           {record.executionRef}
@@ -146,25 +167,25 @@ function AuditRecordCard({ record }: { record: AuditRecord }) {
         <DataChip>{asset.symbol}</DataChip>
         <StatusPill tone={pill.tone}>{pill.label}</StatusPill>
         <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
-          {record.auditRoot ? <HashChip value={record.auditRoot} label="audit" /> : (
+          {root ? (
+            <HashChip value={root} label="auditRoot" />
+          ) : (
             <span className="font-data text-[11px] text-sage">auditRoot not opened</span>
           )}
-          <span className="font-data text-[11px] text-sage">
-            {record.proofStatus === "verified" ? "verified" : "pending"} {timeAgo(record.verifiedAt)}
-          </span>
+          <span className="font-data text-[11px] text-sage">{timeAgo(record.recordedAt)}</span>
         </div>
       </div>
 
-      {/* disclosures */}
       <div className="space-y-2">
-        <p className="eyebrow text-muted-foreground">Reveal one fact</p>
-        <div className="grid grid-cols-2 gap-2">
+        <p className="eyebrow text-muted-foreground">Request one fact</p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {record.disclosures.map((disclosure) => (
             <DisclosureTile
               key={disclosure.id}
               disclosure={disclosure}
               onReveal={(d) => void handleReveal(d)}
               busy={busyId === disclosure.id}
+              requested={requestedId === disclosure.id}
             />
           ))}
         </div>
@@ -172,31 +193,26 @@ function AuditRecordCard({ record }: { record: AuditRecord }) {
 
       <p className="flex items-center gap-2 border-t border-[rgba(239,235,224,0.07)] pt-3 text-[11px] text-muted-foreground">
         <EyeOff className="h-3 w-3 shrink-0 text-sage" aria-hidden="true" />
-        The auditor never receives the complete mandate.
+        The auditor never receives the complete mandate. Expiry is Compact-enforced, not an auditor opening.
       </p>
     </article>
   );
 }
 
-/* ── view ──────────────────────────────────────────────────────────── */
-
 export function ViewAudit() {
   const audits = useRemitStore((s) => s.audits);
+  const executions = useRemitStore((s) => s.executions);
   const syncStatus = useRemitStore((s) => s.syncStatus);
   const role = useRemitStore((s) => s.role);
   const setRole = useRemitStore((s) => s.setRole);
 
   const loading = syncStatus === "loading" || syncStatus === "idle";
+  const fillHashes = executions.map((e) => e.txHash);
 
-  const verifiedCount = audits.filter((a) => a.proofStatus === "verified").length;
-  const disclosedCount = audits.reduce(
-    (sum, a) => sum + a.disclosures.filter((d) => d.state === "disclosed").length,
-    0,
-  );
-  const sealedCount = audits.reduce(
-    (sum, a) => sum + a.disclosures.filter((d) => d.state === "sealed").length,
-    0,
-  );
+  const sealedCount = audits.filter((a) => recordAuditFlow(a, new Set(), fillHashes) === "sealed").length;
+  const requestedCount = audits.filter((a) => recordAuditFlow(a, new Set(), fillHashes) === "requested").length;
+  const revealedCount = audits.filter((a) => recordAuditFlow(a, new Set(), fillHashes) === "revealed").length;
+  const verifiedCount = audits.filter((a) => recordAuditFlow(a, new Set(), fillHashes) === "verified").length;
 
   if (loading) {
     return (
@@ -216,32 +232,29 @@ export function ViewAudit() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* header */}
+    <div className="min-w-0 space-y-6">
       <Reveal>
         <div className="space-y-1.5">
-          <h2 className="font-display text-2xl font-semibold tracking-tight">
-            Audit
-          </h2>
+          <h2 className="font-display text-2xl font-semibold tracking-tight">Audit</h2>
           <p className="max-w-lg text-[13.5px] leading-relaxed text-muted-foreground">
-            Verify one fact at a time. The mandate is never handed over.
+            Request one fact at a time. VERIFIED is only after verifyDisclosure against the
+            on-chain auditRoot — a fill tx hash is not an auditRoot.
           </p>
         </div>
       </Reveal>
 
-      {/* role note */}
       {role !== "auditor" ? (
         <Reveal delay={0.05}>
           <div className="flex flex-col gap-3 rounded-xl border border-gold/20 bg-gold/5 p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[13px] leading-relaxed text-cream/80">
-            You are viewing as {roleLabel(role)}. Demo lens is not authorization. Switch to the
-            Auditor lens for the audit desk.
+              You are viewing as {roleLabel(role)}. Demo lens is not authorization. Switch to the
+              Auditor lens for the audit desk.
             </p>
             <Button
               size="sm"
               variant="outline"
               onClick={() => setRole("auditor")}
-              className="min-h-10 shrink-0 border-gold/35 bg-transparent px-4 text-gold hover:bg-gold/10 hover:text-gold-2"
+              className="min-h-11 shrink-0 border-gold/35 bg-transparent px-4 text-gold hover:bg-gold/10 hover:text-gold-2"
             >
               Switch to auditor
             </Button>
@@ -249,41 +262,35 @@ export function ViewAudit() {
         </Reveal>
       ) : null}
 
-      {/* legend */}
       <Reveal delay={0.08}>
-        <div className="flex flex-wrap gap-2">
-          <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[rgba(239,235,224,0.12)] bg-[#121c17] px-3.5 text-[11.5px] text-sage">
-            <Lock className="h-3 w-3" aria-hidden="true" />
-            Private — sealed by default
-          </span>
-          <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-mint/30 bg-mint/5 px-3.5 text-[11.5px] text-mint">
-            <Unlock className="h-3 w-3" aria-hidden="true" />
-            Disclosed — revealed on request
-          </span>
+        <div className="flex min-w-0 flex-wrap gap-2">
+          <StatusPill tone="sealed">{AUDIT_FLOW_COPY.sealed}</StatusPill>
+          <StatusPill tone="pending">{AUDIT_FLOW_COPY.requested}</StatusPill>
+          <StatusPill tone="settled">{AUDIT_FLOW_COPY.revealed}</StatusPill>
+          <StatusPill tone="verified">{AUDIT_FLOW_COPY.verified}</StatusPill>
         </div>
       </Reveal>
 
-      {/* summary strip */}
       <Reveal delay={0.1}>
-        <div className="grid gap-5 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:grid-cols-3 sm:p-6">
-          <StatBlock label="Executions with proofs" value={verifiedCount} />
-          <StatBlock label="Facts disclosed" value={disclosedCount} />
-          <StatBlock label="Facts sealed" value={sealedCount} />
+        <div className="grid min-w-0 gap-5 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:grid-cols-4 sm:p-6">
+          <StatBlock label="Sealed" value={sealedCount} />
+          <StatBlock label="Requested" value={requestedCount} />
+          <StatBlock label="Revealed" value={revealedCount} />
+          <StatBlock label="Verified" value={verifiedCount} sub="verifyDisclosure only" />
         </div>
       </Reveal>
 
-      {/* records */}
       {audits.length === 0 ? (
         <EmptyState
           icon={<SearchCheck className="h-5 w-5" />}
           title="No audit records yet"
-          description="Every settled execution produces a proof record with individually sealed facts."
+          description="Indexer-confirmed fills appear here as SEALED packages. They stay sealed until a real disclosure is verified."
         />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-2">
           {audits.map((record, i) => (
-            <Reveal key={record.id} delay={Math.min(i * 0.05, 0.25)}>
-              <AuditRecordCard record={record} />
+            <Reveal key={record.id} delay={Math.min(i * 0.04, 0.2)}>
+              <AuditRecordCard record={record} fillHashes={fillHashes} />
             </Reveal>
           ))}
         </div>

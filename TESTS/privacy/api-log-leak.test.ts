@@ -161,6 +161,59 @@ describe("API RFQ + /agent/rank must not leak openings or secrets", () => {
     expect(inboxText.includes(BASE_AMOUNT)).toBe(false);
     expect(inboxText.includes(QUOTE_AMOUNT)).toBe(false);
 
+    const poisonedFill = await app.inject({
+      method: "POST",
+      url: "/agent/rank",
+      headers: { authorization: `Bearer ${ADMIN}` },
+      payload: {
+        remaining: "fillBase=32771011",
+        nowBound: "1800000000",
+        mandate: {
+          principal: Array.from({ length: 32 }, () => 1),
+          executor: Array.from({ length: 32 }, () => 2),
+          side: "0",
+          maxFillBase: "1",
+          limitNum: "1",
+          limitDen: "1",
+          cpRoot: "0",
+          expiry: "1",
+          mandateId: Array.from({ length: 32 }, () => 5),
+        },
+      },
+    });
+    expect(poisonedFill.statusCode).toBeGreaterThanOrEqual(400);
+    const fillErr = JSON.stringify(poisonedFill.json()).toLowerCase();
+    expect(fillErr.includes("fillbase")).toBe(false);
+    expect(fillErr.includes("32771011")).toBe(false);
+    expect(fillErr.includes(rec.secretHex.toLowerCase())).toBe(false);
+    expect(fillErr.includes(EXEC_SK.toLowerCase())).toBe(false);
+
+    const poisonEv = await app.inject({
+      method: "POST",
+      url: "/evidence",
+      headers: { authorization: `Bearer ${ADMIN}` },
+      payload: {
+        network: "preprod",
+        steps: [
+          {
+            name: "pool-k3-fill",
+            ok: true,
+            txHash: "aa".repeat(32),
+            block: 1,
+            detail: "fillBase=32771 fillQuote=1048583 chosenIndex=2",
+          },
+        ],
+      },
+    });
+    expect(poisonEv.statusCode).toBe(200);
+    const ev = await app.inject({ method: "GET", url: "/evidence" });
+    const evText = JSON.stringify(ev.json());
+    expect(evText.includes("fillBase")).toBe(false);
+    expect(evText.includes("fillQuote")).toBe(false);
+    expect(evText.includes("chosenIndex")).toBe(false);
+    expect(evText.includes("32771")).toBe(false);
+    expect(evText.includes("1048583")).toBe(false);
+
     await app.close();
   });
 });

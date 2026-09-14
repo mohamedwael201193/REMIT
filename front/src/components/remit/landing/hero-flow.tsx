@@ -53,10 +53,10 @@ function Connector({ vertical = false, delay = 0 }: { vertical?: boolean; delay?
             initial={{ opacity: 0 }}
             animate={
               vertical
-                ? { cy: [6, 46], cx: 12, opacity: [0, 1, 1, 0] }
-                : { cx: [10, 84], cy: 12, opacity: [0, 1, 1, 0] }
+                ? { cy: 26, cx: 12, opacity: 0.85 }
+                : { cx: 48, cy: 12, opacity: 0.85 }
             }
-            transition={{ duration: 2.6, repeat: Infinity, delay: delay + 0.8, ease: "linear" }}
+            transition={{ duration: 0.28, delay, ease: "linear" }}
           />
         ) : null}
       </svg>
@@ -86,7 +86,7 @@ function RedactedLines({ widths, className }: { widths: number[]; className?: st
 
 function MandateDoc() {
   return (
-    <div className="paper grain relative w-full max-w-[240px] rounded-xl p-4 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.65)]">
+    <div className="paper grain relative w-full max-w-[240px] rounded-xl bg-paper p-4 text-[#1a231e] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.65)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-data text-[10px] font-medium uppercase tracking-[0.18em] text-gold-deep">
@@ -107,7 +107,7 @@ function MandateDoc() {
       <div className="mt-3.5 flex items-center gap-1.5">
         <span className="h-2 w-2 rounded-full bg-[#8c6a1f]/70" />
         <span className="text-[10px] uppercase tracking-[0.16em] text-[#5d6a61]">
-          rules visible only to you
+          Openings are not on the public ledger
         </span>
       </div>
     </div>
@@ -120,27 +120,19 @@ function OfferDoc() {
       <p className="font-data text-[10px] font-medium uppercase tracking-[0.18em] text-sage">
         Private offer
       </p>
-      <p className="font-display mt-1 text-sm font-semibold text-cream">OF-9231</p>
+      <p className="font-display mt-1 text-sm font-semibold text-cream">Sealed offer</p>
       <RedactedLines widths={[70, 52]} className="mt-2.5" />
     </div>
   );
 }
 
 function AgentNode() {
-  const reduced = useReducedMotion();
   return (
     <div className="relative flex flex-col items-center gap-3">
       <div className="relative">
         <svg viewBox="0 0 120 120" className="h-28 w-28" fill="none" role="img" aria-label="Constrained executor">
           <circle cx="60" cy="60" r="54" stroke="rgba(239,235,224,0.22)" strokeWidth="1.3" strokeDasharray="2.5 6" strokeLinecap="round" />
-          <motion.circle
-            cx="60" cy="60" r="40" stroke="#D9A94E" strokeWidth="1.8"
-            style={{ originX: "50%", originY: "50%" }}
-            animate={reduced ? undefined : { rotate: -360 }}
-            transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-            strokeDasharray="188 64"
-            strokeLinecap="round"
-          />
+          <circle cx="60" cy="60" r="40" stroke="#D9A94E" strokeWidth="1.8" strokeDasharray="188 64" strokeLinecap="round" />
           <circle cx="60" cy="60" r="26" stroke="rgba(217,169,78,0.35)" strokeWidth="1.1" />
           <circle cx="60" cy="60" r="7.5" fill="#D9A94E" />
           <circle cx="60" cy="20" r="4" fill="#EFEBC0" />
@@ -193,10 +185,10 @@ function ReceiptNode() {
             <path d="M3 7.4 L5.8 10.2 L11 4" stroke="#7CC79B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-        <p className="font-display mt-1.5 text-xl font-semibold text-cream">RCP-2262</p>
+        <p className="font-display mt-1.5 text-xl font-semibold text-cream">Settled fill</p>
         <div className="mt-3 flex items-center justify-between border-t border-[rgba(239,235,224,0.1)] pt-2.5">
-          <span className="text-[10px] uppercase tracking-[0.14em] text-sage">receipt</span>
-          <span className="font-data text-[11px] text-cream/80">verified</span>
+          <span className="text-[10px] uppercase tracking-[0.14em] text-sage">illustration</span>
+          <span className="font-data text-[11px] text-cream/80">indexer truth</span>
         </div>
       </div>
       <p className="text-center">

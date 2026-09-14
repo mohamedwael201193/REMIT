@@ -15,13 +15,11 @@ import { motion, useReducedMotion } from "framer-motion";
 
 export function RemitMark({
   className,
-  animated = false,
 }: {
   className?: string;
+  /** @deprecated Motion loops are not used. Kept so existing call sites typecheck. */
   animated?: boolean;
 }) {
-  const reduced = useReducedMotion();
-  const spin = animated && !reduced;
   return (
     <svg
       viewBox="0 0 40 40"
@@ -30,7 +28,6 @@ export function RemitMark({
       role="img"
       aria-label="REMIT mark"
     >
-      {/* mandate boundary */}
       <circle
         cx="20"
         cy="20"
@@ -38,8 +35,7 @@ export function RemitMark({
         stroke="currentColor"
         strokeWidth="2.4"
       />
-      {/* constrained motion arc */}
-      <motion.circle
+      <circle
         cx="20"
         cy="20"
         r="9.5"
@@ -48,13 +44,8 @@ export function RemitMark({
         strokeDasharray="3.5 5.2"
         strokeLinecap="round"
         opacity="0.85"
-        style={{ originX: "50%", originY: "50%" }}
-        animate={spin ? { rotate: 360 } : undefined}
-        transition={spin ? { duration: 26, repeat: Infinity, ease: "linear" } : undefined}
       />
-      {/* executor core */}
       <circle cx="20" cy="20" r="4.6" fill="currentColor" />
-      {/* the fill that touches, but never crosses, the boundary */}
       <circle cx="20" cy="4.8" r="2.7" fill="currentColor" />
     </svg>
   );

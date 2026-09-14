@@ -14,14 +14,14 @@ import { Accent, EASE, Reveal, SectionHeading } from "@/components/remit/primiti
 import { PlateFrame, SpecimenStamp } from "./plates";
 
 const FACTS = [
-  { id: "fill", label: "Fill amount", value: "$180,000" },
-  { id: "policy", label: "Policy compliance", value: "Compliant — all bounds satisfied" },
-  { id: "cp", label: "Counterparty class", value: "Tier-1 OTC" },
-  { id: "time", label: "Execution timestamp", value: "14 Mar · 11:42 UTC" },
+  { id: "fill", label: "Fill amount", value: "SEALED — illustration, not a live opening" },
+  { id: "policy", label: "Price limit satisfied", value: "Boolean fact — illustration" },
+  { id: "cp", label: "Counterparty authorized", value: "On-chain maker (illustration)" },
+  { id: "time", label: "Execution timestamp", value: "SEALED — not a live clock" },
 ];
 
 export function SectionAudit() {
-  const [revealed, setRevealed] = React.useState<Set<string>>(new Set(["policy"]));
+  const [revealed, setRevealed] = React.useState<Set<string>>(new Set());
 
   const toggle = (id: string) => {
     setRevealed((prev) => {
@@ -107,16 +107,16 @@ export function SectionAudit() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="font-data text-[10px] uppercase tracking-[0.2em] text-gold">
-                      Execution record
+                      Illustration · not live audit
                     </p>
-                    <p className="font-display mt-1 text-2xl font-semibold">EX-4471</p>
+                    <p className="font-display mt-1 text-2xl font-semibold">Sealed execution</p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
-                    <span className="rounded-full border border-mint/35 bg-mint/10 px-2.5 py-0.5 text-[10.5px] font-medium uppercase tracking-[0.12em] text-mint">
-                      proof verified
+                    <span className="rounded-full border border-gold/35 bg-gold/10 px-2.5 py-0.5 text-[10.5px] font-medium uppercase tracking-[0.12em] text-gold">
+                      SEALED
                     </span>
                     <span className="font-data text-[10.5px] text-cream/45">
-                      audit root ar_44f2…c711
+                      auditRoot not opened
                     </span>
                   </div>
                 </div>

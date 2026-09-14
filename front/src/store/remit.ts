@@ -11,6 +11,8 @@
 
 import { create } from "zustand";
 import { getRemitProvider } from "@/lib/remit/live-provider";
+import { publicAgentView } from "@/lib/remit/agent-public";
+import { fetchRemitAgentStatus, type RemitAgentStatus } from "@/lib/remit/public-client";
 import {
   isIndexerSettled,
   type ActivityItem,
@@ -61,6 +63,9 @@ interface RemitState {
   executions: Execution[];
   audits: AuditRecord[];
   activity: ActivityItem[];
+  /** Public GET /agent/status — counts only. Null when not fetched. */
+  agentStatus: RemitAgentStatus | null;
+  agentStatusError: string | null;
   syncStatus: SyncStatus;
   syncedAt: number | null;
 
@@ -125,6 +130,8 @@ export const useRemitStore = create<RemitState>((set, get) => ({
   executions: [],
   audits: [],
   activity: [],
+  agentStatus: null,
+  agentStatusError: null,
   syncStatus: "idle",
   syncedAt: null,
 
@@ -184,6 +191,20 @@ export const useRemitStore = create<RemitState>((set, get) => ({
           provider.getAudit(),
           provider.getActivity(),
         ]);
+      let agentStatus: RemitAgentStatus | null = get().agentStatus;
+      let agentStatusError: string | null = get().agentStatusError;
+      const apiUrl = process.env.NEXT_PUBLIC_REMIT_API_URL ?? "";
+      if (!apiUrl) {
+        agentStatus = null;
+        agentStatusError = "API URL not configured — GET /agent/status was not called.";
+      } else {
+        try {
+          agentStatus = publicAgentView(await fetchRemitAgentStatus(apiUrl));
+          agentStatusError = null;
+        } catch (err: unknown) {
+          agentStatusError = err instanceof Error ? err.message : "GET /agent/status failed";
+        }
+      }
       set({
         portfolio,
         mandates,
@@ -191,6 +212,8 @@ export const useRemitStore = create<RemitState>((set, get) => ({
         executions,
         audits,
         activity,
+        agentStatus,
+        agentStatusError,
         syncStatus: "ready",
         syncedAt: Date.now(),
       });

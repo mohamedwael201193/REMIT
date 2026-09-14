@@ -7,6 +7,7 @@ import { encodingsOfBigint, encodingsOfBytes } from "../../packages/core/src/byt
 import { makeOfferBox, makeMandateBox, openOfferBox, openMandateBox } from "../../packages/core/src/rfq.ts";
 import { CIRCUIT_CALL_PATH } from "../../packages/core/src/tx.ts";
 import { publicErrorMessage, RemitError } from "../../packages/core/src/errors.ts";
+import { hasPublicLeakToken, publicLeakHits, sanitizePublicDetail } from "../../packages/core/src/leaks.ts";
 
 describe("RFQ sealed box", () => {
   it("round-trips JSON to the recipient only", () => {
@@ -55,6 +56,15 @@ describe("redaction and typed errors", () => {
     expect(out.ok).toBe(1);
     expect(publicErrorMessage(new RemitError("WITNESS_MISSING", "owner secret abcdef", "witness missing"))).toBe("witness missing");
     expect(publicErrorMessage(new Error("witness salt 00aa"))).toBe("operation failed");
+    expect(publicErrorMessage(new Error("Cannot convert fillBase=32771 to a BigInt"))).toBe("operation failed");
+    expect(publicErrorMessage(new Error("chosenIndex=2 offerRand leaked"))).toBe("operation failed");
+    expect(publicErrorMessage(new RemitError("INTERNAL", "x", "fillQuote=640"))).toBe("INTERNAL");
+    expect(hasPublicLeakToken("best among the K openings supplied")).toBe(false);
+    expect(hasPublicLeakToken("fillBase=50 chosenIndex=2")).toBe(true);
+    expect(sanitizePublicDetail("SucceedEntirely · 9492 B · K=3 live candidates")).toContain("9492 B");
+    expect(sanitizePublicDetail("fillBase=50 fillQuote=2000 chosenIndex=2")).toBeUndefined();
+    expect(publicLeakHits({ rule: "mbbe-eligible-only", k: 3 })).toEqual([]);
+    expect(publicLeakHits({ chosenIndex: 2, fillBase: 50 })).toEqual(["fillBase", "chosenIndex"]);
   });
 });
 

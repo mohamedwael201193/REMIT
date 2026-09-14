@@ -150,28 +150,45 @@ class LiveRemitProvider implements RemitProvider {
   }
   async getAudit(): Promise<AuditRecord[]> {
     const ws = await this.load();
-    const fill = ws.executions.find((e) => e.status === "settled");
-    const audited = ws.activity.some((a) => a.kind === "audit");
-    if (!fill || !audited) return [];
-    return [
-      {
-        id: `audit:${fill.txHash ?? fill.id}`,
-        executionRef: fill.reference,
-        asset: fill.asset,
-        counterpartyClass: "On-chain counterparty",
-        proofStatus: "pending",
-        auditRoot: "",
-        verifiedAt: fill.executedAt,
-        disclosures: [
-          {
-            id: "fill-amount",
-            fact: "fill-amount",
-            label: "Fill amount",
-            state: "sealed",
-          },
-        ],
-      },
-    ];
+    const settled = ws.executions.filter(
+      (e) => e.status === "settled" && Boolean(e.txHash) && e.block != null,
+    );
+    return settled.map((fill) => ({
+      id: `audit:${fill.txHash ?? fill.id}`,
+      executionRef: fill.reference,
+      asset: fill.asset,
+      counterpartyClass: "On-chain counterparty",
+      proofStatus: "pending",
+      auditRoot: "",
+      recordedAt: fill.executedAt,
+      disclosures: [
+        { id: "fill-amount", fact: "fill-amount" as const, label: "Fill amount", state: "sealed" as const },
+        {
+          id: "policy-compliance",
+          fact: "policy-compliance" as const,
+          label: "Price limit satisfied",
+          state: "sealed" as const,
+        },
+        {
+          id: "counterparty-class",
+          fact: "counterparty-class" as const,
+          label: "Counterparty authorized",
+          state: "sealed" as const,
+        },
+        {
+          id: "mandate-active",
+          fact: "mandate-active" as const,
+          label: "Mandate active",
+          state: "sealed" as const,
+        },
+        {
+          id: "execution-timestamp",
+          fact: "execution-timestamp" as const,
+          label: "Execution timestamp",
+          state: "sealed" as const,
+        },
+      ],
+    }));
   }
   async revealFact(_auditId: string, _disclosureId: string): Promise<Disclosure> {
     await this.load();

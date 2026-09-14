@@ -162,4 +162,25 @@ describe("browser wrap-key: sessionStorage must not hold plaintext ownerSk JSON"
     expect(keysA.wrap).not.toBe(keysB.wrap);
     expect(keysA.blob).not.toBe(keysB.blob);
   });
+
+  it("sdk/front sources do not persist plaintext RemitPrivateState JSON", () => {
+    const files = [
+      "packages/sdk/src/browser-circuits.ts",
+      "packages/sdk/src/browser-session.ts",
+      "packages/sdk/src/connector-wallet.ts",
+      "packages/core/src/memory-state.ts",
+      "front/src/lib/remit/circuit-call.ts",
+      "front/src/lib/remit/live-provider.ts",
+      "front/src/lib/remit/local-provider.ts",
+    ];
+    for (const rel of files) {
+      const src = readFileSync(resolve(rel), "utf8");
+      expect(src.includes("JSON.stringify(ps)"), `${rel} stringifies private state`).toBe(false);
+      expect(/localStorage\.setItem/.test(src), `${rel} writes localStorage`).toBe(false);
+    }
+    const seal = readFileSync(resolve("packages/core/src/tab-seal.ts"), "utf8");
+    expect(seal).toMatch(/RMTPS1/);
+    expect(seal).toMatch(/JSON\.stringify\(ps\)/);
+    expect(seal).toMatch(/xchacha20poly1305/);
+  });
 });

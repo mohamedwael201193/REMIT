@@ -50,7 +50,7 @@ function MandateCard({ mandate }: { mandate: Mandate }) {
   return (
     <PaperSurface className="min-w-0 p-5 sm:p-6">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <span className="font-data text-[13px] font-semibold text-cream">{mandate.reference}</span>
+        <span className="font-data text-[13px] font-semibold text-[#1a231e]">{mandate.reference}</span>
         <StatusPill tone={pill.tone}>{pill.label}</StatusPill>
         <DataChip>{asset.symbol}</DataChip>
         <span className="ml-auto font-data text-[10.5px] text-sage">{timeAgo(mandate.createdAt)}</span>
@@ -64,15 +64,15 @@ function MandateCard({ mandate }: { mandate: Mandate }) {
       <dl className="mt-4 grid min-w-0 grid-cols-1 gap-3 text-[12.5px] sm:grid-cols-2">
         <div className="min-w-0">
           <dt className="eyebrow text-muted-foreground">Side</dt>
-          <dd className="font-data text-cream">{sideLabel(mandate.side)}</dd>
+          <dd className="font-data text-[#1a231e]">{sideLabel(mandate.side)}</dd>
         </div>
         <div className="min-w-0">
           <dt className="eyebrow text-muted-foreground">Settled fills</dt>
-          <dd className="font-data text-cream">{mandate.settledFills}</dd>
+          <dd className="font-data text-[#1a231e]">{mandate.settledFills}</dd>
         </div>
         <div className="col-span-full min-w-0">
           <dt className="eyebrow text-muted-foreground">Executor</dt>
-          <dd className="text-cream">{executor.name}</dd>
+          <dd className="text-[#1a231e]">{executor.name}</dd>
         </div>
       </dl>
     </PaperSurface>

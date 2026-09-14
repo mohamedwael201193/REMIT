@@ -87,7 +87,7 @@ export function ConnectWalletDialog() {
               key={p.kind}
               onClick={() => connect(p.kind)}
               disabled={pending !== null}
-              className="group flex w-full items-center gap-4 rounded-xl border border-[rgba(239,235,224,0.12)] bg-[#121c17] p-4 text-left transition-colors hover:border-gold/40 disabled:opacity-60"
+            className="group flex min-h-11 w-full items-center gap-4 rounded-xl border border-[rgba(239,235,224,0.12)] bg-[#121c17] p-4 text-left transition-colors hover:border-gold/40 disabled:opacity-60"
             >
               {walletMark(p.kind)}
               <span className="flex-1">

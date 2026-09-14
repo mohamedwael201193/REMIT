@@ -21,7 +21,7 @@ const ROLES = [
     icon: Bot,
     title: "Executor",
     line: "Executes inside the mandate. Nothing more.",
-    sees: ["Offer menu", "The boundary", "Not the budget"],
+    sees: ["Openings it was given", "The boundary", "Not the maker's full book"],
     tone: "sage" as const,
   },
   {

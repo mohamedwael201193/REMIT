@@ -41,6 +41,36 @@ describe("MBBE TypeScript ranking matches Compact pure helpers", () => {
     expect(book[1]?.rand).toEqual(live.rand);
   });
 
+  it("pads from the first live slot and refuses an empty book", () => {
+    const dead = {
+      offer: withOfferDefaults({
+        side: 1n,
+        baseAmount: 40n,
+        quoteAmount: 2000n,
+        maker,
+        payNonce: randomBytes32(),
+      }),
+      rand: randomBytes32(),
+      live: false,
+    };
+    const live = {
+      offer: withOfferDefaults({
+        side: 1n,
+        baseAmount: 40n,
+        quoteAmount: 1280n,
+        maker,
+        payNonce: randomBytes32(),
+      }),
+      rand: randomBytes32(),
+      live: true,
+    };
+    const book = padBook([dead, live]);
+    expect(book).toHaveLength(3);
+    expect(book[2]?.live).toBe(false);
+    expect(Buffer.from(book[2]!.rand).equals(Buffer.from(live.rand))).toBe(true);
+    expect(() => padBook([])).toThrow(/at least one slot/);
+  });
+
   it("picks the better eligible quote and ignores a cheaper ineligible live slot", () => {
     const cheap = {
       offer: withOfferDefaults({

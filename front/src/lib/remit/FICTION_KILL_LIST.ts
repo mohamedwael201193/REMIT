@@ -199,6 +199,30 @@ export const FICTIONS: FictionKillItem[] = [
     issue: "assetBySymbol uses LIVE_ASSETS. counterpartyById/executorById never invent Northline/Corvus desks.",
     status: "killed-this-shift",
   },
+  {
+    id: "overview-story-rail",
+    file: "front/src/components/remit/app/view-overview.tsx",
+    issue: "Overview desk story is PRIVATE LIQUIDITY → AGENT DECISION → PROOF → SETTLEMENT from indexer openOffers, GET /agent/status last counts, and settled fills. No fake TVL or proof counts.",
+    status: "killed-this-shift",
+  },
+  {
+    id: "audit-four-states",
+    file: "front/src/components/remit/app/view-audit.tsx",
+    issue: "Auditor desk distinguishes SEALED / REQUESTED / REVEALED / VERIFIED. Tx hash is never auditRoot. Verified only after verifyDisclosure.",
+    status: "killed-this-shift",
+  },
+  {
+    id: "landing-fake-receipts",
+    file: "front/src/components/remit/landing/hero-flow.tsx",
+    issue: "Removed RCP-2262 / OF-9231 / infinite pulse. Illustration copy only.",
+    status: "killed-this-shift",
+  },
+  {
+    id: "landing-audit-180k",
+    file: "front/src/components/remit/landing/section-audit.tsx",
+    issue: "Removed $180,000 / EX-4471 / fake audit root / Tier-1 OTC. Illustration stays SEALED.",
+    status: "killed-this-shift",
+  },
 ];
 
 export const OVERFLOW_NAV: FictionKillItem[] = [
@@ -241,7 +265,7 @@ export const OVERFLOW_NAV: FictionKillItem[] = [
   {
     id: "nav-390-settings-wallet",
     file: "front/src/components/remit/wallet/wallet-button.tsx",
-    issue: "Wallet chip min-h-11, truncates address, DUST only at lg (also in menu). Header cluster max-width + min-w-0. Chrome matrix not re-measured this agent.",
+    issue: "Wallet chip min-h-11, truncates address, DUST only at lg (also in menu). Header cluster wraps — not max-width compressed. HashChip copy is min-h-11.",
     status: "killed-this-shift",
   },
   {

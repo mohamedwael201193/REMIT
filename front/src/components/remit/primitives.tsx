@@ -24,11 +24,11 @@ export const EASE = [0.21, 0.47, 0.32, 0.98] as const;
 export const MOTION = {
   ease: EASE,
   duration: {
-    instant: 0.15,
-    fast: 0.32,
-    base: 0.45,
-    slow: 0.72,
-    draw: 1.1,
+    instant: 0.12,
+    fast: 0.18,
+    base: 0.18,
+    slow: 0.28,
+    draw: 0.28,
   },
 } as const;
 
@@ -63,7 +63,7 @@ export function Reveal({
   children,
   className,
   delay = 0,
-  y = 18,
+  y = 8,
   once = true,
 }: {
   children: React.ReactNode;
@@ -130,7 +130,7 @@ export function CountUp({
   value,
   format,
   className,
-  duration = 1.4,
+  duration = 0.28,
 }: {
   value: number;
   format?: (n: number) => string;
@@ -257,7 +257,15 @@ export function PaperSurface({
   grain?: boolean;
 }) {
   return (
-    <div className={cn("paper grain rounded-2xl", className)}>{children}</div>
+    <div
+      className={cn(
+        "paper relative overflow-hidden rounded-2xl border border-[rgba(26,35,30,0.13)] bg-paper text-[#1a231e]",
+        grain && "grain",
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -421,7 +429,7 @@ export function HashChip({
       <button
         type="button"
         onClick={copy}
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-sage hover:text-cream"
+        className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded text-sage hover:text-cream"
         aria-label={copied ? "Copied" : "Copy"}
       >
         {copied ? <Check className="h-3 w-3 text-mint" /> : <Copy className="h-3 w-3" />}
@@ -430,7 +438,7 @@ export function HashChip({
   );
 
   const chipClass = cn(
-    "font-data inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border bg-secondary/60 py-0.5 pl-2 pr-0.5 text-[11px] text-muted-foreground",
+    "font-data inline-flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border bg-secondary/60 py-0.5 pl-2 pr-0.5 text-[11px] text-muted-foreground",
     className,
   );
 
@@ -444,7 +452,7 @@ export function HashChip({
         <button
           type="button"
           onClick={copy}
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-sage hover:text-cream"
+          className="inline-flex h-11 w-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded text-sage hover:text-cream"
           aria-label={copied ? "Copied" : "Copy"}
         >
           {copied ? <Check className="h-3 w-3 text-mint" /> : <Copy className="h-3 w-3" />}

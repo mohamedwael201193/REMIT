@@ -1,4 +1,4 @@
-import { openJson, withOfferDefaults, type InboxItem } from "@remit/core";
+import { openJson, publicLeakHits, withOfferDefaults, type InboxItem } from "@remit/core";
 import type { Mandate, Offer } from "@remit/contracts/pool";
 import { decideFill, type Candidate, type ExecutorDecision } from "./executor.js";
 
@@ -38,18 +38,6 @@ export type PublicAgentRank = {
   mpc: false;
   globalBest: false;
 };
-
-const HTTP_LEAK_KEYS = [
-  "fillBase",
-  "fillQuote",
-  "chosenIndex",
-  "offerRand",
-  "payNonce",
-  "rfqSk",
-  "execSk",
-  "openings",
-  "ownerSk",
-] as const;
 
 export type PlannedFill = {
   opened: number;
@@ -187,6 +175,5 @@ export function publicAgentRankView(planned: PlannedFill): PublicAgentRank {
 }
 
 export function agentHttpHasLeakKeys(payload: unknown): string[] {
-  const text = JSON.stringify(payload);
-  return HTTP_LEAK_KEYS.filter((k) => text.includes(`"${k}"`));
+  return publicLeakHits(payload);
 }

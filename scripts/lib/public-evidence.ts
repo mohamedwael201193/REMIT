@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { sanitizePublicDetail, stripPublicLeaks } from "../../packages/core/src/leaks.ts";
 
 export type PublicStep = {
   name: string;
@@ -17,6 +18,10 @@ export type PublicEvidenceBody = {
   mpc: false;
 };
 
+function view(body: PublicEvidenceBody): PublicEvidenceBody {
+  return stripPublicLeaks(body) as PublicEvidenceBody;
+}
+
 export function readLocalLifecycleEvidence(root: string): PublicEvidenceBody | null {
   const p = `${root.replace(/\\/g, "/")}/deployments/lifecycle.json`;
   const alt = root.endsWith("/") ? `${root}deployments/lifecycle.json` : `${root}/deployments/lifecycle.json`;
@@ -28,7 +33,7 @@ export function readLocalLifecycleEvidence(root: string): PublicEvidenceBody | n
     quote?: { address?: string; txHash?: string; block?: number };
     steps?: PublicStep[];
   };
-  return {
+  return view({
     present: true,
     network: raw.network ?? "preprod",
     pool: raw.pool?.address
@@ -42,10 +47,10 @@ export function readLocalLifecycleEvidence(root: string): PublicEvidenceBody | n
       ok: Boolean(s.ok),
       txHash: s.txHash,
       block: s.block,
-      detail: s.detail,
+      detail: sanitizePublicDetail(s.detail),
     })),
     mpc: false,
-  };
+  });
 }
 
 export function readCommittedEvidence(root: string): PublicEvidenceBody | null {
@@ -60,7 +65,7 @@ export function readCommittedEvidence(root: string): PublicEvidenceBody | null {
     quote?: { address?: string; txHash?: string; block?: number };
   };
   if (!raw?.present || !Array.isArray(raw.steps)) return null;
-  return {
+  return view({
     present: true,
     network: raw.network ?? "preprod",
     pool: raw.pool?.address
@@ -74,10 +79,10 @@ export function readCommittedEvidence(root: string): PublicEvidenceBody | null {
       ok: Boolean(s.ok),
       txHash: s.txHash,
       block: s.block,
-      detail: s.detail,
+      detail: sanitizePublicDetail(s.detail),
     })),
     mpc: false,
-  };
+  });
 }
 
 export async function publishPublicEvidence(apiUrl: string, admin: string, body: PublicEvidenceBody): Promise<number> {
@@ -87,7 +92,7 @@ export async function publishPublicEvidence(apiUrl: string, admin: string, body:
       "content-type": "application/json",
       authorization: `Bearer ${admin}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(stripPublicLeaks(body)),
   });
   return res.status;
 }

@@ -20,6 +20,8 @@ import {
   loadInbox,
   saveInbox,
   fromHex,
+  sanitizePublicDetail,
+  stripPublicLeaks,
   type InboxItem,
 } from "@remit/core";
 import { planFillFromInbox, publicAgentRankView, publicAgentStatusView } from "@remit/agent";
@@ -35,6 +37,15 @@ export type ApiConfig = {
   indexer: string;
   keysDir?: string;
   inboxFile?: string;
+};
+
+type PublicEvidence = {
+  present: boolean;
+  network: string;
+  pool?: { address: string; txHash?: string; block?: number };
+  quote?: { address: string; txHash?: string; block?: number };
+  steps: { name: string; ok: boolean; txHash?: string; block?: number; detail?: string }[];
+  mpc: false;
 };
 
 export async function buildApp(cfg: ApiConfig) {
@@ -59,14 +70,7 @@ export async function buildApp(cfg: ApiConfig) {
   };
   let lastAgent: ReturnType<typeof publicAgentStatusView> | null = null;
 
-  let publicEvidence: {
-    present: boolean;
-    network: string;
-    pool?: { address: string; txHash?: string; block?: number };
-    quote?: { address: string; txHash?: string; block?: number };
-    steps: { name: string; ok: boolean; txHash?: string; block?: number; detail?: string }[];
-    mpc: false;
-  } | null = null;
+  let publicEvidence: PublicEvidence | null = null;
 
   const evidenceFiles = [
     resolve(process.cwd(), "apps/api/preprod-evidence.json"),
@@ -76,9 +80,9 @@ export async function buildApp(cfg: ApiConfig) {
   for (const p of evidenceFiles) {
     if (!existsSync(p)) continue;
     try {
-      const j = JSON.parse(readFileSync(p, "utf8")) as NonNullable<typeof publicEvidence>;
+      const j = JSON.parse(readFileSync(p, "utf8")) as PublicEvidence;
       if (j?.present && Array.isArray(j.steps)) {
-        publicEvidence = { ...j, mpc: false };
+        publicEvidence = stripPublicLeaks({ ...j, mpc: false as const });
         break;
       }
     } catch {
@@ -223,7 +227,7 @@ export async function buildApp(cfg: ApiConfig) {
   });
 
   app.get("/agent/status", async () => {
-    return {
+    return stripPublicLeaks({
       ok: true,
       rank: true,
       httpSubmit: false,
@@ -233,7 +237,7 @@ export async function buildApp(cfg: ApiConfig) {
       rule: "mbbe-eligible-only",
       inbox: { offers: offers.length, mandates: mandates.length },
       last: lastAgent,
-    };
+    });
   });
 
   app.get("/config", async () => {
@@ -322,7 +326,7 @@ export async function buildApp(cfg: ApiConfig) {
   });
 
   app.get("/evidence", async () => {
-    if (publicEvidence) return publicEvidence;
+    if (publicEvidence) return stripPublicLeaks(publicEvidence);
     return { present: false, steps: [], mpc: false as const, network: cfg.network };
   });
 
@@ -352,11 +356,12 @@ export async function buildApp(cfg: ApiConfig) {
               ok: Boolean(s.ok),
               txHash: s.txHash,
               block: s.block,
-              detail: typeof s.detail === "string" ? s.detail.slice(0, 240) : undefined,
+              detail: sanitizePublicDetail(typeof s.detail === "string" ? s.detail : undefined),
             }))
         : [],
       mpc: false,
     };
+    publicEvidence = stripPublicLeaks(publicEvidence);
     return { ok: true, steps: publicEvidence.steps.length };
   });
 
@@ -454,31 +459,35 @@ export async function buildApp(cfg: ApiConfig) {
       };
     };
     if (!body?.mandate) return reply.code(400).send({ error: "mandate opening required" });
-    const esk = fromHex(cfg.execSk);
-    const mandate = {
-      principal: Uint8Array.from(body.mandate.principal),
-      executor: Uint8Array.from(body.mandate.executor),
-      side: BigInt(body.mandate.side),
-      maxFillBase: BigInt(body.mandate.maxFillBase),
-      limitNum: BigInt(body.mandate.limitNum),
-      limitDen: BigInt(body.mandate.limitDen),
-      cpRoot: BigInt(body.mandate.cpRoot),
-      expiry: BigInt(body.mandate.expiry),
-      mandateId: Uint8Array.from(body.mandate.mandateId),
-    };
-    const remaining = BigInt(body.remaining ?? "0");
-    const nowBound = BigInt(body.nowBound ?? Math.floor(Date.now() / 1000) + 86_400);
-    const planned = planFillFromInbox({
-      rfqSk: cfg.rfqSk,
-      offers,
-      esk,
-      mandate,
-      remaining,
-      nowBound,
-      revoked: false,
-    });
-    lastAgent = publicAgentStatusView(planned.receipt);
-    return publicAgentRankView(planned);
+    try {
+      const esk = fromHex(cfg.execSk);
+      const mandate = {
+        principal: Uint8Array.from(body.mandate.principal),
+        executor: Uint8Array.from(body.mandate.executor),
+        side: BigInt(body.mandate.side),
+        maxFillBase: BigInt(body.mandate.maxFillBase),
+        limitNum: BigInt(body.mandate.limitNum),
+        limitDen: BigInt(body.mandate.limitDen),
+        cpRoot: BigInt(body.mandate.cpRoot),
+        expiry: BigInt(body.mandate.expiry),
+        mandateId: Uint8Array.from(body.mandate.mandateId),
+      };
+      const remaining = BigInt(body.remaining ?? "0");
+      const nowBound = BigInt(body.nowBound ?? Math.floor(Date.now() / 1000) + 86_400);
+      const planned = planFillFromInbox({
+        rfqSk: cfg.rfqSk,
+        offers,
+        esk,
+        mandate,
+        remaining,
+        nowBound,
+        revoked: false,
+      });
+      lastAgent = publicAgentStatusView(planned.receipt);
+      return stripPublicLeaks(publicAgentRankView(planned));
+    } catch (err) {
+      return reply.code(400).send({ error: publicErrorMessage(err) });
+    }
   });
 
   app.setErrorHandler((err, _req, reply) => {

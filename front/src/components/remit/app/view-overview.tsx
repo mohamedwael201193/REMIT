@@ -14,7 +14,6 @@ import {
   ArrowRight,
   Ban,
   Bot,
-  Check,
   FileLock2,
   Inbox,
   Lock,
@@ -50,10 +49,13 @@ import {
   sideLabel,
   timeAgo,
 } from "@/lib/remit/format";
-import { PRIVATE_COPY, PRIVACY_LABEL_COPY } from "@/lib/remit/types";
+import { AUDIT_FLOW_COPY, openedAuditRoot, recordAuditFlow } from "@/lib/remit/audit-flow";
+import type { RemitAgentStatus } from "@/lib/remit/public-client";
+import { PRIVATE_COPY, PRIVACY_LABEL_COPY, isIndexerSettled } from "@/lib/remit/types";
 import type {
   ActivityItem,
   ActivityKind,
+  AuditFlowState,
   Execution,
   ExecutionStatus,
   Mandate,
@@ -147,6 +149,185 @@ function PaperPill({
   );
 }
 
+function flowPillTone(state: AuditFlowState): PillTone {
+  switch (state) {
+    case "verified":
+      return "verified";
+    case "revealed":
+      return "settled";
+    case "requested":
+      return "pending";
+    case "sealed":
+      return "sealed";
+  }
+}
+
+function StoryStep({
+  step,
+  title,
+  value,
+  detail,
+  tone,
+  onOpen,
+  aside,
+}: {
+  step: string;
+  title: string;
+  value: React.ReactNode;
+  detail: React.ReactNode;
+  tone: "sage" | "gold" | "mint" | "clay";
+  onOpen?: () => void;
+  aside?: React.ReactNode;
+}) {
+  const tones = {
+    sage: "border-[rgba(239,235,224,0.1)]",
+    gold: "border-gold/30",
+    mint: "border-mint/30",
+    clay: "border-clay/35",
+  } as const;
+  const box = cn(
+    "flex min-h-[7.5rem] min-w-0 flex-col gap-2 rounded-xl border bg-[#121c17] p-4 text-left",
+    tones[tone],
+  );
+  const heading = (
+    <>
+      <p className="eyebrow text-sage">
+        {step}
+        <span className="mt-1 block text-gold">{title}</span>
+      </p>
+      <p className="font-data min-w-0 text-[1.15rem] font-medium leading-snug tracking-tight text-cream">
+        {value}
+      </p>
+    </>
+  );
+  return (
+    <div className={box}>
+      {onOpen ? (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="min-w-0 text-left transition-colors hover:text-gold-2"
+        >
+          {heading}
+        </button>
+      ) : (
+        heading
+      )}
+      {aside}
+      <p className="min-w-0 text-[11px] leading-snug text-sage">{detail}</p>
+    </div>
+  );
+}
+
+function LifecycleRail({
+  openOffers,
+  fills,
+  executions,
+  agentStatus,
+  agentStatusError,
+}: {
+  openOffers: number;
+  fills: number;
+  executions: Execution[];
+  agentStatus: RemitAgentStatus | null;
+  agentStatusError: string | null;
+}) {
+  const setAppView = useRemitStore((s) => s.setAppView);
+  const last = agentStatus?.last ?? null;
+  const settled = executions.filter((e) => isIndexerSettled(e));
+  const refused = executions.filter((e) => e.status === "rejected");
+  const proofPending = executions.filter(
+    (e) => e.status === "proof-pending" || (e.status === "settled" && !isIndexerSettled(e)),
+  );
+  const latestSettled = settled[0];
+
+  const agentValue = (() => {
+    if (last) {
+      return `${last.eligibleCount} eligible · ${last.candidateCount} candidates`;
+    }
+    if (agentStatus) {
+      return agentStatus.rank ? "Ranker on · no last rank" : "Ranker off";
+    }
+    return PRIVACY_LABEL_COPY.sealed;
+  })();
+
+  const agentDetail = (() => {
+    if (last) {
+      return [
+        `${last.rejectedCount} rejected`,
+        last.selected ? "a slot was selected" : "no selected slot",
+        "not global-book best",
+      ].join(" · ");
+    }
+    if (agentStatusError) return agentStatusError;
+    if (agentStatus) return "GET /agent/status has no last rank on this process";
+    return "Counts appear when GET /agent/status returns last";
+  })();
+
+  const proofValue = (() => {
+    if (settled.length > 0) return `${settled.length} indexer-confirmed`;
+    if (proofPending.length > 0) return "Awaiting indexer";
+    if (refused.length > 0) return `${refused.length} refused · no settlement tx`;
+    return "No Compact fill on file";
+  })();
+
+  const proofDetail =
+    settled.length > 0
+      ? "Proof is indexed only after contractAction · not a fake proof count"
+      : refused.length > 0
+        ? "Compact refused overreach with no settlement tx"
+        : "No success animation until the indexer returns a tx and block";
+
+  return (
+    <section aria-label="Private liquidity to settlement" className="min-w-0">
+      <p className="eyebrow mb-3 text-gold">Desk story</p>
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StoryStep
+          step="01"
+          title="Private liquidity"
+          tone={openOffers > 0 ? "gold" : "sage"}
+          value={<CountUp value={openOffers} />}
+          detail="Indexer openOffers — sealed commits, not TVL"
+          onOpen={() => setAppView("offers")}
+        />
+        <StoryStep
+          step="02"
+          title="Agent decision"
+          tone={last ? "gold" : "sage"}
+          value={agentValue}
+          detail={agentDetail}
+          onOpen={() => setAppView("executions")}
+        />
+        <StoryStep
+          step="03"
+          title="Proof"
+          tone={settled.length > 0 ? "mint" : refused.length > 0 ? "clay" : "sage"}
+          value={proofValue}
+          detail={proofDetail}
+          onOpen={() => setAppView("executions")}
+        />
+        <StoryStep
+          step="04"
+          title="Settlement"
+          tone={fills > 0 ? "mint" : "sage"}
+          value={<CountUp value={fills} />}
+          aside={
+            latestSettled?.txHash ? (
+              <HashChip
+                value={latestSettled.txHash}
+                label="tx"
+                href={latestSettled.explorerUrl}
+              />
+            ) : null
+          }
+          detail="Indexer fills counter — Compact settlement, not a simulated receipt"
+          onOpen={() => setAppView("executions")}
+        />
+      </div>
+    </section>
+  );
+}
+
 function PaperFact({
   label,
   className,
@@ -159,7 +340,7 @@ function PaperFact({
   return (
     <div className={className}>
       <dt className="eyebrow text-muted-foreground">{label}</dt>
-      <dd className="mt-1.5 text-[13px] text-foreground">{children}</dd>
+      <dd className="mt-1.5 text-[13px] text-[#1a231e]">{children}</dd>
     </div>
   );
 }
@@ -171,7 +352,7 @@ function SpotlightCard({ mandate }: { mandate: Mandate | undefined }) {
 
   return (
     <section
-      className="rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-6"
+      className="min-w-0 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-6"
       aria-label="Active mandate spotlight"
     >
       <p className="eyebrow text-gold">Active mandate spotlight</p>
@@ -179,13 +360,13 @@ function SpotlightCard({ mandate }: { mandate: Mandate | undefined }) {
       {mandate ? (
         <PaperSurface className="mt-4 p-6">
           <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-            <div className="min-w-0">
-              <p className="font-display text-[1.7rem] font-semibold leading-tight text-foreground">
+            <div className="min-w-0 max-w-full">
+              <p className="font-display text-[1.7rem] font-semibold leading-tight text-[#1a231e]">
                 {mandate.reference}
               </p>
-              <p className="mt-1.5 max-w-md text-[13px] italic leading-relaxed text-muted-foreground">
-                {mandate.intent}
-              </p>
+              <div className="mt-1.5 min-w-0 max-w-full text-[13px] italic leading-relaxed text-muted-foreground">
+                <HashAwareLine text={mandate.intent} />
+              </div>
             </div>
             <PaperPill tone={mandate.side === "buy" ? "gold" : "sage"}>
               {sideLabel(mandate.side)}
@@ -330,7 +511,7 @@ function RecentExecutionsCard({ executions }: { executions: Execution[] }) {
 
   return (
     <section
-      className="rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-6"
+      className="min-w-0 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-6"
       aria-label="Recent executions"
     >
       <div className="flex items-center justify-between gap-3">
@@ -425,66 +606,75 @@ function PrivateActivityCard({ activity }: { activity: ActivityItem[] }) {
 
 /* ── audit-ready executions ───────────────────────────────────────── */
 
-function AuditReadyCard({ verifiedCount }: { verifiedCount: number }) {
+function AuditReadyCard() {
   const audits = useRemitStore((s) => s.audits);
+  const executions = useRemitStore((s) => s.executions);
   const setAppView = useRemitStore((s) => s.setAppView);
   const ready = audits.slice(0, 3);
+  const fillHashes = executions.map((e) => e.txHash);
+  const verifiedCount = audits.filter(
+    (record) => recordAuditFlow(record, new Set(), fillHashes) === "verified",
+  ).length;
 
   return (
     <section
       className="min-w-0 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-6"
-      aria-label="Audit-ready executions"
+      aria-label="Selective audit"
     >
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <p className="eyebrow text-gold">Audit-ready executions</p>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <p className="eyebrow text-gold">Selective audit</p>
         <span className="font-data text-[11px] text-sage">
-          {verifiedCount} verified
-          {ready.length !== verifiedCount ? ` · ${ready.length} on file` : ""}
+          {verifiedCount} verified · {ready.length} on file
         </span>
       </div>
+      <p className="mt-2 text-[11px] leading-snug text-sage">
+        SEALED / REQUESTED / REVEALED / VERIFIED. A fill tx hash is not an auditRoot.
+      </p>
 
       {ready.length > 0 ? (
         <>
           <div className="mt-3 divide-y divide-[rgba(239,235,224,0.06)]">
-            {ready.map((record) => (
-              <div
-                key={record.id}
-                className="flex min-h-[48px] min-w-0 items-center gap-3 py-2.5"
-              >
-                <span
-                  className={cn(
-                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
-                    record.proofStatus === "verified"
-                      ? "border-mint/35 bg-mint/10 text-mint"
-                      : "border-gold/35 bg-gold/10 text-gold",
-                  )}
+            {ready.map((record) => {
+              const flow = recordAuditFlow(record, new Set(), fillHashes);
+              const root = openedAuditRoot(record.auditRoot, fillHashes);
+              return (
+                <div
+                  key={record.id}
+                  className="flex min-h-11 min-w-0 items-center gap-3 py-2.5"
                 >
-                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-data text-[12.5px] font-semibold text-cream">
-                    {record.executionRef}
-                  </p>
-                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-                    <DataChip className="py-0.5">{record.asset}</DataChip>
-                    {record.auditRoot ? (
-                      <HashChip value={record.auditRoot} label="audit" />
-                    ) : (
-                      <span className="text-[10.5px] text-sage">auditRoot not opened in this tab</span>
+                  <Lock
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      flow === "verified" || flow === "revealed" ? "text-mint" : "text-gold",
                     )}
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-data text-[12.5px] font-semibold text-cream">
+                      {record.executionRef}
+                    </p>
+                    <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                      <DataChip className="py-0.5">{record.asset}</DataChip>
+                      <StatusPill tone={flowPillTone(flow)}>{AUDIT_FLOW_COPY[flow]}</StatusPill>
+                      {root ? (
+                        <HashChip value={root} label="auditRoot" />
+                      ) : (
+                        <span className="text-[10.5px] text-sage">auditRoot not opened</span>
+                      )}
+                    </div>
                   </div>
+                  <span className="shrink-0 font-data text-[10.5px] text-sage/80">
+                    {timeAgo(record.recordedAt)}
+                  </span>
                 </div>
-                <span className="shrink-0 font-data text-[10.5px] text-sage/80">
-                  {timeAgo(record.verifiedAt)}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setAppView("audit")}
-            className="mt-3 h-10 w-full justify-between text-[12.5px] text-sage hover:text-cream"
+            className="mt-3 h-11 w-full justify-between text-[12.5px] text-sage hover:text-cream"
           >
             Open audit
             <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -494,8 +684,8 @@ function AuditReadyCard({ verifiedCount }: { verifiedCount: number }) {
         <div className="mt-4">
           <EmptyState
             icon={<SearchCheck className="h-5 w-5" />}
-            title="No verified proofs yet"
-            description="Proofs become audit-ready once fills settle on Midnight."
+            title="No sealed audit records yet"
+            description="Indexer-confirmed fills appear here as SEALED. They are not VERIFIED until verifyDisclosure against the on-chain auditRoot."
           />
         </div>
       )}
@@ -522,7 +712,7 @@ function MakerBanner() {
         variant="outline"
         size="sm"
         onClick={() => setAppView("offers")}
-        className="h-10 shrink-0 border-gold/35 bg-transparent px-3.5 text-gold hover:bg-gold/10 hover:text-gold-2"
+        className="h-11 shrink-0 border-gold/35 bg-transparent px-3.5 text-gold hover:bg-gold/10 hover:text-gold-2"
       >
         Posted liquidity
       </Button>
@@ -532,6 +722,8 @@ function MakerBanner() {
 
 function ExecutorBanner() {
   const setAppView = useRemitStore((s) => s.setAppView);
+  const agentStatus = useRemitStore((s) => s.agentStatus);
+  const last = agentStatus?.last;
   return (
     <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:flex-row sm:items-center">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gold/25 bg-gold/10 text-gold">
@@ -541,21 +733,29 @@ function ExecutorBanner() {
         <p className="text-[13px] font-medium text-cream">
           Constrained executor
         </p>
-        <p className="text-[11.5px] text-sage">awaiting instructions</p>
+        <p className="text-[11.5px] text-sage">
+          {last
+            ? `${last.candidateCount} private offers · ${last.eligibleCount} satisfy the mandate · ${last.rejectedCount} rejected`
+            : agentStatus
+              ? agentStatus.rank
+                ? "Ranker on · Compact-enforced compliance among K openings"
+                : "Ranker off"
+              : "Broker sees openings it was given"}
+        </p>
       </div>
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setAppView("offers")}
-        className="h-10 shrink-0 border-gold/35 bg-transparent px-3.5 text-gold hover:bg-gold/10 hover:text-gold-2"
+        onClick={() => setAppView("executions")}
+        className="h-11 shrink-0 border-gold/35 bg-transparent px-3.5 text-gold hover:bg-gold/10 hover:text-gold-2"
       >
-        Review offers
+        Agent blotter
       </Button>
     </div>
   );
 }
 
-function AuditorBanner({ verifiedCount }: { verifiedCount: number }) {
+function AuditorBanner({ verifiedCount, onFile }: { verifiedCount: number; onFile: number }) {
   const setAppView = useRemitStore((s) => s.setAppView);
   return (
     <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:flex-row sm:items-center">
@@ -565,14 +765,14 @@ function AuditorBanner({ verifiedCount }: { verifiedCount: number }) {
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-medium text-cream">Audit desk</p>
         <p className="text-[11.5px] text-sage">
-          {verifiedCount} executions with verified proofs
+          {onFile} sealed records · {verifiedCount} verified against auditRoot
         </p>
       </div>
       <Button
         variant="outline"
         size="sm"
         onClick={() => setAppView("audit")}
-        className="h-10 shrink-0 border-mint/35 bg-transparent px-3.5 text-mint hover:bg-mint/10"
+        className="h-11 shrink-0 border-mint/35 bg-transparent px-3.5 text-mint hover:bg-mint/10"
       >
         Open audit
       </Button>
@@ -614,6 +814,8 @@ export function ViewOverview() {
   const executions = useRemitStore((s) => s.executions);
   const audits = useRemitStore((s) => s.audits);
   const activity = useRemitStore((s) => s.activity);
+  const agentStatus = useRemitStore((s) => s.agentStatus);
+  const agentStatusError = useRemitStore((s) => s.agentStatusError);
   const role = useRemitStore((s) => s.role);
   const wallet = useRemitStore((s) => s.wallet);
   const syncStatus = useRemitStore((s) => s.syncStatus);
@@ -637,7 +839,10 @@ export function ViewOverview() {
     portfolio.totalBudget == null || portfolio.committedBudget == null
       ? null
       : portfolio.totalBudget - portfolio.committedBudget;
-  const verifiedAudits = audits.filter((a) => a.proofStatus === "verified");
+  const fillHashes = executions.map((e) => e.txHash);
+  const verifiedAudits = audits.filter(
+    (a) => recordAuditFlow(a, new Set(), fillHashes) === "verified",
+  );
   const spotlight = mandates.find((m) => m.status === "active");
 
   return (
@@ -661,6 +866,16 @@ export function ViewOverview() {
           {ROLE_PRIVACY[role]}
         </StatusPill>
       </section>
+
+      <Reveal>
+        <LifecycleRail
+          openOffers={portfolio.openOffers}
+          fills={portfolio.settledNotional}
+          executions={executions}
+          agentStatus={agentStatus}
+          agentStatusError={agentStatusError}
+        />
+      </Reveal>
 
       {/* headline figures */}
       <Reveal className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -710,11 +925,11 @@ export function ViewOverview() {
           {role === "maker" ? <MakerBanner /> : null}
           {role === "executor" ? <ExecutorBanner /> : null}
           {role === "auditor" ? (
-            <AuditorBanner verifiedCount={verifiedAudits.length} />
+            <AuditorBanner verifiedCount={verifiedAudits.length} onFile={audits.length} />
           ) : null}
 
           <PrivateActivityCard activity={activity.slice(0, 8)} />
-          <AuditReadyCard verifiedCount={verifiedAudits.length} />
+          <AuditReadyCard />
         </div>
       </Reveal>
     </div>

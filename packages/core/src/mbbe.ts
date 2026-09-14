@@ -20,7 +20,8 @@ export function padBook(live: OfferSlot[]): OfferSlot[] {
   if (live.length === 0) {
     throw new Error("MBBE book requires at least one slot to pad from");
   }
-  const proto: OfferSlot = { offer: live[0]!.offer, rand: live[0]!.rand, live: false };
+  const source = live.find((s) => s.live) ?? live[0]!;
+  const proto: OfferSlot = { offer: source.offer, rand: source.rand, live: false };
   const out = live.slice(0, 3);
   while (out.length < 3) out.push(proto);
   return out;

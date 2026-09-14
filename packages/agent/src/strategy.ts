@@ -12,7 +12,7 @@ export type Candidate = {
 
 export type Ranked =
   | { id: string; ok: true; score: bigint }
-  | { id: string; ok: false; reason: PolicyFail };
+  | { id: string; ok: false; reason: PolicyFail | "ineligible" };
 
 export type RankArgs = {
   esk: Uint8Array;
@@ -55,7 +55,7 @@ export function rankOffers(args: RankArgs): Ranked[] {
     if (!r.ok) return { id: c.id, ok: false, reason: r.reason };
     const slot = slotsOf([c])[0]!;
     if (!slotEligible(slot, args.mandate, args.nowBound, args.remaining)) {
-      return { id: c.id, ok: false, reason: r.reason };
+      return { id: c.id, ok: false, reason: "ineligible" };
     }
     return { id: c.id, ok: true, score: 1n };
   });

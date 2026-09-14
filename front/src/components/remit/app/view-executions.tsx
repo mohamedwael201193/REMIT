@@ -24,12 +24,9 @@ import {
   StatusPill,
   type PillTone,
 } from "@/components/remit/primitives";
+import { openedAuditRoot } from "@/lib/remit/audit-flow";
 import { assetBySymbol, counterpartyById } from "@/lib/remit/catalog";
 import { formatDateTime, formatUsd, sideLabel, timeAgo } from "@/lib/remit/format";
-import {
-  fetchRemitAgentStatus,
-  type RemitAgentStatus,
-} from "@/lib/remit/public-client";
 import {
   isIndexerSettled,
   type Execution,
@@ -128,60 +125,46 @@ function BlotterSection({
 }
 
 function AgentStatusCard() {
-  const [status, setStatus] = React.useState<RemitAgentStatus | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_REMIT_API_URL ?? "";
-    if (!apiUrl) {
-      setError("API URL not configured — GET /agent/status was not called.");
-      return;
-    }
-    let cancelled = false;
-    void fetchRemitAgentStatus(apiUrl)
-      .then((next) => {
-        if (!cancelled) {
-          setStatus(next);
-          setError(null);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setStatus(null);
-          setError(err instanceof Error ? err.message : "GET /agent/status failed");
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
+  const status = useRemitStore((s) => s.agentStatus);
+  const error = useRemitStore((s) => s.agentStatusError);
   const kLabel = status && Number.isFinite(status.k) ? String(status.k) : "unknown";
+  const last = status?.last ?? null;
 
   return (
     <BlotterSection eyebrow="Agent status">
       <StateFade stateKey={error ?? (status ? "ok" : "loading")}>
-        {error ? (
+        {error && !status ? (
           <p className="text-[13px] text-muted-foreground">{error}</p>
         ) : !status ? (
           <p className="text-[13px] text-muted-foreground">Reading GET /agent/status…</p>
         ) : (
           <div className="min-w-0 space-y-3">
-            <p className="text-[13px] leading-relaxed text-cream/80">
-              Ranker is {status.rank ? "on" : "off"} · HTTP fill submit is{" "}
-              {status.httpSubmit ? "on" : "off"} · K={kLabel} · global-book best is{" "}
-              {status.globalBest ? "claimed" : "not claimed"} · MPC is off.
-            </p>
+            {last ? (
+              <p className="text-[14px] leading-relaxed text-cream">
+                {last.candidateCount} private offers received · {last.eligibleCount} satisfy the
+                mandate · {last.rejectedCount} rejected
+                {last.selected
+                  ? " · Agent selected the best compliant candidate among K"
+                  : " · no eligible candidate among the openings this executor holds"}
+                .
+              </p>
+            ) : (
+              <p className="text-[13px] leading-relaxed text-cream/80">
+                Ranker is {status.rank ? "on" : "off"} · HTTP fill submit is{" "}
+                {status.httpSubmit ? "on" : "off"} · K={kLabel} · global-book best is not claimed ·
+                MPC is off.
+              </p>
+            )}
             <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-              Compact proves the selected candidate among the K openings the executor
-              included. This tab does not invent an AI confidence score, and it cannot
-              HTTP-submit fills.
+              Compact proves the selected candidate among the K openings the executor included.
+              This tab does not invent an AI confidence score, and it does not read fillBase or
+              chosenIndex from public HTTP.
             </p>
             <div className="flex min-w-0 flex-wrap gap-2">
               <DataChip>rank {status.rank ? "true" : "false"}</DataChip>
               <DataChip>httpSubmit {status.httpSubmit ? "true" : "false"}</DataChip>
               <DataChip>K={kLabel}</DataChip>
-              <DataChip>globalBest {status.globalBest ? "true" : "false"}</DataChip>
+              <DataChip>globalBest false</DataChip>
               {status.rule ? <DataChip>{status.rule}</DataChip> : null}
             </div>
             {status.inbox ? (
@@ -190,15 +173,7 @@ function AgentStatusCard() {
                 {status.inbox.mandates} mandates
               </p>
             ) : null}
-            {status.last ? (
-              <p className="font-data text-[12px] text-sage">
-                Last rank (counts only): {status.last.candidateCount} candidates ·{" "}
-                {status.last.eligibleCount} eligible · {status.last.rejectedCount} rejected
-                {status.last.selected ? " · a slot was selected" : " · no selected slot"}
-              </p>
-            ) : (
-              <p className="text-[12px] text-sage">No last rank recorded on this API process.</p>
-            )}
+            {error ? <p className="text-[12px] text-clay">{error}</p> : null}
           </div>
         )}
       </StateFade>
@@ -229,17 +204,13 @@ function LiveExecutionPanel() {
         className="min-w-0 rounded-2xl border border-gold/25 bg-[#121c17] p-4 sm:p-6"
       >
         <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <span className="relative flex h-2 w-2">
-            {running && !reduced ? (
-              <span className="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-gold/60" />
-            ) : null}
-            <span
-              className={cn(
-                "relative inline-flex h-2 w-2 rounded-full",
-                lastExecution?.status === "rejected" ? "bg-clay" : "bg-gold",
-              )}
-            />
-          </span>
+          <span
+            className={cn(
+              "relative inline-flex h-2 w-2 rounded-full",
+              lastExecution?.status === "rejected" ? "bg-clay" : "bg-gold",
+            )}
+            aria-hidden="true"
+          />
           <p className="eyebrow text-gold">
             {running ? "Execution engine · live" : "Execution engine · last attempt"}
           </p>
@@ -265,7 +236,7 @@ function LiveExecutionPanel() {
                     className={cn(
                       "h-2.5 w-2.5 shrink-0 rounded-full",
                       isLit ? "bg-gold" : "border border-sage/60 bg-transparent",
-                      isActive && !reduced && "animate-pulse ring-4 ring-gold/15",
+                      isActive && !reduced && "ring-4 ring-gold/15",
                     )}
                     aria-hidden="true"
                   />
@@ -562,7 +533,11 @@ function LedgerRow({ execution }: { execution: Execution }) {
                     <HashChip value={execution.txHash} label="tx" href={execution.explorerUrl} />
                   ) : null}
                   {execution.block != null ? <DataChip>block {execution.block}</DataChip> : null}
-                  {execution.auditRoot ? <HashChip value={execution.auditRoot} label="audit" /> : null}
+                  {execution.auditRoot ? (
+                    openedAuditRoot(execution.auditRoot, [execution.txHash]) ? (
+                      <HashChip value={execution.auditRoot} label="auditRoot" />
+                    ) : null
+                  ) : null}
                   {execution.receipt ? <DataChip>receipt {execution.receipt.code}</DataChip> : null}
                 </div>
               </div>
@@ -577,6 +552,7 @@ function LedgerRow({ execution }: { execution: Execution }) {
 export function ViewExecutions() {
   const executions = useRemitStore((s) => s.executions);
   const offers = useRemitStore((s) => s.offers);
+  const agentStatus = useRemitStore((s) => s.agentStatus);
   const syncStatus = useRemitStore((s) => s.syncStatus);
 
   const loading = syncStatus === "loading" || syncStatus === "idle";
@@ -585,6 +561,10 @@ export function ViewExecutions() {
   const compatible = offers.filter((o) => COMPATIBLE_STATES.includes(o.state));
   const rejected = offers.filter((o) => o.state === "incompatible");
   const selected = pickSelected(offers);
+  const last = agentStatus?.last ?? null;
+  const receivedCount = last?.candidateCount ?? received.length;
+  const compatibleCount = last?.eligibleCount ?? compatible.length;
+  const rejectedCountOffers = last?.rejectedCount ?? rejected.length;
   const settledCount = executions.filter((e) => e.status === "settled").length;
   const rejectedCount = executions.filter((e) => e.status === "rejected").length;
   const pendingCount = executions.filter((e) => PENDING_STATUSES.includes(e.status)).length;
@@ -640,12 +620,20 @@ export function ViewExecutions() {
 
       <AgentStatusCard />
 
+      {last ? (
+        <p className="text-[12px] leading-relaxed text-sage">
+          Blotter headlines use GET /agent/status last rank ({last.candidateCount} / {last.eligibleCount}{" "}
+          / {last.rejectedCount}). Rows below are committed evidence openings — not AI confidence,
+          fillBase, or chosenIndex.
+        </p>
+      ) : null}
+
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-        <BlotterSection eyebrow="Private RFQs received" count={received.length}>
+        <BlotterSection eyebrow="Private RFQs received" count={receivedCount}>
           {received.length === 0 ? (
             <p className="text-[13px] text-muted-foreground">
-              No committed openings in this workspace. Counts come from evidence steps, not a
-              simulated book.
+              No committed openings in this workspace. Counts come from GET /agent/status
+              when present, otherwise from evidence steps — never a simulated book.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -657,7 +645,7 @@ export function ViewExecutions() {
         </BlotterSection>
 
         <div className="flex min-w-0 flex-col gap-4">
-          <BlotterSection eyebrow="Mandate-compatible" count={compatible.length}>
+          <BlotterSection eyebrow="Mandate-compatible" count={compatibleCount}>
             <StateFade stateKey={`eligible:${compatible.map((o) => o.id).join(",") || "empty"}`}>
               {compatible.length === 0 ? (
                 <p className="text-[13px] text-muted-foreground">No compatible openings in the K-set.</p>
@@ -670,7 +658,7 @@ export function ViewExecutions() {
               )}
             </StateFade>
           </BlotterSection>
-          <BlotterSection eyebrow="Rejected" count={rejected.length}>
+          <BlotterSection eyebrow="Rejected" count={rejectedCountOffers}>
             <StateFade stateKey={`rejected:${rejected.map((o) => o.id).join(",") || "empty"}`}>
               {rejected.length === 0 ? (
                 <p className="text-[13px] text-muted-foreground">No Compact friction recorded.</p>

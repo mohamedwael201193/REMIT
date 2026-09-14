@@ -48,7 +48,7 @@ export function LandingCta() {
       <div className="glow-gold pointer-events-none absolute inset-x-0 bottom-0 h-[480px] rotate-180" aria-hidden="true" />
       <div className="relative mx-auto max-w-4xl px-5 text-center sm:px-8">
         <Reveal>
-          <RemitMark className="mx-auto h-14 w-14 text-gold" animated />
+          <RemitMark className="mx-auto h-14 w-14 text-gold" />
         </Reveal>
         <Reveal delay={0.08}>
           <h2 className="font-display mt-8 text-balance text-[clamp(2.6rem,6.4vw,5.2rem)] font-semibold leading-[1.02]">

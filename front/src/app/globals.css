@@ -59,10 +59,10 @@
 
   /* ── Motion tokens ────────────────────────────────────── */
   --ease-remit: cubic-bezier(0.21, 0.47, 0.32, 0.98);
-  --duration-instant: 150ms;
-  --duration-fast: 320ms;
-  --duration-base: 450ms;
-  --duration-slow: 720ms;
+  --duration-instant: 120ms;
+  --duration-fast: 180ms;
+  --duration-base: 180ms;
+  --duration-slow: 280ms;
 }
 
 /* ── Ink theme (root, default) ─────────────────────────── */
@@ -140,6 +140,10 @@
   --rejected: #b5522e;
   --seal: #8c6a1f;
   --hairline: rgba(26, 35, 30, 0.13);
+
+  /* Remapping tokens is not a fill. Without this, text-foreground is ink on ink. */
+  background-color: #f4f0e6;
+  color: #1a231e;
 }
 
 @layer base {

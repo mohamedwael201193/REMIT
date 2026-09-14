@@ -189,14 +189,20 @@ export type DisclosureFact =
   | "fill-amount"
   | "policy-compliance"
   | "counterparty-class"
-  | "execution-timestamp";
+  | "execution-timestamp"
+  | "mandate-active";
+
+/** Auditor desk states. Never collapse these into "verified" because a hash exists. */
+export type AuditFlowState = "sealed" | "requested" | "revealed" | "verified";
+
+export type DisclosureState = "sealed" | "requested" | "revealed";
 
 export interface Disclosure {
   id: string;
   fact: DisclosureFact;
   label: string;
-  state: "sealed" | "disclosed";
-  /** Revealed value, present once disclosed. */
+  state: DisclosureState;
+  /** Revealed value, present once a real opening is verified. */
   value?: string;
 }
 
@@ -205,9 +211,11 @@ export interface AuditRecord {
   executionRef: string;
   asset: string;
   counterpartyClass: string;
+  /** Set only after verifyDisclosure against an on-chain auditRoot. A tx hash is not enough. */
   proofStatus: "verified" | "pending";
+  /** On-chain auditRoots head. Empty when not opened. Never a fill tx hash. */
   auditRoot: string;
-  verifiedAt: string;
+  recordedAt: string;
   disclosures: Disclosure[];
 }
 

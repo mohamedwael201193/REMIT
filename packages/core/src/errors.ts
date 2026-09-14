@@ -1,3 +1,5 @@
+import { hasPublicLeakToken } from "./leaks.js";
+
 export type RemitErrorCode =
   | "WITNESS_MISSING"
   | "POLICY_REJECT"
@@ -26,9 +28,13 @@ export class RemitError extends Error {
 const SECRETISH = /(secret|mnemonic|seed|witness|salt|nonce|opening|sk\b|esk\b|psk\b)/i;
 
 export function publicErrorMessage(err: unknown): string {
-  if (err instanceof RemitError) return err.publicDetail ?? err.code;
+  if (err instanceof RemitError) {
+    const d = err.publicDetail ?? err.code;
+    if (hasPublicLeakToken(d)) return err.code;
+    return d;
+  }
   if (err instanceof Error) {
-    if (SECRETISH.test(err.message)) return "operation failed";
+    if (SECRETISH.test(err.message) || hasPublicLeakToken(err.message)) return "operation failed";
     return err.message.slice(0, 180);
   }
   return "operation failed";

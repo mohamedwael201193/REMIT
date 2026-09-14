@@ -64,6 +64,17 @@ function RoleSwitcher({
 }) {
   const role = useRemitStore((s) => s.role);
   const setRole = useRemitStore((s) => s.setRole);
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const i = ROLES.findIndex((r) => r.role === role);
+    if (i < 0) return;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      event.preventDefault();
+      setRole(ROLES[(i + 1) % ROLES.length].role);
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setRole(ROLES[(i - 1 + ROLES.length) % ROLES.length].role);
+    }
+  };
   return (
     <div className={cn("min-w-0", className)}>
       {caption ? (
@@ -76,6 +87,7 @@ function RoleSwitcher({
         role="tablist"
         aria-label="Demo lens — not authorization"
         title="Demo lens — not authorization"
+        onKeyDown={onKeyDown}
       >
         {ROLES.map((r) => (
           <button
@@ -84,7 +96,7 @@ function RoleSwitcher({
             aria-selected={role === r.role}
             onClick={() => setRole(r.role)}
             className={cn(
-              "min-h-9 rounded-full px-2.5 py-1.5 text-[11.5px] font-medium transition-colors sm:px-3",
+              "min-h-11 rounded-full px-2.5 py-1.5 text-[11.5px] font-medium transition-colors sm:px-3",
               role === r.role
                 ? "bg-gold text-[#1a1409]"
                 : "text-cream/60 hover:text-cream",
@@ -178,10 +190,15 @@ export function AppShell() {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const returnToLanding = useRemitStore((s) => s.returnToLanding);
   const appView = useRemitStore((s) => s.appView);
+  const lastError = useRemitStore((s) => s.lastError);
+  const wallet = useRemitStore((s) => s.wallet);
 
   return (
     <div className="flex min-h-screen flex-col bg-ink text-cream">
       <ConnectWalletDialog />
+      <p className="sr-only" aria-live="polite">
+        {wallet.lastError ?? lastError ?? ""}
+      </p>
 
       <div className="flex flex-1">
         {/* desktop sidebar */}
@@ -264,7 +281,7 @@ export function AppShell() {
                 {VIEW_TITLES[appView]}
               </h1>
 
-              <div className="ml-auto flex min-w-0 max-w-[min(100%,22rem)] items-center justify-end gap-2 sm:gap-3">
+              <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
                 <RoleSwitcher className="hidden min-w-0 lg:block" />
                 <div className="min-w-0 max-w-full shrink">
                   <WalletButton />

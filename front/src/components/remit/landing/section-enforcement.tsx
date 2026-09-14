@@ -110,13 +110,13 @@ export function SectionEnforcement() {
               <Accent>The agent cannot exceed.</Accent>
             </>
           }
-          lede="Seal a mandate with a hard cap. Drive the executor yourself. Watch what happens when the engine tries to cross the boundary."
+          lede="Illustration — not live Preprod. Seal a teaching cap. Drive the executor yourself. Watch what happens when the engine tries to cross the boundary."
         />
 
         <Reveal delay={0.1} className="mx-auto mt-14 max-w-5xl">
           <div className="grid gap-6 rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[#101915] p-5 sm:p-7 lg:grid-cols-[0.85fr_1.15fr] lg:gap-8">
             {/* the mandate — a private document */}
-            <div className="paper grain rounded-xl p-6 text-[#1a231e] shadow-[0_36px_80px_-44px_rgba(0,0,0,0.8)]">
+            <div className="paper grain rounded-xl bg-paper p-6 text-[#1a231e] shadow-[0_36px_80px_-44px_rgba(0,0,0,0.8)]">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-data text-[10px] font-medium uppercase tracking-[0.2em] text-gold-deep">
@@ -338,12 +338,7 @@ export function SectionEnforcement() {
                         className="flex h-full items-center justify-center rounded-lg border border-gold/25 bg-gold/5 px-4 py-6"
                       >
                         <p className="flex items-center gap-3 text-[13px] text-gold">
-                          <span className="relative flex h-2.5 w-2.5">
-                            {!reduced ? (
-                              <span className="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-gold opacity-60" />
-                            ) : null}
-                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-gold" />
-                          </span>
+                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-gold" />
                           Evaluating against the private mandate…
                         </p>
                       </motion.div>
@@ -399,10 +394,7 @@ export function SectionEnforcement() {
                         </p>
                         <div className="flex flex-wrap gap-2 pt-0.5">
                           <DataChip className="border-mint/25 text-mint/90">
-                            proof prf_90e2…41ab
-                          </DataChip>
-                          <DataChip className="border-mint/25 text-mint/90">
-                            receipt RCP-2263
+                            illustration — not an indexer tx
                           </DataChip>
                         </div>
                       </motion.div>
