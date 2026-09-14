@@ -44,24 +44,25 @@ for (const k of secrets) {
   if (v) vars.push({ key: k, value: v });
 }
 
-async function existingKeys(id: string): Promise<string[]> {
+async function existingEnv(id: string): Promise<{ key: string; value?: string }[]> {
   const res = await fetch(`https://api.render.com/v1/services/${id}/env-vars`, {
     headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
   });
   if (!res.ok) throw new Error(`env GET ${id} HTTP ${res.status}`);
-  const rows = (await res.json()) as { envVar?: { key?: string }; key?: string }[];
-  return rows.map((r) => r.envVar?.key ?? r.key ?? "").filter(Boolean);
+  const rows = (await res.json()) as { envVar?: { key?: string; value?: string }; key?: string; value?: string }[];
+  return rows
+    .map((r) => ({ key: r.envVar?.key ?? r.key ?? "", value: r.envVar?.value ?? r.value }))
+    .filter((r) => r.key);
 }
 
 async function putEnv(id: string) {
-  const before = await existingKeys(id);
-  console.log("env existing", id, before.sort().join(","));
-  const merged = new Map(vars.map((v) => [v.key, v.value]));
-  const localKeep = ["REMIT_EXECUTOR_SECRET_HEX"];
-  for (const k of localKeep) {
-    const v = process.env[k];
-    if (v && !merged.has(k)) merged.set(k, v);
+  const existing = await existingEnv(id);
+  console.log("env existing", id, existing.map((e) => e.key).sort().join(","));
+  const merged = new Map<string, string>();
+  for (const e of existing) {
+    if (e.value) merged.set(e.key, e.value);
   }
+  for (const v of vars) merged.set(v.key, v.value);
   const body = [...merged.entries()].map(([k, value]) => ({ key: k, value }));
   const res = await fetch(`https://api.render.com/v1/services/${id}/env-vars`, {
     method: "PUT",

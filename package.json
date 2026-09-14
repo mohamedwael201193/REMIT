@@ -5,9 +5,15 @@
   "description": "REMIT — mandate-bound dark RFQ desk on Midnight Preprod. Quote asset REMIT-Q is a testnet-only contract-minted token, not a stablecoin.",
   "license": "Apache-2.0",
   "type": "module",
-  "engines": { "node": ">=22.0.0" },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "packageManager": "npm@10",
-  "workspaces": ["CONTRACT", "packages/*", "apps/*"],
+  "workspaces": [
+    "CONTRACT",
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "compile": "node scripts/compile.mjs",
     "compile:skip-zk": "node scripts/compile.mjs --skip-zk",
@@ -25,6 +31,8 @@
     "render:smoke": "npx tsx scripts/render-smoke.ts",
     "front:env": "npx tsx scripts/write-front-public-env.ts",
     "front:circuit": "node scripts/build-browser-circuit.mjs",
+    "keys:fetch": "node scripts/fetch-prover-keys.mjs",
+    "render:deploy": "npx tsx scripts/render-deploy.ts",
     "e2e:preprod": "npx tsx scripts/chrome-preprod-smoke.ts",
     "build": "npm run compile:skip-zk && npm run -ws --if-present build",
     "api": "npm run start -w @remit/api",
@@ -45,17 +53,18 @@
     "@midnightntwrk/wallet-sdk": "1.2.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/ws": "^8.5.13",
-    "typescript": "^5.7.0",
-    "vitest": "^3.2.4",
-    "tsx": "^4.19.0",
-    "ws": "^8.18.0",
-    "rxjs": "^7.8.2",
-    "dotenv": "^16.4.7",
-    "@scure/bip39": "^1.4.0",
     "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
     "@midnight-ntwrk/midnight-js-protocol": "4.1.1",
-    "@midnightntwrk/wallet-sdk": "1.2.0"
+    "@midnightntwrk/wallet-sdk": "1.2.0",
+    "@scure/bip39": "^1.4.0",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.13",
+    "dotenv": "^16.4.7",
+    "esbuild": "^0.25.12",
+    "rxjs": "^7.8.2",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4",
+    "ws": "^8.18.0"
   }
 }

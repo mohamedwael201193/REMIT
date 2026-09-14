@@ -3,7 +3,7 @@ services:
     name: remit-api
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install --include=dev && npm run keys:fetch && npm run front:circuit
     startCommand: npm run api
     healthCheckPath: /health
     envVars:

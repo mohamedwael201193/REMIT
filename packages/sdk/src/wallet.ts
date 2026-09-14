@@ -1,4 +1,4 @@
-import { RemitError } from "@remit/core";
+import { RemitError } from "../../core/src/errors.ts";
 
 export type WalletKind = "1am" | "lace" | "cli" | "unknown";
 

@@ -10,7 +10,8 @@ COPY tsconfig.base.json tsconfig.json vitest.config.ts ./
 COPY CONTRACT ./CONTRACT
 COPY packages ./packages
 COPY apps/api ./apps/api
-RUN npm install
+COPY scripts ./scripts
+RUN npm install && npm run keys:fetch && npm run front:circuit
 ENV NODE_ENV=production
 EXPOSE 8787
 CMD ["npm", "run", "api"]

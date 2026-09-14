@@ -1,4 +1,5 @@
 export * from "./bytes.js";
+export * from "./wallet-like.js";
 export * from "./errors.js";
 export * from "./state.js";
 export * from "./witnesses.js";

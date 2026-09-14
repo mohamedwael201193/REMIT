@@ -1,7 +1,7 @@
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
 import { Transaction } from "@midnight-ntwrk/midnight-js-protocol/ledger";
-import { RemitError } from "@remit/core";
-import type { WalletLike } from "@remit/core";
+import { RemitError } from "../../core/src/errors.ts";
+import type { WalletLike } from "../../core/src/wallet-like.ts";
 
 export function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");

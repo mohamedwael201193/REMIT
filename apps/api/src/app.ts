@@ -141,7 +141,10 @@ export async function buildApp(cfg: ApiConfig) {
       root: browserRoot,
       prefix: "/browser/",
       decorateReply: false,
-      setHeaders: keyHeaders,
+      setHeaders: (res: { setHeader: (k: string, v: string) => void }, filePath: string) => {
+        keyHeaders(res);
+        if (filePath.endsWith(".wasm")) res.setHeader("Content-Type", "application/wasm");
+      },
     });
   }
 
@@ -166,6 +169,7 @@ export async function buildApp(cfg: ApiConfig) {
       visibility: EXECUTOR_VISIBILITY.model,
       mpc: false,
       dustGate: "availableCoins>=1",
+      circuit: Boolean(browserRoot && existsSync(resolve(browserRoot, "remit-circuit.js"))),
       block,
     };
   });

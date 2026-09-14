@@ -3,15 +3,7 @@ import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-p
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { RemitError } from "./errors.js";
-
-export type WalletLike = {
-  coinPublicKey: string;
-  encryptionPublicKey: string;
-  getCoinPublicKey?: () => string;
-  getEncryptionPublicKey?: () => string;
-  balanceTx: (...args: never[]) => Promise<unknown>;
-  submitTx: (...args: never[]) => Promise<unknown>;
-};
+export type { WalletLike } from "./wallet-like.js";
 
 export type NodeProviderOpts = {
   indexerHttp: string;

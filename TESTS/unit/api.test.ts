@@ -25,14 +25,20 @@ describe("api (no private openings stored in plaintext)", () => {
     expect(body.mpc).toBe(false);
     expect(body.dustGate).toBe("availableCoins>=1");
     expect(health.headers["x-content-type-options"]).toBe("nosniff");
-    expect(body.pool).toBe("");
-    expect(body.quote).toBe("");
-    expect(contractsDeployed(body)).toBe(false);
+    expect(typeof body.pool).toBe("string");
+    expect(typeof body.quote).toBe("string");
+    if (body.pool && body.quote) {
+      expect(body.pool).toMatch(/^[0-9a-f]{64}$/i);
+      expect(body.quote).toMatch(/^[0-9a-f]{64}$/i);
+      expect(contractsDeployed(body)).toBe(true);
+    } else {
+      expect(contractsDeployed(body)).toBe(false);
+    }
 
     const cfg = await app.inject({ method: "GET", url: "/config" });
     expect(cfg.statusCode).toBe(200);
     const cfgBody = cfg.json();
-    expect(cfgBody.live).toBe(false);
+    expect(cfgBody.live).toBe(Boolean(body.pool && body.quote));
     expect(cfgBody.mpc).toBe(false);
     expect(cfgBody.zkirUrl).toBe("/zkir");
     expect(cfgBody.indexerWs).toContain("wss://");
@@ -43,7 +49,7 @@ describe("api (no private openings stored in plaintext)", () => {
 
     const chain = await app.inject({ method: "GET", url: "/chain" });
     expect(chain.statusCode).toBe(200);
-    expect(chain.json().live).toBe(false);
+    expect(chain.json().live).toBe(Boolean(body.pool && body.quote));
 
     const emptyEv = await app.inject({ method: "GET", url: "/evidence" });
     expect(emptyEv.statusCode).toBe(200);

@@ -43,8 +43,8 @@ const PROVIDERS: {
   name: string;
   blurb: string;
 }[] = [
-  { kind: "1am", name: "1AM", blurb: "Native Midnight wallet" },
-  { kind: "lace", name: "Lace", blurb: "Multi-chain Midnight wallet" },
+  { kind: "1am", name: "1AM", blurb: "In-tab Compact proving on Preprod" },
+  { kind: "lace", name: "Lace", blurb: "Needs local proof-server 8.1.0" },
 ];
 
 export function ConnectWalletDialog() {
@@ -108,7 +108,8 @@ export function ConnectWalletDialog() {
         </div>
 
         <p className="pt-1 text-center text-[11.5px] leading-relaxed text-muted-foreground">
-          Network: Midnight Preprod · connector v4 · never asks for a seed
+          Network: Midnight Preprod · connector v4 · 1AM proves in-tab · Lace needs
+          proof-server 8.1.0 at localhost:6300 · never asks for a seed
         </p>
         {lastError ? (
           <p className="text-center text-[12px] text-clay">{lastError}</p>

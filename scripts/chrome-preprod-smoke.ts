@@ -42,7 +42,23 @@ if (front) {
   }
 }
 
+async function hosted(url: string): Promise<boolean> {
+  const head = await fetch(url, { method: "HEAD" });
+  if (head.ok) return true;
+  const ranged = await fetch(url, { headers: { Range: "bytes=0-31" } });
+  return ranged.ok || ranged.status === 206;
+}
+
 const live = Boolean(health.pool && health.quote);
+const circuitRes = await fetch(`${api}/browser/remit-circuit.js`);
+const circuitText = circuitRes.ok ? await circuitRes.text() : "";
+const circuit =
+  circuitRes.ok && circuitText.includes("createMandateFromWallet") && circuitText.includes("revokeMandatesFromWallet");
+const wasm = await hosted(`${api}/browser/midnight_ledger_wasm_bg.wasm`);
+const zkir = await hosted(`${api}/zkir/deposit.zkir`);
+const prover = await hosted(`${api}/keys/deposit.prover`);
+const verifier = await hosted(`${api}/keys/deposit.verifier`);
+
 console.log(
   JSON.stringify({
     api,
@@ -50,7 +66,13 @@ console.log(
     pool: health.pool ?? "",
     quote: health.quote ?? "",
     executorKey: Boolean(config.executorKey),
+    circuit,
+    wasm,
+    zkir,
+    prover,
+    verifier,
     front: front || null,
   }),
 );
 if (!live) process.exit(2);
+if (!circuit || !wasm || !zkir || !prover || !verifier) process.exit(2);

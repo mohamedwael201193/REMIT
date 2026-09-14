@@ -1,5 +1,7 @@
 import type { ConnectedAPI } from "@midnight-ntwrk/dapp-connector-api";
-import { createBrowserProviders, HttpZkConfigProvider, RemitError } from "@remit/core";
+import { createBrowserProviders } from "../../core/src/browser-providers.ts";
+import { HttpZkConfigProvider } from "../../core/src/http-zk.ts";
+import { RemitError } from "../../core/src/errors.ts";
 import { connectorAsWalletProvider } from "./connector-wallet.js";
 import { capabilitiesOf, classifyWallet, type WalletKind } from "./wallet.js";
 
