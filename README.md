@@ -33,7 +33,7 @@ Backend image is the repo-root `Dockerfile` (Render looks for `./Dockerfile`).
 
 Public API (Preprod health/stats only; no private state): https://remit-api-node.onrender.com/health
 
-Hosted UI: https://remit-front.vercel.app — no-wallet workspace reads indexer-backed `/evidence`. 1AM proves createMandate/revoke in-tab; Lace needs proof-server 8.1.0 at `http://localhost:6300`.
+Hosted UI: https://remit-front.vercel.app — no-wallet workspace reads indexer-backed `/evidence`. Overview maps `pool-k3-fill` as a settled execution and keeps the mandate tx on `pool-create-mandate` (it does not relabel the latest fill hash as the mandate). 1AM proves createMandate/revoke in-tab; Lace needs proof-server 8.1.0 at `http://localhost:6300`.
 
 Secrets live only in `.env.preprod.local` (gitignored). Copy `.env.example`. Never put secrets in `VITE_*`.
 
