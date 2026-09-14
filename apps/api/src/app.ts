@@ -47,6 +47,24 @@ export async function buildApp(cfg: ApiConfig) {
     mpc: false;
   } | null = null;
 
+  const evidenceFiles = [
+    resolve(process.cwd(), "apps/api/preprod-evidence.json"),
+    resolve(process.cwd(), "preprod-evidence.json"),
+    resolve(process.cwd(), "../../apps/api/preprod-evidence.json"),
+  ];
+  for (const p of evidenceFiles) {
+    if (!existsSync(p)) continue;
+    try {
+      const j = JSON.parse(readFileSync(p, "utf8")) as NonNullable<typeof publicEvidence>;
+      if (j?.present && Array.isArray(j.steps)) {
+        publicEvidence = { ...j, mpc: false };
+        break;
+      }
+    } catch {
+      /* keep scanning */
+    }
+  }
+
   const fileDeploy = (): { pool?: string; quote?: string } => {
     const candidates = [
       resolve(process.cwd(), "deployments/preprod.json"),

@@ -25,7 +25,9 @@ for (const id of ids) {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ clearCache: "do_not_clear" }),
+    body: JSON.stringify({
+      clearCache: process.env.REMIT_RENDER_CLEAR_CACHE === "1" ? "clear" : "do_not_clear",
+    }),
   });
   console.log("redeploy", id, res.status);
   if (!res.ok) throw new Error(`redeploy ${id} HTTP ${res.status}`);

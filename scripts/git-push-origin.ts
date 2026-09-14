@@ -38,4 +38,12 @@ for (const next of attempts.slice(1)) {
 }
 process.stdout.write(redact(result.stdout ?? ""));
 process.stderr.write(redact(result.stderr ?? ""));
+if (result.status === 0) {
+  const fetched = spawnSync("git", ["-c", "credential.helper=", "fetch", url, "+main:refs/remotes/origin/main"], {
+    encoding: "utf8",
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" },
+  });
+  process.stdout.write(redact(fetched.stdout ?? ""));
+  process.stderr.write(redact(fetched.stderr ?? ""));
+}
 process.exit(result.status ?? 1);

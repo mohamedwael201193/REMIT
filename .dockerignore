@@ -11,8 +11,7 @@ private-state
 !.env.example
 *.md
 !README.md
-CONTRACT/managed/**/keys
-CONTRACT/managed/**/zkir
+CONTRACT/managed/**/keys/*.prover
 RESEARCH
 docs
 TESTS

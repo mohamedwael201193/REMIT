@@ -53,7 +53,13 @@ describe("api (no private openings stored in plaintext)", () => {
 
     const emptyEv = await app.inject({ method: "GET", url: "/evidence" });
     expect(emptyEv.statusCode).toBe(200);
-    expect(emptyEv.json().present).toBe(false);
+    const bootEv = emptyEv.json() as { present?: boolean; steps?: { name?: string; txHash?: string }[]; mpc?: boolean };
+    expect(bootEv.mpc).toBe(false);
+    expect(JSON.stringify(bootEv).includes(rec.secretHex)).toBe(false);
+    if (bootEv.present) {
+      expect(Array.isArray(bootEv.steps)).toBe(true);
+      expect(bootEv.steps?.some((s) => s.name === "pool-fill" && Boolean(s.txHash))).toBe(true);
+    }
 
     const unauthEv = await app.inject({
       method: "POST",

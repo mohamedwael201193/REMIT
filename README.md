@@ -33,7 +33,27 @@ Backend image is the repo-root `Dockerfile` (Render looks for `./Dockerfile`).
 
 Public API (Preprod health/stats only; no private state): https://remit-api-node.onrender.com/health
 
+Hosted UI: https://remit-front.vercel.app — no-wallet workspace reads indexer-backed `/evidence`. 1AM proves createMandate/revoke in-tab; Lace needs proof-server 8.1.0 at `http://localhost:6300`.
+
 Secrets live only in `.env.preprod.local` (gitignored). Copy `.env.example`. Never put secrets in `VITE_*`.
+
+## Judge path (live Preprod)
+
+1. Open https://remit-front.vercel.app — Overview should show live mandate/fill/reject evidence without connecting a wallet.
+2. GET https://remit-api-node.onrender.com/health — `network=preprod`, `mpc=false`, `dustGate=availableCoins>=1`, pool+quote addresses set, `circuit=true` after the API build.
+3. GET https://remit-api-node.onrender.com/evidence — public tx hashes only. Explorer: `https://preprod.midnightexplorer.com/tx/<hash>`.
+4. Compact: `CONTRACT/src/remit_pool.compact` and `remit_quote.compact` compile on **0.31.1**. `npm test` is the QA gate.
+5. Connect **1AM** (connector v4, Preprod) to create/revoke a mandate. Header DUST is **not** spendable coins.
+
+Live contracts (Preprod, ledger 8):
+
+| artifact | address | tx | block |
+|---|---|---|---|
+| quote REMIT-Q | `7559e38693725dafef73486f2ee3aa30ee0b5b543e22d0aa5ad7303c37b55e3f` | `04800c4ca43dd572d77ca1e5cf604702c609ff091ecb567f942ff15e17c08008` | 2538374 |
+| pool | `e82dea02b2397332df0bb10e2df6d9e257c8ceba696415ed3c10f639f68d43d4` | `f8b9b32446234af794a6d9fe33c27cd12e0815593c8e18816caa4b549418ba2c` | 2538382 |
+| compliant fill | | `22c76487e28d09b1bd1150fe7ba2f3e8007b81ebe48b65ff276ef62455bafe8e` | 2538634 |
+
+Over-cap and price-limit fills are **rejected in Compact** (no settlement tx). Executor visibility is a constrained broker, not MPC.
 
 ## Honest limits
 
