@@ -10,18 +10,31 @@ loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../.env.prepro
 const token = process.env.GITHUB_TOKEN;
 if (!token) throw new Error("GITHUB_TOKEN missing");
 
-function push(header: string) {
-  return spawnSync("git", ["-c", `http.extraHeader=${header}`, "push", "origin", "HEAD"], { encoding: "utf8" });
+function push(args: string[]) {
+  return spawnSync("git", args, {
+    encoding: "utf8",
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" },
+  });
 }
+
+const basic = Buffer.from(`x-access-token:${token}`, "utf8").toString("base64");
+const url = `https://x-access-token:${token}@github.com/mohamedwael201193/REMIT.git`;
 
 function redact(s: string) {
-  return s.replaceAll(token, "[redacted]");
+  return s.replaceAll(token, "[redacted]").replaceAll(basic, "[redacted]").replaceAll(url, "https://github.com/mohamedwael201193/REMIT.git");
 }
 
-let result = push(`Authorization: token ${token}`);
-const text = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-if (result.status !== 0 && /invalid credentials|401|Authentication failed|could not read Username/i.test(text)) {
-  result = push(`Authorization: Bearer ${token}`);
+const attempts: string[][] = [
+  ["-c", "credential.helper=", "push", url, "HEAD:main"],
+  ["-c", "credential.helper=", "-c", `http.extraHeader=Authorization: Basic ${basic}`, "push", "origin", "HEAD"],
+];
+
+let result = push(attempts[0]);
+for (const next of attempts.slice(1)) {
+  const text = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  if (result.status === 0) break;
+  if (!/invalid credentials|401|Authentication failed|could not read Username/i.test(text)) break;
+  result = push(next);
 }
 process.stdout.write(redact(result.stdout ?? ""));
 process.stderr.write(redact(result.stderr ?? ""));
