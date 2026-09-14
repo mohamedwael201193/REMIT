@@ -14,15 +14,15 @@ const ALSO = ["placeOffer.prover"];
 const DEFAULT_PROVER_URL =
   "https://github.com/mohamedwael201193/REMIT/releases/download/zk-provers-compact-0.31.1/browser-provers.tar.gz";
 
-function present() {
-  return NEEDED.every((name) => {
+function ready(names) {
+  return names.every((name) => {
     const p = resolve(keysDir, name);
     return existsSync(p) && statSync(p).size > 1_000_000;
   });
 }
 
 mkdirSync(keysDir, { recursive: true });
-if (present()) {
+if (ready(NEEDED) && ready(ALSO)) {
   console.log("prover keys already present");
   process.exit(0);
 }
@@ -45,7 +45,7 @@ unlinkSync(archive);
 if (unpacked.status !== 0) {
   throw new Error(`tar extract failed: ${unpacked.stderr || unpacked.stdout || unpacked.status}`);
 }
-if (!present()) throw new Error("prover keys missing after extract");
+if (!ready(NEEDED)) throw new Error("prover keys missing after extract");
 console.log("prover keys ready", NEEDED.join(","));
 for (const name of ALSO) {
   const p = resolve(keysDir, name);
