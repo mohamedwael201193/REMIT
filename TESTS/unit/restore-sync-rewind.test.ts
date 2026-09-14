@@ -106,4 +106,38 @@ describe("restore/rewind after serializeState (21400→21399, DUST time going ba
       }),
     ).toThrow(/21402/);
   });
+
+  it("does not treat WASM type errors as rewind", () => {
+    expect(classifyRestoreReplayError(new Error("array contains a value of the wrong type"))).toBe("other");
+  });
+
+  it("clones each event so a WASM rewind does not poison later events in the same batch", () => {
+    type Ev = { id: number; mt: number; live: boolean };
+    type St = { applied: number };
+    type Up = { updates: Ev[]; secretKeys: "k" };
+    const inner = {
+      applyUpdate: (state: St, update: Up): [St, { changes: string[] }] => {
+        const e = update.updates[0]!;
+        if (!e.live) throw new Error("array contains a value of the wrong type");
+        e.live = false;
+        if (e.mt === 21399) throw ZSWAP_REWIND;
+        return [{ applied: e.id }, { changes: [String(e.mt)] }];
+      },
+    };
+    const originals: Ev[] = [
+      { id: 1518435, mt: 21399, live: true },
+      { id: 1518436, mt: 21400, live: true },
+    ];
+    const wrapped = wrapApplyUpdateSkippingRewind<St, Up>({
+      inner,
+      eventsOf: (u) => u.updates,
+      clone: (event) => ({ ...(event as Ev) }),
+      singleton: (u, event) => ({ ...u, updates: [event as Ev] }),
+      skipRewind: (_state, _u, event) => ({ applied: (event as Ev).id }),
+    });
+    const [next, changes] = wrapped.applyUpdate({ applied: 1518434 }, { secretKeys: "k", updates: originals });
+    expect(next.applied).toBe(1518436);
+    expect((changes as { changes: string[] }).changes).toEqual(["21400"]);
+    expect(originals.every((e) => e.live)).toBe(true);
+  });
 });
