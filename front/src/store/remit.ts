@@ -100,7 +100,9 @@ interface RemitState {
   executeFill: (input: FillAttemptInput) => Promise<Execution>;
   declineOffer: (offerId: string) => void;
   revokeMandates: () => Promise<void>;
+  withdrawLeftover: () => Promise<void>;
   revealFact: (auditId: string, disclosureId: string) => Promise<void>;
+  probeForgedDisclosure: () => Promise<{ ok: boolean; failed: string[]; auditRoot?: string }>;
 }
 
 const provider: RemitProvider = getRemitProvider();
@@ -226,6 +228,14 @@ export const useRemitStore = create<RemitState>((set, get) => ({
         agentStatusError,
         syncStatus: "ready",
         syncedAt: Date.now(),
+        lastExecution:
+          agentStatus?.last?.submitted && agentStatus.last.txHash
+            ? executions.find((e) => e.txHash === agentStatus.last?.txHash) ?? get().lastExecution
+            : get().lastExecution,
+        executionStage:
+          agentStatus?.last?.submitted && agentStatus.last.txHash
+            ? "done"
+            : get().executionStage,
       });
     } catch (error) {
       set({
@@ -326,6 +336,20 @@ export const useRemitStore = create<RemitState>((set, get) => ({
     }
   },
 
+  withdrawLeftover: async () => {
+    set({ circuitBusy: true, circuitStatus: "Proving withdraw on Preprod", lastError: null });
+    try {
+      await provider.withdrawLeftover();
+      await get().syncWorkspace();
+    } catch (error) {
+      const message = explainCircuitError(error instanceof Error ? error.message : "withdraw required Compact circuit-call");
+      set({ lastError: message });
+      throw error;
+    } finally {
+      set({ circuitBusy: false, circuitStatus: null });
+    }
+  },
+
   revealFact: async (auditId, disclosureId) => {
     const disclosure = await provider.revealFact(auditId, disclosureId);
     set({
@@ -334,12 +358,16 @@ export const useRemitStore = create<RemitState>((set, get) => ({
           ? a
           : {
               ...a,
-              proofStatus: "verified",
+              proofStatus: disclosure.state === "verified" ? "verified" : a.proofStatus,
               disclosures: a.disclosures.map((d) =>
                 d.id === disclosure.id ? disclosure : d,
               ),
             },
       ),
     });
+  },
+
+  probeForgedDisclosure: async () => {
+    return provider.probeForgedDisclosure();
   },
 }));

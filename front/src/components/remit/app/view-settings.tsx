@@ -417,6 +417,45 @@ export function ViewSettings() {
           </div>
         </section>
       </Reveal>
+
+      <Reveal delay={0.18}>
+        <section aria-label="Custody" className={cardClass}>
+          <p className="eyebrow text-clay/80">Custody</p>
+          <div className="mt-4 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-[14px] font-semibold text-cream/90">Withdraw leftover notes</p>
+              <p className="max-w-md text-[12.5px] leading-relaxed text-muted-foreground">
+                Returns an unspent custody note from this tab to the connected unshielded
+                address. Requires the private note opening. Does not invent a balance.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="min-h-10 whitespace-normal border-gold/40 bg-transparent px-4 text-gold hover:bg-gold/10 hover:text-gold-2"
+              onClick={() => {
+                void (async () => {
+                  try {
+                    await useRemitStore.getState().withdrawLeftover();
+                    toast({
+                      title: "Withdraw submitted only if Compact + indexer confirmed it",
+                      duration: 2800,
+                    });
+                  } catch (error) {
+                    toast({
+                      title: "Withdraw did not settle",
+                      description:
+                        error instanceof Error ? error.message : "On-chain withdraw is required",
+                      variant: "destructive",
+                    });
+                  }
+                })();
+              }}
+            >
+              Withdraw leftover
+            </Button>
+          </div>
+        </section>
+      </Reveal>
     </div>
   );
 }

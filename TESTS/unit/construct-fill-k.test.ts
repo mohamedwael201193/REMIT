@@ -161,4 +161,36 @@ describe("constructRankedFill matches Compact-chosen candidate", () => {
     expect(built.chosenMatches).toBe(true);
     expect(built.pending.chosenIndex).toBe(planned.decision.chosenIndex.toString());
   });
+
+  it("rejects fillBase 31 against a residual 30 opening before proving", () => {
+    const k = keys();
+    let sim = bootPool();
+    const offer = sellOffer(k.maker, { baseAmount: 30n, quoteAmount: 1200n, minFillBase: 10n });
+    const placed = placeQuoted(sim, k.makerSk, offer);
+    sim = placed.sim;
+    const dPrincipal = deposit(sim, k.principalSk, 0n, 30n);
+    sim = dPrincipal.sim;
+    const mandate = buyMandate(k, { maxFillBase: 30n });
+    const created = createMandate(sim, k.principalSk, dPrincipal.note, mandate);
+    sim = created.sim;
+    expect(() =>
+      constructFillK({
+        ledger: publicLedger(sim),
+        esk: k.esk,
+        mandate,
+        remaining: 30n,
+        nowBound: 1_800_000_000n,
+        revoked: false,
+        offer: placed.offer,
+        mandateRand: created.mandateRand,
+        stateNonce: created.stateNonce,
+        offerRand: placed.offerRand,
+        auditSeed: randomBytes32(),
+        getNonce: randomBytes32(),
+        nextStateNonce: randomBytes32(),
+        fillBase: 31n,
+        fillQuote: 1240n,
+      }),
+    ).toThrow(/exceeds offer base|ratio mismatch|POLICY_REJECT/);
+  });
 });

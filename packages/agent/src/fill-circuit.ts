@@ -83,6 +83,14 @@ export function constructFill(intent: FillIntent): ConstructedFill {
   if (!gate.ok && !intent.bypassLocalPrecheck) {
     throw new RemitError("POLICY_REJECT", "local pre-check rejected fill", gate.reason);
   }
+  const fillBase = intent.fillBase ?? decision.fillBase;
+  const fillQuote = intent.fillQuote ?? decision.fillQuote;
+  if (fillBase <= 0n || fillBase > selected.baseAmount) {
+    throw new RemitError("POLICY_REJECT", "fill exceeds offer base");
+  }
+  if (fillQuote * selected.baseAmount !== fillBase * selected.quoteAmount) {
+    throw new RemitError("POLICY_REJECT", "fill ratio mismatch");
+  }
   const args: FillPendingArgs = {
     esk: intent.esk,
     mandate: intent.mandate,
@@ -94,8 +102,8 @@ export function constructFill(intent: FillIntent): ConstructedFill {
     auditSeed: intent.auditSeed,
     getNonce: intent.getNonce,
     nextStateNonce: intent.nextStateNonce,
-    fillBase: intent.fillBase ?? decision.fillBase,
-    fillQuote: intent.fillQuote ?? decision.fillQuote,
+    fillBase,
+    fillQuote,
     chosenIndex: intent.chosenIndex ?? decision.chosenIndex,
     book: intent.book ?? decision.book,
   };

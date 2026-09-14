@@ -304,6 +304,7 @@ const KIND_BY_STEP: Record<string, MappedActivity["kind"]> = {
   "pool-fill": "settlement",
   "pool-k3-fill": "settlement",
   "pool-k3-residual-consume": "settlement",
+  "pool-residual-consume": "settlement",
   "mbbe-padded-fill-historical": "settlement",
   "pool-place-maker-a-ineligible": "offer",
   "pool-place-maker-b-eligible": "offer",
@@ -320,7 +321,13 @@ function stepKind(name: string): MappedActivity["kind"] {
 }
 
 function isFillStep(name: string): boolean {
-  return name === "pool-fill" || name === "pool-k3-fill" || name === "pool-k3-residual-consume" || name === "mbbe-padded-fill-historical";
+  return (
+    name === "pool-fill" ||
+    name === "pool-k3-fill" ||
+    name === "pool-k3-residual-consume" ||
+    name === "pool-residual-consume" ||
+    name === "mbbe-padded-fill-historical"
+  );
 }
 
 /** Latest indexer tx is often a fill. Never label it as the mandate when evidence already named it. */
@@ -338,6 +345,7 @@ export function mapPublicWorkspace(args: {
   chain: RemitChainSnapshot;
   evidence: RemitPublicEvidence;
   principalName?: string;
+  lastSettlement?: { selectedId?: string | null; txHash?: string; block?: number; submitted?: boolean } | null;
 }): MappedWorkspace {
   const fills = args.chain.pool?.fills ?? 0;
   const openOffers = args.chain.pool?.openOffers ?? 0;
@@ -442,6 +450,43 @@ export function mapPublicWorkspace(args: {
         explorerUrl: explorerTxUrl(s.txHash),
       });
     }
+  }
+
+  const last = args.lastSettlement;
+  if (
+    last?.submitted &&
+    last.txHash &&
+    last.block != null &&
+    !executions.some((e) => e.txHash === last.txHash)
+  ) {
+    const publicId =
+      typeof last.selectedId === "string" && !/residual-\d+$/i.test(last.selectedId)
+        ? last.selectedId
+        : "offer:residual";
+    executions.push({
+      id: `fill:${last.txHash}`,
+      reference: last.txHash.slice(0, 10),
+      mandateId,
+      offerId: publicId,
+      asset: "tNIGHT",
+      side: "buy",
+      attemptedFill: null,
+      settledFill: null,
+      price: null,
+      counterpartyId: "cp-onchain",
+      status: "settled",
+      checks: [
+        { label: "Indexer contractAction", passed: true, detail: last.txHash },
+        { label: "GET /agent/status last", passed: true, detail: "submitted" },
+      ],
+      events: [{ at: now, label: "Indexer-confirmed fill" }],
+      proofRef: last.txHash,
+      receipt: { code: last.txHash.slice(0, 12), issuedAt: now },
+      executedAt: now,
+      txHash: last.txHash,
+      block: last.block,
+      explorerUrl: explorerTxUrl(last.txHash),
+    });
   }
 
   const mandates: MappedMandate[] = [];

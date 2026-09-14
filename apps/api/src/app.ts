@@ -50,6 +50,9 @@ type PublicEvidence = {
   quote?: { address: string; txHash?: string; block?: number };
   steps: { name: string; ok: boolean; txHash?: string; block?: number; detail?: string }[];
   mpc: false;
+  globalBest?: false;
+  semantics?: string;
+  k?: number;
 };
 
 export async function buildApp(cfg: ApiConfig) {
@@ -478,8 +481,14 @@ export async function buildApp(cfg: ApiConfig) {
   });
 
   app.get("/evidence", async () => {
-    if (publicEvidence) return stripPublicLeaks(publicEvidence);
-    return { present: false, steps: [], mpc: false as const, network: cfg.network };
+    const body = publicEvidence ?? { present: false, steps: [], network: cfg.network };
+    return stripPublicLeaks({
+      ...body,
+      mpc: false as const,
+      globalBest: false as const,
+      semantics: "mbbe-k3",
+      k: 3,
+    });
   });
 
   app.post("/evidence", async (req, reply) => {
@@ -511,7 +520,10 @@ export async function buildApp(cfg: ApiConfig) {
               detail: sanitizePublicDetail(typeof s.detail === "string" ? s.detail : undefined),
             }))
         : [],
-      mpc: false,
+      mpc: false as const,
+      globalBest: false as const,
+      semantics: "mbbe-k3",
+      k: 3,
     };
     publicEvidence = stripPublicLeaks(publicEvidence);
     return { ok: true, steps: publicEvidence.steps.length };

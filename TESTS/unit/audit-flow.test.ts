@@ -16,4 +16,28 @@ describe("auditor desk copies on-chain auditRoots head", () => {
     expect(chainAuditRootFromHead("", [FILL])).toBe("");
     expect(chainAuditRootFromHead(undefined, [FILL])).toBe("");
   });
+
+  it("marks a disclosure verified only after verifyDisclosure state", async () => {
+    const { disclosureFlow, recordAuditFlow } = await import("../../front/src/lib/remit/audit-flow.ts");
+    expect(disclosureFlow("verified", false)).toBe("verified");
+    expect(disclosureFlow("revealed", false)).toBe("revealed");
+    expect(
+      recordAuditFlow(
+        {
+          id: "audit:x",
+          executionRef: "5f1203cf9c",
+          asset: "tNIGHT",
+          counterpartyClass: "On-chain counterparty",
+          proofStatus: "verified",
+          auditRoot: ROOT,
+          recordedAt: "2026-09-14T00:00:00.000Z",
+          disclosures: [
+            { id: "fill-amount", fact: "fill-amount", label: "Fill amount", state: "verified", value: "30" },
+          ],
+        },
+        new Set(),
+        [FILL],
+      ),
+    ).toBe("verified");
+  });
 });

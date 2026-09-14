@@ -63,6 +63,23 @@ function DisclosureTile({
 }) {
   const flow = disclosureFlow(disclosure.state, requested);
 
+  if (flow === "verified") {
+    return (
+      <div className="flex min-h-[92px] flex-col justify-between gap-2 rounded-lg border border-mint/45 bg-mint/10 p-3">
+        <p className="text-[12px] font-medium text-cream/85">{disclosure.label}</p>
+        <div className="flex items-start gap-2">
+          <Unlock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-mint" aria-hidden="true" />
+          <p className="font-data text-[11px] leading-relaxed break-words text-mint">
+            {disclosure.value ?? "VERIFIED"}
+          </p>
+        </div>
+        <StatusPill tone="verified" className="self-start">
+          {AUDIT_FLOW_COPY.verified}
+        </StatusPill>
+      </div>
+    );
+  }
+
   if (flow === "revealed") {
     return (
       <div className="flex min-h-[92px] flex-col justify-between gap-2 rounded-lg border border-mint/35 bg-mint/5 p-3">
@@ -115,12 +132,11 @@ function DisclosureTile({
 }
 
 function AuditRecordCard({ record, fillHashes }: { record: AuditRecord; fillHashes: Array<string | undefined> }) {
-  const wallet = useRemitStore((s) => s.wallet);
-  const openWalletDialog = useRemitStore((s) => s.openWalletDialog);
   const revealFact = useRemitStore((s) => s.revealFact);
   const { toast } = useToast();
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [requestedId, setRequestedId] = React.useState<string | null>(null);
+  const [forged, setForged] = React.useState<"idle" | "rejected" | "unexpected">("idle");
 
   const asset = assetBySymbol(record.asset);
   const requestedIds = requestedId ? new Set([requestedId]) : new Set<string>();
@@ -129,17 +145,12 @@ function AuditRecordCard({ record, fillHashes }: { record: AuditRecord; fillHash
   const root = openedAuditRoot(record.auditRoot, fillHashes);
 
   const handleReveal = async (disclosure: Disclosure) => {
-    if (wallet.status !== "connected") {
-      openWalletDialog(true);
-      toast({ title: "Connect a wallet to continue." });
-      return;
-    }
     setBusyId(disclosure.id);
     setRequestedId(disclosure.id);
     try {
       await revealFact(record.id, disclosure.id);
       toast({
-        title: `Fact revealed — ${disclosure.label}`,
+        title: "verifyDisclosure accepted — VERIFIED",
         duration: 2600,
       });
     } catch (error) {
@@ -155,6 +166,28 @@ function AuditRecordCard({ record, fillHashes }: { record: AuditRecord; fillHash
     } finally {
       setBusyId(null);
       setRequestedId(null);
+    }
+  };
+
+  const handleForged = async () => {
+    setBusyId("forged");
+    try {
+      const result = await useRemitStore.getState().probeForgedDisclosure();
+      setForged(result.ok ? "unexpected" : "rejected");
+      toast({
+        title: result.ok ? "Forged package unexpectedly verified" : "Forged package REJECTED",
+        variant: result.ok ? "destructive" : "default",
+        duration: 4000,
+      });
+    } catch (error) {
+      setForged("rejected");
+      toast({
+        title: "Forged package REJECTED",
+        description: error instanceof Error ? error.message : "verifyDisclosure rejected",
+        duration: 4000,
+      });
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -195,6 +228,23 @@ function AuditRecordCard({ record, fillHashes }: { record: AuditRecord; fillHash
         <EyeOff className="h-3 w-3 shrink-0 text-sage" aria-hidden="true" />
         The auditor never receives the complete mandate. Expiry is Compact-enforced, not an auditor opening.
       </p>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busyId !== null}
+          onClick={() => void handleForged()}
+          className="min-h-11 border-clay/35 bg-transparent text-clay hover:bg-clay/10 hover:text-clay"
+        >
+          Probe forged package
+        </Button>
+        {forged === "rejected" ? (
+          <StatusPill tone="rejected">REJECTED</StatusPill>
+        ) : forged === "unexpected" ? (
+          <StatusPill tone="pending">UNEXPECTED PASS</StatusPill>
+        ) : null}
+      </div>
     </article>
   );
 }

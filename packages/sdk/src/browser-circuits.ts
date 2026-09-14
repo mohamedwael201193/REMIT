@@ -18,11 +18,12 @@ import {
 } from "../../core/src/tab-seal.ts";
 import { fetchContractAction, requireContractAction } from "../../core/src/indexer.ts";
 import { fromHex, randomBytes32 } from "../../core/src/bytes.ts";
-import { pendingCreateMandate, pendingDeposit, pendingPlaceOffer, pendingRevokeMandate } from "../../core/src/pending.ts";
+import { pendingCreateMandate, pendingDeposit, pendingPlaceOffer, pendingRevokeMandate, pendingWithdraw } from "../../core/src/pending.ts";
 import { poolLedgerFromStateHex } from "../../core/src/paths.ts";
 import { submitStagedCircuit } from "../../core/src/stage-call.ts";
 import { FAR_EXPIRY } from "../../core/src/mbbe.ts";
 import { makeMandateBox, makeOfferBox } from "../../core/src/rfq.ts";
+import { encodeUserAddress } from "@midnight-ntwrk/ledger-v8";
 import { createRemitBrowserProviders } from "./browser-session.ts";
 import { fetchRemitConfig } from "./public.ts";
 
@@ -407,6 +408,47 @@ export async function placeOfferFromWallet(args: BrowserCircuitArgs) {
     txHash,
     block,
     rfqId: rfq.id,
+    ns,
+  };
+}
+
+export async function withdrawFromWallet(args: BrowserCircuitArgs) {
+  const { providers, compiled, config, ns, addr, initial } = await poolProviders(args);
+  providers.privateStateProvider.setContractAddress(args.pool as never);
+  const ps = ((await providers.privateStateProvider.get("remit-pool")) as RemitPrivateState | null) ?? initial;
+  const ownerSk = ownerSkOf(ps);
+  const noteJson = ps.notes[0];
+  if (!noteJson) {
+    throw new Error("No leftover custody note in this tab — withdraw cannot be proven without the note opening");
+  }
+  const note = {
+    asset: BigInt(noteJson.asset),
+    amount: BigInt(noteJson.amount),
+    owner: Uint8Array.from(noteJson.owner),
+    nonce: Uint8Array.from(noteJson.nonce),
+  };
+  const { ld, hit } = await ledger(config.indexer, args.pool);
+  const recipient = encodeUserAddress(addr);
+  if (recipient.length !== 32) {
+    throw new Error(`encodeUserAddress produced ${recipient.length} bytes, expected 32`);
+  }
+  const withdrawn = await submitStagedCircuit(providers, {
+    contractAddress: args.pool,
+    compiledContract: compiled,
+    privateStateId: "remit-pool",
+    circuitId: "withdraw",
+    circuitArgs: [note.asset, note.amount],
+    pending: pendingWithdraw(ld, ownerSk, note, recipient, randomBytes32()),
+    fallback: ps,
+  });
+  if (!withdrawn.txId && !withdrawn.txHash) throw new Error("withdraw missing tx id");
+  const nextPs: RemitPrivateState = { ...ps, notes: ps.notes.slice(1) };
+  await providers.privateStateProvider.set("remit-pool", nextPs);
+  writeTabPrivate(args.network, args.pool, addr, nextPs);
+  const after = await ledger(config.indexer, args.pool);
+  return {
+    txHash: withdrawn.txHash ?? after.hit.txHash ?? hit.txHash,
+    block: withdrawn.blockHeight ?? after.hit.blockHeight ?? hit.blockHeight,
     ns,
   };
 }

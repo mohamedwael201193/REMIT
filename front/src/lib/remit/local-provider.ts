@@ -70,6 +70,9 @@ class HonestEmptyProvider implements RemitProvider {
   async revealFact(_auditId: string, _disclosureId: string): Promise<Disclosure> {
     throw new Error("Preprod pool is not live — disclosure is not available");
   }
+  async probeForgedDisclosure(): Promise<{ ok: boolean; failed: string[]; auditRoot?: string }> {
+    throw new Error("Preprod pool is not live — disclosure is not available");
+  }
   async getActivity(): Promise<ActivityItem[]> {
     return [];
   }
@@ -81,6 +84,9 @@ class HonestEmptyProvider implements RemitProvider {
   }
   async revokeMandates(): Promise<void> {
     throw new Error("Preprod pool is not live — revokeMandate is not available");
+  }
+  async withdrawLeftover(): Promise<{ txHash?: string; block?: number }> {
+    throw new Error("Preprod pool is not live — withdraw is not available");
   }
 }
 

@@ -140,4 +140,45 @@ describe("public Preprod config for the supplied frontend", () => {
     expect(ws.activity.some((a) => a.kind === "settlement" && a.label === "pool-k3-fill")).toBe(true);
     expect(ws.executions.every((e) => e.attemptedFill == null && e.price == null)).toBe(true);
   });
+
+  it("maps residual consume and GET /agent/status last without leaking fill size", () => {
+    const first = "5a1200f5869cb60c81f9ebcb649da45fb47c563bc245c362d36665597b16f00a";
+    const residual = "5f1203cf9cdde32192f4a2cdce275ff34529b19bbe24644f6014b1c24f12b99f";
+    const chain: RemitChainSnapshot = {
+      live: true,
+      network: "preprod",
+      pool: {
+        address: "pool-mbbe",
+        txHash: residual,
+        block: 2550168,
+        fills: 4,
+        openOffers: 7,
+        activeMandates: 3,
+      },
+      quote: { address: "quote1", txHash: "bb", block: 8 },
+    };
+    const evidence: RemitPublicEvidence = {
+      present: true,
+      network: "preprod",
+      mpc: false,
+      steps: [
+        { name: "pool-k3-fill", ok: true, txHash: first, block: 2549944 },
+        { name: "pool-residual-consume", ok: true, txHash: residual, block: 2550168 },
+      ],
+    };
+    const ws = mapPublicWorkspace({
+      chain,
+      evidence,
+      lastSettlement: {
+        selectedId: "1789405396428-0-residual-30",
+        txHash: residual,
+        block: 2550168,
+        submitted: true,
+      },
+    });
+    expect(ws.executions.filter((e) => e.txHash === residual)).toHaveLength(1);
+    expect(ws.executions.some((e) => e.txHash === first && e.status === "settled")).toBe(true);
+    expect(JSON.stringify(ws)).not.toMatch(/residual-30/);
+    expect(ws.executions.every((e) => e.attemptedFill == null && e.settledFill == null)).toBe(true);
+  });
 });

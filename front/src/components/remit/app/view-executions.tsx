@@ -63,21 +63,20 @@ const COMPATIBLE_STATES: Offer["state"][] = ["compatible", "new", "evaluating", 
 type Stage = "idle" | "evaluating" | "checking" | "proving" | "settling" | "done";
 
 const PIPELINE = [
-  "Offer matched",
-  "Mandate verified",
-  "Proof generated",
-  "Proof accepted",
-  "Settlement",
-  "Receipt",
+  "OFFER DISCOVERED",
+  "POLICY PASSED",
+  "SELECTED",
+  "PROVING",
+  "SETTLED",
 ] as const;
 
 const STAGE_PROGRESS: Record<Stage, number> = {
   idle: 0,
   evaluating: 1,
   checking: 2,
-  proving: 3,
+  proving: 4,
   settling: 5,
-  done: 6,
+  done: 5,
 };
 
 const STAGE_NOTES: Record<Stage, string> = {
@@ -158,8 +157,8 @@ function AgentStatusCard() {
             )}
             <p className="text-[12.5px] leading-relaxed text-muted-foreground">
               Compact proves the selected candidate among the K openings the executor included.
-              This tab does not invent an AI confidence score, and it does not read fillBase or
-              chosenIndex from public HTTP.
+              This tab does not invent an AI confidence score, and it does not read private fill
+              size or selection index from public HTTP.
             </p>
             <div className="flex min-w-0 flex-wrap gap-2">
               <DataChip>rank {status.rank ? "true" : "false"}</DataChip>
@@ -625,7 +624,7 @@ export function ViewExecutions() {
         <p className="text-[12px] leading-relaxed text-sage">
           Blotter headlines use GET /agent/status last rank ({last.candidateCount} / {last.eligibleCount}{" "}
           / {last.rejectedCount}). Rows below are committed evidence openings — not AI confidence,
-          fillBase, or chosenIndex.
+          private fill size, or selection index.
         </p>
       ) : null}
 

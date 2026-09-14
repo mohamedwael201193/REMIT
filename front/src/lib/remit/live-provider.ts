@@ -3,6 +3,7 @@
  * Workspace data comes from the public API + indexer, never from catalog fiction.
  */
 import {
+  fetchRemitAgentStatus,
   fetchRemitAuditHead,
   fetchRemitAuditPackage,
   fetchRemitChain,
@@ -100,14 +101,16 @@ class LiveRemitProvider implements RemitProvider {
     if (config.network !== "preprod" && this.cfg.network === "preprod") {
       throw new Error("API network is not Preprod");
     }
-    const [chain, evidence] = await Promise.all([
+    const [chain, evidence, agent] = await Promise.all([
       fetchRemitChain(this.cfg.apiUrl),
       fetchRemitEvidence(this.cfg.apiUrl),
+      fetchRemitAgentStatus(this.cfg.apiUrl).catch(() => null),
     ]);
     this.cache = mapPublicWorkspace({
       chain,
       evidence,
       principalName: this.wallet.address ?? "",
+      lastSettlement: agent?.last ?? null,
     });
     return this.cache;
   }
@@ -244,9 +247,17 @@ class LiveRemitProvider implements RemitProvider {
       id: "fill-amount",
       fact: "fill-amount",
       label: "Fill amount",
-      state: "revealed",
+      state: "verified",
       value: pkg.openings[0]?.valueDec ?? "REVEALED",
     };
+  }
+  async probeForgedDisclosure(): Promise<{ ok: boolean; failed: string[]; auditRoot?: string }> {
+    const pkg = await fetchRemitAuditPackage(this.cfg.apiUrl);
+    const forged = {
+      ...pkg,
+      openings: pkg.openings.map((o) => ({ ...o, valueDec: "999" })),
+    };
+    return postRemitAuditVerify(this.cfg.apiUrl, forged);
   }
   async getActivity(): Promise<ActivityItem[]> {
     return (await this.load()).activity;
@@ -283,6 +294,27 @@ class LiveRemitProvider implements RemitProvider {
     if (after.portfolio.activeMandates > 0) {
       throw new Error("revokeMandate was submitted but indexer still reports activeMandates > 0");
     }
+  }
+  async withdrawLeftover(): Promise<{ txHash?: string; block?: number }> {
+    if (this.wallet.status !== "connected" || !this.connected) {
+      throw new Error("Connect 1AM or Lace in a click handler before withdraw");
+    }
+    const circuit = await loadRemitCircuitModule(this.cfg.apiUrl);
+    if (typeof circuit.withdrawFromWallet !== "function") {
+      throw new Error("Hosted circuit bundle does not export withdrawFromWallet");
+    }
+    const withdrawn = (await circuit.withdrawFromWallet({
+      wallet: this.connected,
+      kind: this.wallet.provider,
+      apiUrl: this.cfg.apiUrl,
+      pool: this.cfg.pool,
+      quote: this.cfg.quote,
+      network: this.cfg.network,
+    })) as { txHash?: string; block?: number };
+    if (!withdrawn?.txHash) {
+      throw new Error("withdraw did not return an indexer-backed transaction");
+    }
+    return withdrawn;
   }
 }
 

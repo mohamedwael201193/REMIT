@@ -18,7 +18,7 @@ describe("1AM circuit bundle graph", () => {
     expect(session).toMatch(/remitSetNetworkId/);
     expect(providers).toMatch(/remitSetNetworkId/);
     const call = readFileSync(resolve("front/src/lib/remit/circuit-call.ts"), "utf8");
-    expect(call).toMatch(/v=ps1/);
+    expect(call).toMatch(/v=ps2/);
     const build = readFileSync(resolve("scripts/build-browser-circuit.mjs"), "utf8");
     expect(build).toMatch(/buffer-polyfill/);
     expect(build).toMatch(/from "buffer"/);
@@ -57,6 +57,7 @@ describe("1AM circuit bundle graph", () => {
     expect(text).toMatch(/createMandateFromWallet/);
     expect(text).toMatch(/revokeMandatesFromWallet/);
     expect(text).toMatch(/placeOfferFromWallet/);
+    expect(text).toMatch(/withdrawFromWallet/);
     expect(text).not.toMatch(/new WebAssembly\.Module/);
     expect(text).toMatch(/WebAssembly\.instantiate/);
     expect(text).toMatch(/Buffer/);

@@ -7,6 +7,9 @@ export type ConstructedAgentFill = {
   nowBound: bigint;
   chosenMatches: boolean;
   pending: ReturnType<typeof constructFillK>["pending"];
+  auditSeed: Uint8Array;
+  fillBase: bigint;
+  fillQuote: bigint;
 };
 
 /**
@@ -23,11 +26,13 @@ export function constructRankedFill(args: {
   mandateRand: Uint8Array;
   stateNonce: Uint8Array;
   revoked?: boolean;
+  auditSeed?: Uint8Array;
 }): ConstructedAgentFill {
   const decision = args.planned.decision;
   if (decision.action !== "fill") {
     throw new Error("no eligible candidate to construct");
   }
+  const auditSeed = args.auditSeed ?? randomBytes32();
   const built = constructFillK({
     ledger: args.ledger,
     esk: args.esk,
@@ -39,7 +44,7 @@ export function constructRankedFill(args: {
     mandateRand: args.mandateRand,
     stateNonce: args.stateNonce,
     offerRand: decision.offerRand ?? randomBytes32(),
-    auditSeed: randomBytes32(),
+    auditSeed,
     getNonce: randomBytes32(),
     nextStateNonce: randomBytes32(),
     candidates: args.planned.candidates,
@@ -55,5 +60,12 @@ export function constructRankedFill(args: {
   if (!chosenMatches) {
     throw new Error("constructFillK selected a different candidate than rank");
   }
-  return { nowBound: args.nowBound, chosenMatches: true, pending: built.pending };
+  return {
+    nowBound: args.nowBound,
+    chosenMatches: true,
+    pending: built.pending,
+    auditSeed,
+    fillBase: decision.fillBase,
+    fillQuote: decision.fillQuote,
+  };
 }

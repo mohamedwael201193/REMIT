@@ -6,11 +6,12 @@ export type CircuitBundle = {
   createMandateFromWallet: (args: unknown) => Promise<unknown>;
   revokeMandatesFromWallet: (args: unknown) => Promise<unknown>;
   placeOfferFromWallet: (args: unknown) => Promise<unknown>;
+  withdrawFromWallet?: (args: unknown) => Promise<unknown>;
 };
 
 export async function loadRemitCircuitModule(apiUrl: string): Promise<CircuitBundle> {
   const root = apiUrl.replace(/\/$/, "");
-  const url = `${root}/browser/remit-circuit.js?v=ps1`;
+  const url = `${root}/browser/remit-circuit.js?v=ps2`;
   try {
     const mod = (await import(/* webpackIgnore: true */ url)) as Partial<CircuitBundle>;
     if (

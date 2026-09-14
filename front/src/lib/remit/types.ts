@@ -198,7 +198,7 @@ export type DisclosureFact =
 /** Auditor desk states. Never collapse these into "verified" because a hash exists. */
 export type AuditFlowState = "sealed" | "requested" | "revealed" | "verified";
 
-export type DisclosureState = "sealed" | "requested" | "revealed";
+export type DisclosureState = "sealed" | "requested" | "revealed" | "verified";
 
 export interface Disclosure {
   id: string;
@@ -307,8 +307,10 @@ export interface RemitProvider {
   getExecutions(): Promise<Execution[]>;
   getAudit(): Promise<AuditRecord[]>;
   revealFact(auditId: string, disclosureId: string): Promise<Disclosure>;
+  probeForgedDisclosure(): Promise<{ ok: boolean; failed: string[]; auditRoot?: string }>;
   getActivity(): Promise<ActivityItem[]>;
   connectWallet(provider: WalletProviderKind): Promise<WalletState>;
   disconnectWallet(): Promise<WalletState>;
   revokeMandates(): Promise<void>;
+  withdrawLeftover(): Promise<{ txHash?: string; block?: number }>;
 }

@@ -44,6 +44,7 @@ export function chainAuditRootFromHead(
 }
 
 export function disclosureFlow(state: DisclosureState, requested: boolean): AuditFlowState {
+  if (state === "verified") return "verified";
   if (state === "revealed") return "revealed";
   if (state === "requested" || requested) return "requested";
   return "sealed";

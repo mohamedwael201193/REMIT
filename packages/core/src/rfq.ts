@@ -98,10 +98,15 @@ export function openMandateBox(secretHex: string, boxed: string, expectedPubHex:
   return obj;
 }
 
-export function openOfferBox(secretHex: string, boxed: string, expectedPubHex: string): SealedRfqOffer {
+export function openOfferBox(
+  secretHex: string,
+  boxed: string,
+  expectedPubHex: string,
+  opts?: { allowExpired?: boolean },
+): SealedRfqOffer {
   const obj = openJson<SealedRfqOffer>(secretHex, boxed);
   if (obj.v !== 1 || obj.kind !== "offer") throw new RemitError("SEALED_BOX", "not an offer box");
-  if (obj.expiresAt < Date.now()) throw new RemitError("SEALED_BOX", "expired box");
+  if (!opts?.allowExpired && obj.expiresAt < Date.now()) throw new RemitError("SEALED_BOX", "expired box");
   if (obj.recipientBinding !== expectedPubHex) throw new RemitError("SEALED_BOX", "recipient mismatch");
   if (seen.has(obj.nonce)) throw new RemitError("SEALED_BOX", "replayed nonce");
   seen.add(obj.nonce);
