@@ -3,6 +3,7 @@
  * Workspace data comes from the public API + indexer, never from catalog fiction.
  */
 import {
+  fetchRemitAuditHead,
   fetchRemitChain,
   fetchRemitConfig,
   fetchRemitEvidence,
@@ -11,6 +12,7 @@ import {
   type MappedWorkspace,
 } from "./public-client";
 import { connectInjectedWallet, type ConnectedAPI } from "./midnight-connector";
+import { openedAuditRoot } from "./audit-flow";
 import { loadRemitCircuitModule } from "./circuit-call";
 import { getRemitProvider as emptyProvider } from "./local-provider";
 import type {
@@ -153,13 +155,23 @@ class LiveRemitProvider implements RemitProvider {
     const settled = ws.executions.filter(
       (e) => e.status === "settled" && Boolean(e.txHash) && e.block != null,
     );
+    const fillHashes = settled.map((e) => e.txHash ?? "").filter(Boolean);
+    let chainRoot = "";
+    try {
+      const head = await fetchRemitAuditHead(this.cfg.apiUrl);
+      if (head.auditRoot && !openedAuditRoot(head.auditRoot, fillHashes)) {
+        chainRoot = head.auditRoot;
+      }
+    } catch {
+      chainRoot = "";
+    }
     return settled.map((fill) => ({
       id: `audit:${fill.txHash ?? fill.id}`,
       executionRef: fill.reference,
       asset: fill.asset,
       counterpartyClass: "On-chain counterparty",
       proofStatus: "pending",
-      auditRoot: "",
+      auditRoot: chainRoot,
       recordedAt: fill.executedAt,
       disclosures: [
         { id: "fill-amount", fact: "fill-amount" as const, label: "Fill amount", state: "sealed" as const },

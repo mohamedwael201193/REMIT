@@ -184,6 +184,39 @@ export async function fetchRemitEvidence(apiUrl: string): Promise<RemitPublicEvi
   return (await res.json()) as RemitPublicEvidence;
 }
 
+export type RemitAuditHead = {
+  ok: boolean;
+  auditRoot: string | null;
+  fills?: string;
+  openOffers?: string;
+  txHashIsNotAuditRoot?: boolean;
+};
+
+export async function fetchRemitAuditHead(apiUrl: string): Promise<RemitAuditHead> {
+  const res = await fetch(new URL("/audit/head", apiRoot(apiUrl)));
+  if (!res.ok) throw new Error(`audit/head ${res.status}`);
+  const body = (await res.json()) as Partial<RemitAuditHead>;
+  const root = typeof body.auditRoot === "string" && /^[0-9a-f]{64}$/i.test(body.auditRoot) ? body.auditRoot.toLowerCase() : null;
+  return {
+    ok: Boolean(body.ok && root),
+    auditRoot: root,
+    fills: body.fills,
+    openOffers: body.openOffers,
+    txHashIsNotAuditRoot: true,
+  };
+}
+
+export async function postRemitRfqOffer(apiUrl: string, boxed: string): Promise<{ id: string }> {
+  const res = await fetch(new URL("/rfq/offer", apiRoot(apiUrl)), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ box: boxed }),
+  });
+  if (res.status === 409) throw new Error("RFQ nonce already delivered");
+  if (!res.ok) throw new Error(`rfq/offer ${res.status}`);
+  return (await res.json()) as { id: string };
+}
+
 const KIND_BY_STEP: Record<string, MappedActivity["kind"]> = {
   "pool-create-mandate": "mandate",
   "pool-place-offer": "offer",
