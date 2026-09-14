@@ -233,6 +233,12 @@ const KIND_BY_STEP: Record<string, MappedActivity["kind"]> = {
   "overreach-compact": "proof",
   "price-violation-compact": "proof",
   "pool-fill": "settlement",
+  "pool-k3-fill": "settlement",
+  "mbbe-padded-fill-historical": "settlement",
+  "pool-place-maker-a-ineligible": "offer",
+  "pool-place-maker-b-eligible": "offer",
+  "pool-place-maker-c-best-partial": "offer",
+  "agent-rank": "proof",
   "selective-audit": "audit",
   "pool-revoke": "revocation",
   "pool-withdraw": "settlement",
@@ -241,6 +247,20 @@ const KIND_BY_STEP: Record<string, MappedActivity["kind"]> = {
 
 function stepKind(name: string): MappedActivity["kind"] {
   return KIND_BY_STEP[name] ?? "proof";
+}
+
+function isFillStep(name: string): boolean {
+  return name === "pool-fill" || name === "pool-k3-fill" || name === "mbbe-padded-fill-historical";
+}
+
+/** Latest indexer tx is often a fill. Never label it as the mandate when evidence already named it. */
+function nonMandateTxHashes(steps: RemitEvidenceStep[]): Set<string> {
+  const out = new Set<string>();
+  for (const s of steps) {
+    if (!s.txHash || s.name === "pool-create-mandate") continue;
+    out.add(s.txHash);
+  }
+  return out;
 }
 
 /** Indexer/evidence → workspace. Private openings stay null ("sealed"), never numeric 0. */
@@ -272,7 +292,7 @@ export function mapPublicWorkspace(args: {
     activity.unshift({
       id: `chain:pool:${liveTx}`,
       at: now,
-      kind: activeMandates > 0 ? "mandate" : "proof",
+      kind: "proof",
       label: "pool-contractAction",
       detail: ["ok", liveTx, liveBlock != null ? `block ${liveBlock}` : undefined, "indexer latest"]
         .filter(Boolean)
@@ -283,7 +303,7 @@ export function mapPublicWorkspace(args: {
 
   const executions: MappedExecution[] = [];
   for (const s of args.evidence.steps) {
-    if (s.name === "pool-fill") {
+    if (isFillStep(s.name)) {
       executions.push({
         id: `fill:${s.txHash ?? "pending"}`,
         reference: s.txHash ? s.txHash.slice(0, 10) : "FILL",
@@ -358,8 +378,10 @@ export function mapPublicWorkspace(args: {
   if (args.evidence.steps.some((s) => s.name === "pool-create-mandate" && s.ok) || activeMandates > 0) {
     const created = args.evidence.steps.find((s) => s.name === "pool-create-mandate");
     const revoked = args.evidence.steps.some((s) => s.name === "pool-revoke" && s.ok);
-    const mandateTx = activeMandates > 0 && liveTx ? liveTx : created?.txHash;
-    const mandateBlock = activeMandates > 0 && liveBlock != null ? liveBlock : created?.block;
+    const stolen = Boolean(liveTx && nonMandateTxHashes(args.evidence.steps).has(liveTx));
+    const liveMandate = activeMandates > 0 && liveTx && !stolen;
+    const mandateTx = liveMandate ? liveTx : created?.txHash ?? (activeMandates > 0 ? liveTx : undefined);
+    const mandateBlock = liveMandate ? liveBlock : created?.block ?? (activeMandates > 0 ? liveBlock : undefined);
     mandates.push({
       id: mandateId,
       reference: poolAddr ? `MD-${poolAddr.slice(0, 6)}` : "MD-LIVE",
@@ -392,7 +414,7 @@ export function mapPublicWorkspace(args: {
     stepName: string,
   ) => {
     const step = args.evidence.steps.find((s) => s.name === stepName);
-    if (!step && state !== "executed") return;
+    if (!step) return;
     offers.push({
       id,
       reference: name,
@@ -414,8 +436,23 @@ export function mapPublicWorkspace(args: {
   };
   addOffer("offer:over", "OVER-CAP", "incompatible", ["Exceeds mandate max fill (X+20%)"], "pool-place-over-offer");
   addOffer("offer:price", "PRICE-LIMIT", "incompatible", ["Outside mandate price limit"], "pool-place-price-offer");
-  const fillOk = args.evidence.steps.some((s) => s.name === "pool-fill" && s.ok);
+  const fillOk = args.evidence.steps.some((s) => isFillStep(s.name) && s.ok);
   addOffer("offer:compliant", "COMPLIANT", fillOk ? "executed" : "compatible", [], "pool-place-offer");
+  addOffer(
+    "offer:maker-a",
+    "MAKER-A",
+    "incompatible",
+    ["Min-fill outside this mandate"],
+    "pool-place-maker-a-ineligible",
+  );
+  addOffer("offer:maker-b", "MAKER-B", "compatible", [], "pool-place-maker-b-eligible");
+  addOffer(
+    "offer:maker-c",
+    "MAKER-C",
+    fillOk ? "executed" : "compatible",
+    [],
+    "pool-place-maker-c-best-partial",
+  );
 
   return {
     portfolio: {

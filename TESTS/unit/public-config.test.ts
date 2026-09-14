@@ -98,4 +98,46 @@ describe("public Preprod config for the supplied frontend", () => {
     expect(ws.mandates[0]?.intent).not.toMatch(/\bm1\b/);
     expect(ws.activity[0]?.detail).toMatch(/aa/);
   });
+
+  it("maps pool-k3-fill as settled and does not steal the fill hash as the mandate tx", () => {
+    const fillHash = "12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20";
+    const mandateHash = "308c7b2c11111111111111111111111111111111111111111111111111111111";
+    const chain: RemitChainSnapshot = {
+      live: true,
+      network: "preprod",
+      pool: {
+        address: "pool-mbbe",
+        txHash: fillHash,
+        block: 2542039,
+        fills: 2,
+        openOffers: 5,
+        activeMandates: 1,
+      },
+      quote: { address: "quote1", txHash: "bb", block: 8 },
+    };
+    const evidence: RemitPublicEvidence = {
+      present: true,
+      network: "preprod",
+      mpc: false,
+      steps: [
+        { name: "pool-create-mandate", ok: true, txHash: mandateHash, block: 2541972 },
+        { name: "pool-place-maker-a-ineligible", ok: true, txHash: "a1", block: 2541978 },
+        { name: "pool-place-maker-b-eligible", ok: true, txHash: "b1", block: 2541986 },
+        { name: "pool-place-maker-c-best-partial", ok: true, txHash: "c1", block: 2541991 },
+        { name: "agent-rank", ok: true, detail: "eligible=2 of 3; selected best compliant; openings private" },
+        { name: "pool-k3-fill", ok: true, txHash: fillHash, block: 2542039 },
+      ],
+    };
+    const ws = mapPublicWorkspace({ chain, evidence });
+    expect(ws.executions.some((e) => e.status === "settled" && e.txHash === fillHash)).toBe(true);
+    expect(ws.mandates[0]?.status).toBe("active");
+    expect(ws.mandates[0]?.intent).toMatch(new RegExp(`tx ${mandateHash}`));
+    expect(ws.mandates[0]?.intent).not.toMatch(new RegExp(`tx ${fillHash}`));
+    expect(ws.offers.map((o) => o.reference).sort()).toEqual(["MAKER-A", "MAKER-B", "MAKER-C"]);
+    expect(ws.offers.some((o) => o.reference === "COMPLIANT")).toBe(false);
+    expect(ws.offers.find((o) => o.reference === "MAKER-A")?.state).toBe("incompatible");
+    expect(ws.offers.find((o) => o.reference === "MAKER-C")?.state).toBe("executed");
+    expect(ws.activity.some((a) => a.kind === "settlement" && a.label === "pool-k3-fill")).toBe(true);
+    expect(ws.executions.every((e) => e.attemptedFill == null && e.price == null)).toBe(true);
+  });
 });
