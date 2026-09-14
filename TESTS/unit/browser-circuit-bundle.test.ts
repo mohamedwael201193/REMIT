@@ -54,6 +54,7 @@ describe("1AM circuit bundle graph", () => {
     expect(src).toMatch(/if \(!note\)/);
     const live = readFileSync(resolve("front/src/lib/remit/live-provider.ts"), "utf8");
     expect(live).toMatch(/did not decrease/);
+    expect(live).toMatch(/ensureProvingSession/);
     expect(live).not.toMatch(/indexer still reports activeMandates > 0/);
     const settings = readFileSync(resolve("front/src/components/remit/app/view-settings.tsx"), "utf8");
     expect(settings).toMatch(/deposits 1 then withdraws/);

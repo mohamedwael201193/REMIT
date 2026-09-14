@@ -20,6 +20,12 @@ describe("mapLedgerFailure", () => {
     expect(err.code).toBe("WALLET");
     expect(err.message).toMatch(/1AM/);
   });
+
+  it("maps 1AM Wallet not initialized to WALLET", () => {
+    const err = mapLedgerFailure("'prove' returned an error: Error: Wallet not initialized");
+    expect(err.code).toBe("WALLET");
+    expect(err.message).toMatch(/proving toolbar/);
+  });
 });
 
 describe("submitStagedCircuit", () => {

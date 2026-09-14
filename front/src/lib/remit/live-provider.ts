@@ -127,9 +127,7 @@ class LiveRemitProvider implements RemitProvider {
   }
   async createMandate(input: NewMandateInput): Promise<Mandate> {
     await this.load();
-    if (this.wallet.status !== "connected" || !this.connected) {
-      throw new Error("Connect 1AM or Lace in a click handler before createMandate");
-    }
+    await this.ensureProvingSession();
     const circuit = await loadRemitCircuitModule(this.cfg.apiUrl);
     const created = (await circuit.createMandateFromWallet({
       wallet: this.connected,
@@ -147,9 +145,7 @@ class LiveRemitProvider implements RemitProvider {
   }
   async placeOffer(input: NewOfferInput): Promise<Offer> {
     await this.load();
-    if (this.wallet.status !== "connected" || !this.connected) {
-      throw new Error("Connect 1AM or Lace in a click handler before placeOffer");
-    }
+    await this.ensureProvingSession();
     const circuit = await loadRemitCircuitModule(this.cfg.apiUrl);
     const created = (await circuit.placeOfferFromWallet({
       wallet: this.connected,
@@ -281,6 +277,19 @@ class LiveRemitProvider implements RemitProvider {
     this.wallet = connected.state;
     return this.wallet;
   }
+  private async ensureProvingSession(): Promise<void> {
+    if (typeof window === "undefined") {
+      throw new Error("Wallet connect only runs in the browser");
+    }
+    const kind = this.wallet.provider;
+    if (kind !== "1am" && kind !== "lace") {
+      throw new Error("Connect 1AM or Lace in a click handler before Compact circuit-call");
+    }
+    await this.connectWallet(kind);
+    if (this.wallet.status !== "connected" || !this.connected) {
+      throw new Error("Connect 1AM or Lace in a click handler before Compact circuit-call");
+    }
+  }
   async restoreWallet(): Promise<WalletState> {
     if (typeof window === "undefined") return disconnected();
     if (isManualDisconnect(window)) return disconnected();
@@ -329,9 +338,7 @@ class LiveRemitProvider implements RemitProvider {
     return this.wallet;
   }
   async revokeMandates(): Promise<void> {
-    if (this.wallet.status !== "connected" || !this.connected) {
-      throw new Error("Connect 1AM or Lace in a click handler before revokeMandate");
-    }
+    await this.ensureProvingSession();
     const circuit = await loadRemitCircuitModule(this.cfg.apiUrl);
     const before = await this.load();
     const previous = before.portfolio.activeMandates;
@@ -354,9 +361,7 @@ class LiveRemitProvider implements RemitProvider {
     }
   }
   async withdrawLeftover(): Promise<{ txHash?: string; block?: number }> {
-    if (this.wallet.status !== "connected" || !this.connected) {
-      throw new Error("Connect 1AM or Lace in a click handler before withdraw");
-    }
+    await this.ensureProvingSession();
     const circuit = await loadRemitCircuitModule(this.cfg.apiUrl);
     if (typeof circuit.withdrawFromWallet !== "function") {
       throw new Error("Hosted circuit bundle does not export withdrawFromWallet");

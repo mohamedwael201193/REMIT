@@ -41,8 +41,8 @@ export type AppView =
 export type SyncStatus = "idle" | "loading" | "ready" | "error";
 
 function explainCircuitError(message: string): string {
-  if (/Wallet UI disconnected/i.test(message)) {
-    return "1AM closed its proving toolbar. Click the 1AM icon, keep it open through deposit and createMandate, then Seal again.";
+  if (/Wallet UI disconnected|Wallet not initialized/i.test(message)) {
+    return "1AM closed its proving toolbar. Click the 1AM icon, keep it open through Compact prove, then retry.";
   }
   return message;
 }
