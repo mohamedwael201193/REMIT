@@ -61,6 +61,12 @@ describe("agent daemon plans Compact-identical fills from a sealed inbox", () =>
     expect(planned.decision.fillQuote).toBe(2000n);
     expect(planned.receipt.globalBest).toBe(false);
     expect(planned.receipt.eligibleCount).toBe(2);
+    const receiptText = JSON.stringify(planned.receipt);
+    expect(receiptText.includes("fillBase")).toBe(false);
+    expect(receiptText.includes("fillQuote")).toBe(false);
+    expect(receiptText.includes("chosenIndex")).toBe(false);
+    expect(receiptText.includes("rfqSk")).toBe(false);
+    expect(receiptText.includes("execSk")).toBe(false);
     expect(planned.receipt.rejected.some((r) => r.id === "ineligible")).toBe(true);
     const residual = residualOf(
       planned.decision.offer,

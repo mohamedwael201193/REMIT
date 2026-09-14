@@ -50,6 +50,7 @@ import {
   sideLabel,
   timeAgo,
 } from "@/lib/remit/format";
+import { PRIVATE_COPY, PRIVACY_LABEL_COPY } from "@/lib/remit/types";
 import type {
   ActivityItem,
   ActivityKind,
@@ -203,16 +204,19 @@ function SpotlightCard({ mandate }: { mandate: Mandate | undefined }) {
 
             <PaperFact label="Max fill">
               <span className="font-data text-[15px] font-bold text-gold-deep">
-                {formatUsd(mandate.maxFill)}
+                {mandate.maxFill == null
+                  ? (mandate.amountPrivacy === "not-disclosed"
+                    ? PRIVACY_LABEL_COPY["not-disclosed"]
+                    : PRIVACY_LABEL_COPY.sealed)
+                  : formatUsd(mandate.maxFill)}
               </span>
             </PaperFact>
 
             <PaperFact label="Limit">
               <span className="font-data font-semibold">
-                {formatUsd(
-                  mandate.limitPrice,
-                  mandate.limitPrice != null && mandate.limitPrice < 10,
-                )}
+                {mandate.limitPrice == null
+                  ? PRIVACY_LABEL_COPY.sealed
+                  : formatUsd(mandate.limitPrice, mandate.limitPrice < 10)}
               </span>
             </PaperFact>
 
@@ -225,7 +229,7 @@ function SpotlightCard({ mandate }: { mandate: Mandate | undefined }) {
             <PaperFact label="Budget" className="col-span-2">
               {mandate.spent == null || mandate.totalBudget == null ? (
                 <p className="mt-2 font-data text-[11.5px] text-muted-foreground">
-                  Sealed
+                  {PRIVACY_LABEL_COPY.sealed} · {PRIVACY_LABEL_COPY["not-disclosed"]}
                 </p>
               ) : (
                 <>
@@ -306,8 +310,9 @@ function ExecutionRow({ execution }: { execution: Execution }) {
           </span>
           <span aria-hidden="true">·</span>
           <span className="text-cream/90">
-            {formatCompactUsd(amount)}{" "}
-            {execution.settledFill !== undefined ? "settled" : "attempted"}
+            {amount == null
+              ? PRIVACY_LABEL_COPY.sealed
+              : `${formatCompactUsd(amount)} ${execution.settledFill !== undefined ? "settled" : "attempted"}`}
           </span>
           <span aria-hidden="true">·</span>
           <span>{timeAgo(execution.executedAt)}</span>
@@ -503,7 +508,7 @@ function AuditReadyCard({ verifiedCount }: { verifiedCount: number }) {
 function MakerBanner() {
   const setAppView = useRemitStore((s) => s.setAppView);
   return (
-    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4">
+    <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:flex-row sm:items-center">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gold/25 bg-gold/10 text-gold">
         <Inbox className="h-5 w-5" aria-hidden="true" />
       </span>
@@ -528,7 +533,7 @@ function MakerBanner() {
 function ExecutorBanner() {
   const setAppView = useRemitStore((s) => s.setAppView);
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4">
+    <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:flex-row sm:items-center">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gold/25 bg-gold/10 text-gold">
         <Bot className="h-5 w-5" aria-hidden="true" />
       </span>
@@ -553,7 +558,7 @@ function ExecutorBanner() {
 function AuditorBanner({ verifiedCount }: { verifiedCount: number }) {
   const setAppView = useRemitStore((s) => s.setAppView);
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4">
+    <div className="flex min-w-0 flex-col items-stretch gap-3 rounded-xl border border-[rgba(239,235,224,0.1)] bg-[#121c17] p-4 sm:flex-row sm:items-center">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-mint/25 bg-mint/10 text-mint">
         <SearchCheck className="h-5 w-5" aria-hidden="true" />
       </span>
@@ -668,14 +673,14 @@ export function ViewOverview() {
           label="Remaining budget"
           value={
             remainingBudget == null ? (
-              "Sealed"
+              PRIVATE_COPY
             ) : (
               <CountUp value={remainingBudget} format={(n) => formatUsd(n)} />
             )
           }
           sub={
             portfolio.totalBudget == null
-              ? "Not disclosed"
+              ? `${PRIVACY_LABEL_COPY["not-disclosed"]} — openings are not TVL`
               : `of ${formatCompactUsd(portfolio.totalBudget)} authorized`
           }
         />

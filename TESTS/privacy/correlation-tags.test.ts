@@ -325,4 +325,55 @@ describe("DarkStake-style correlation tags on the public ledger", () => {
     expect(tags.has(toHex(m1.mandateId).toLowerCase())).toBe(false);
     expect(tags.has(toHex(m2.mandateId).toLowerCase())).toBe(false);
   });
+
+  it("public ledger dump omits decimal offer sizes and the chosenIndex field name", () => {
+    const BASE = 32_771_011n;
+    const QUOTE = 1_048_583_211n;
+    const MAKER_DEP = 2_097_167_000n;
+    const PRINCIPAL = 90_011_000n;
+    const MAX_FILL = 40_000_000n;
+    const k = keys();
+    let sim = bootPool();
+    const dMaker = deposit(sim, k.makerSk, 1n, MAKER_DEP);
+    sim = dMaker.sim;
+    const offer = sellOffer(k.maker, {
+      baseAmount: BASE,
+      quoteAmount: QUOTE,
+      expiry: OFFER_EXPIRY_A,
+      minFillBase: 1n,
+    });
+    const placed = placeAttackOffer(sim, k.makerSk, dMaker.note, offer);
+    sim = placed.sim;
+    const dP = deposit(sim, k.principalSk, 0n, PRINCIPAL);
+    sim = dP.sim;
+    const mandate = buyMandate(k, {
+      maxFillBase: MAX_FILL,
+      limitNum: LIMIT_NUM,
+      limitDen: LIMIT_DEN,
+      expiry: MANDATE_EXPIRY,
+    });
+    const created = createMandate(sim, k.principalSk, dP.note, mandate);
+    sim = created.sim;
+    sim = fillAttack(sim, {
+      esk: k.esk,
+      mandate,
+      mandateRand: created.mandateRand,
+      remaining: PRINCIPAL,
+      stateNonce: created.stateNonce,
+      nowBound: NOW,
+      book: paddedBook([{ offer, rand: placed.offerRand, live: true }]),
+      chosenIndex: 0n,
+      fillBase: BASE,
+      fillQuote: QUOTE,
+    });
+    expect(publicLedger(sim).fills).toBe(1n);
+    const hay = haystack(sim);
+    expect(hay.includes("chosenIndex"), "chosenIndex string in public dump").toBe(false);
+    expect(hay.includes("fillBase"), "fillBase string in public dump").toBe(false);
+    expect(hay.includes("fillQuote"), "fillQuote string in public dump").toBe(false);
+    expect(hay.includes(BASE.toString(10)), "decimal offer base in public dump").toBe(false);
+    expect(hay.includes(QUOTE.toString(10)), "decimal offer quote in public dump").toBe(false);
+    expect(hay.includes(MAX_FILL.toString(10)), "decimal maxFillBase in public dump").toBe(false);
+    assertAbsent(hay, [BASE, QUOTE, MAX_FILL, LIMIT_NUM, LIMIT_DEN, k.esk, offer.payNonce, placed.offerRand], "decimal-sizes");
+  });
 });

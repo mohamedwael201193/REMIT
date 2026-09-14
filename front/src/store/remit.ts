@@ -11,19 +11,20 @@
 
 import { create } from "zustand";
 import { getRemitProvider } from "@/lib/remit/live-provider";
-import type {
-  ActivityItem,
-  AuditRecord,
-  Execution,
-  FillAttemptInput,
-  Mandate,
-  NewMandateInput,
-  Offer,
-  PortfolioSnapshot,
-  RemitProvider,
-  Role,
-  WalletProviderKind,
-  WalletState,
+import {
+  isIndexerSettled,
+  type ActivityItem,
+  type AuditRecord,
+  type Execution,
+  type FillAttemptInput,
+  type Mandate,
+  type NewMandateInput,
+  type Offer,
+  type PortfolioSnapshot,
+  type RemitProvider,
+  type Role,
+  type WalletProviderKind,
+  type WalletState,
 } from "@/lib/remit/types";
 
 export type AppView =
@@ -235,10 +236,13 @@ export const useRemitStore = create<RemitState>((set, get) => ({
       const execution = await provider.executeFill(input);
       if (execution.status === "rejected") {
         set({ executionStage: "idle", lastExecution: execution });
-      } else if (execution.status === "settled") {
+      } else if (isIndexerSettled(execution)) {
         set({ executionStage: "done", lastExecution: execution });
-      } else if (execution.status === "proof-pending") {
-        set({ executionStage: "proving", lastExecution: execution });
+      } else if (execution.status === "proof-pending" || execution.status === "settled") {
+        set({
+          executionStage: execution.status === "settled" ? "settling" : "proving",
+          lastExecution: execution,
+        });
       } else {
         set({ executionStage: "checking", lastExecution: execution });
       }

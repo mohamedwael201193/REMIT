@@ -124,4 +124,42 @@ describe("browser wrap-key: sessionStorage must not hold plaintext ownerSk JSON"
     const opened = openTabPrivateState(blob!, tabWrapKeyFromHex(wrapHex!));
     expect(opened.ownerSk).toEqual(ps.ownerSk);
   });
+
+  it("wallet B wrap key cannot open wallet A's blob; wrap hex is not stored inside the blob", () => {
+    const wrapA = freshTabWrapKey();
+    const wrapB = freshTabWrapKey();
+    const psA = emptyPrivateState("wallet-a");
+    psA.ownerSk = Array.from({ length: 32 }, (_, i) => 11 + i);
+    psA.mandates = [
+      {
+        mandate: {
+          principal: Array.from({ length: 32 }, () => 1),
+          executor: Array.from({ length: 32 }, () => 2),
+          side: "0",
+          maxFillBase: "50",
+          limitNum: "30",
+          limitDen: "1000",
+          cpRoot: "0",
+          expiry: "4000000000",
+          mandateId: Array.from({ length: 32 }, (_, i) => 40 + i),
+        },
+        rand: Array.from({ length: 32 }, (_, i) => 90 + i),
+      },
+    ];
+    const blobA = sealTabPrivateState(psA, wrapA);
+    expect(blobA.includes("ownerSk")).toBe(false);
+    expect(blobA.includes("11,12,13")).toBe(false);
+    expect(blobA.includes("90,91,92")).toBe(false);
+    expect(blobA.toLowerCase().includes(wrapKeyHex(wrapA))).toBe(false);
+    expect(blobA.toLowerCase().includes(wrapKeyHex(wrapB))).toBe(false);
+    expect(() => openTabPrivateState(blobA, wrapB)).toThrow();
+    const opened = openTabPrivateState(blobA, wrapA);
+    expect(opened.ownerSk).toEqual(psA.ownerSk);
+    expect(opened.mandates[0]?.rand).toEqual(psA.mandates[0]?.rand);
+
+    const keysA = tabStorageKeys("preprod", "pool", "wallet-a");
+    const keysB = tabStorageKeys("preprod", "pool", "wallet-b");
+    expect(keysA.wrap).not.toBe(keysB.wrap);
+    expect(keysA.blob).not.toBe(keysB.blob);
+  });
 });

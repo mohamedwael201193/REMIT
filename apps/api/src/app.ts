@@ -22,7 +22,7 @@ import {
   fromHex,
   type InboxItem,
 } from "@remit/core";
-import { planFillFromInbox } from "@remit/agent";
+import { planFillFromInbox, publicAgentRankView, publicAgentStatusView } from "@remit/agent";
 
 export type ApiConfig = {
   cors: string;
@@ -57,18 +57,7 @@ export async function buildApp(cfg: ApiConfig) {
       receipts: [...receipts.entries()],
     });
   };
-  let lastAgent:
-    | {
-        at: number;
-        candidateCount: number;
-        eligibleCount: number;
-        rejectedCount: number;
-        selected: boolean;
-        rule: "mbbe-eligible-only";
-        globalBest: false;
-        mpc: false;
-      }
-    | null = null;
+  let lastAgent: ReturnType<typeof publicAgentStatusView> | null = null;
 
   let publicEvidence: {
     present: boolean;
@@ -488,29 +477,8 @@ export async function buildApp(cfg: ApiConfig) {
       nowBound,
       revoked: false,
     });
-    lastAgent = {
-      at: planned.receipt.at,
-      candidateCount: planned.receipt.candidateCount,
-      eligibleCount: planned.receipt.eligibleCount,
-      rejectedCount: planned.receipt.rejected.length,
-      selected: planned.receipt.selectedId !== null,
-      rule: "mbbe-eligible-only",
-      globalBest: false,
-      mpc: false,
-    };
-    return {
-      ranked: planned.decision.ranked.map((r) =>
-        r.ok ? { id: r.id, ok: true as const } : { id: r.id, ok: false as const, reason: r.reason },
-      ),
-      eligibleCount: planned.receipt.eligibleCount,
-      rejected: planned.receipt.rejected,
-      selectedId: planned.receipt.selectedId,
-      candidateCount: planned.receipt.candidateCount,
-      dropped: planned.dropped,
-      rule: "mbbe-eligible-only",
-      mpc: false,
-      globalBest: false,
-    };
+    lastAgent = publicAgentStatusView(planned.receipt);
+    return publicAgentRankView(planned);
   });
 
   app.setErrorHandler((err, _req, reply) => {

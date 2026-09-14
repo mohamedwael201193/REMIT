@@ -2,7 +2,7 @@ import type { Mandate, Offer, OfferSlot } from "@remit/contracts/pool";
 import { pureCircuits } from "../../CONTRACT/managed/remit_pool/contract/index.js";
 import { CompactError } from "@midnight-ntwrk/compact-runtime";
 import { randomBytes32, toArray } from "../../packages/core/src/bytes.ts";
-import { FAR_EXPIRY, padBook, withOfferDefaults } from "../../packages/core/src/mbbe.ts";
+import { FAR_EXPIRY, padBook, residualOf as residualOpening, withOfferDefaults } from "../../packages/core/src/mbbe.ts";
 import { pendingCancelOffer, pendingFill, pendingPlaceOffer } from "../../packages/core/src/pending.ts";
 import {
   bootPool,
@@ -10,6 +10,7 @@ import {
   createMandate,
   deposit,
   mandatePath,
+  offerPath,
   publicLedger,
   type Sim,
 } from "../../packages/core/src/sim.ts";
@@ -126,15 +127,20 @@ export function fillAttack(sim: Sim, args: AttackFillArgs): Sim {
   const selected = args.book[idx] ?? args.book[0]!;
   const fb = args.fillBase ?? selected.offer.baseAmount;
   const fq = args.fillQuote ?? selected.offer.quoteAmount;
-  const slots: OfferSlot[] = padBook(args.book.map(({ offer, rand, live }) => ({ offer, rand, live })));
+  const padded = paddedBook(args.book);
+  const slots: OfferSlot[] = padded.map(({ offer, rand, live }) => ({ offer, rand, live }));
+  const bookPaths =
+    args.bookPaths ??
+    padded.map((s) => s.pathOverride ?? offerPath(sim, s.offer, s.rand));
+  const treeAnchor = args.book.find((s) => !s.pathOverride) ?? selected;
   const pending = pendingFill(publicLedger(sim), {
     esk: args.esk,
     mandate: args.mandate,
     mandateRand: args.mandateRand,
     remaining: args.remaining,
     stateNonce: args.stateNonce,
-    offer: selected.offer,
-    offerRand: selected.rand,
+    offer: treeAnchor.offer,
+    offerRand: treeAnchor.rand,
     auditSeed: args.auditSeed ?? randomBytes32(),
     getNonce: args.getNonce ?? randomBytes32(),
     nextStateNonce: args.nextStateNonce ?? randomBytes32(),
@@ -142,7 +148,7 @@ export function fillAttack(sim: Sim, args: AttackFillArgs): Sim {
     fillQuote: fq,
     chosenIndex: args.chosenIndex,
     book: slots,
-    bookPaths: args.bookPaths,
+    bookPaths,
   });
   if (args.foreignMandate) {
     const fm = args.foreignMandate.mandate;
@@ -168,18 +174,7 @@ export function paddedBook(slots: AttackSlot[]): AttackSlot[] {
 }
 
 export function residualOf(o: Offer, rand: Uint8Array, fillBase: bigint, fillQuote: bigint): { offer: Offer; rand: Uint8Array } {
-  return {
-    offer: {
-      side: o.side,
-      baseAmount: o.baseAmount - fillBase,
-      quoteAmount: o.quoteAmount - fillQuote,
-      maker: o.maker,
-      payNonce: pureCircuits.residualPayNonceOf(o.payNonce),
-      expiry: o.expiry,
-      minFillBase: o.minFillBase,
-    },
-    rand: pureCircuits.residualRandOf(rand),
-  };
+  return residualOpening(o, rand, fillBase, fillQuote);
 }
 
 export function expectCompactFailAny(fn: () => unknown, needles: string[]): string {

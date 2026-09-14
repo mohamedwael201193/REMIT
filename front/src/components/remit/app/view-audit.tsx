@@ -86,7 +86,7 @@ function DisclosureTile({
       <span className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
           <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
-          <span className="truncate">Sealed — reveal on request</span>
+          <span className="truncate">SEALED — reveal on request</span>
         </span>
         <span className="inline-flex h-8 shrink-0 items-center rounded-md px-2.5 text-[11px] font-medium text-gold transition-colors group-hover:bg-gold/10">
           Reveal

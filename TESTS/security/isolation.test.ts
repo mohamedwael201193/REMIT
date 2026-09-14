@@ -4,7 +4,7 @@ import { pickChosenIndex } from "../../packages/core/src/mbbe.ts";
 import { randomBytes32 } from "../../packages/core/src/bytes.ts";
 import { emptyPrivateState } from "../../packages/core/src/state.ts";
 import { tabStorageKeys } from "../../packages/core/src/tab-seal.ts";
-import { bootPool, createMandate, deposit, expectCompactFail, fill, publicLedger } from "../../packages/core/src/sim.ts";
+import { bootPool, createMandate, deposit, expectCompactFail, fill, publicLedger, withdraw } from "../../packages/core/src/sim.ts";
 import {
   buyMandate,
   cancelAttackOffer,
@@ -320,6 +320,71 @@ describe("isolation — wrong executor, cancelled/expired K-set, padding, residu
       "offer already used",
     );
     expect(publicLedger(sim).fills).toBe(1n);
+  });
+
+  it("witness remaining must match the committed mandate state (cross-mandate budget swap)", () => {
+    const a = keys();
+    const b = keys();
+    const esk = a.esk;
+    const executor = a.executor;
+    let sim = bootPool();
+    const offer = sellOffer(a.maker);
+    const placed = placeQuoted(sim, a.makerSk, offer);
+    sim = placed.sim;
+    const dA = deposit(sim, a.principalSk, 0n, 100n);
+    sim = dA.sim;
+    const dB = deposit(sim, b.principalSk, 0n, 10n);
+    sim = dB.sim;
+    const mandateA = buyMandate(a, { executor });
+    const mandateB = buyMandate(b, { executor });
+    const createdA = createMandate(sim, a.principalSk, dA.note, mandateA);
+    sim = createdA.sim;
+    const createdB = createMandate(sim, b.principalSk, dB.note, mandateB);
+    sim = createdB.sim;
+
+    expectCompactFailAny(
+      () =>
+        fillAttack(sim, {
+          esk,
+          mandate: mandateA,
+          mandateRand: createdA.mandateRand,
+          remaining: 10n,
+          stateNonce: createdA.stateNonce,
+          nowBound: NOW,
+          book: paddedBook([{ offer, rand: placed.offerRand, live: true }]),
+          chosenIndex: 0n,
+        }),
+      ["mandate-state not in historic Merkle tree", "state path mismatch", "unknown state"],
+    );
+    expectCompactFailAny(
+      () =>
+        fillAttack(sim, {
+          esk,
+          mandate: mandateB,
+          mandateRand: createdB.mandateRand,
+          remaining: 100n,
+          stateNonce: createdA.stateNonce,
+          nowBound: NOW,
+          book: paddedBook([{ offer, rand: placed.offerRand, live: true }]),
+          chosenIndex: 0n,
+        }),
+      ["state/mandate mismatch", "state path mismatch", "unknown state", "mandate-state not in historic Merkle tree"],
+    );
+    expect(publicLedger(sim).fills).toBe(0n);
+  });
+
+  it("wallet B cannot spend wallet A's note; A cannot cancel B's offer", () => {
+    const a = keys();
+    const b = keys();
+    let sim = bootPool();
+    const dA = deposit(sim, a.principalSk, 0n, 40n);
+    sim = dA.sim;
+    expectCompactFail(() => withdraw(sim, b.principalSk, dA.note, 40n), "not your note");
+
+    const offerB = sellOffer(b.maker);
+    const placedB = placeQuoted(sim, b.makerSk, offerB);
+    expectCompactFail(() => cancelAttackOffer(placedB.sim, a.makerSk, offerB, placedB.offerRand), "not your offer");
+    expect(publicLedger(placedB.sim).fills).toBe(0n);
   });
 });
 

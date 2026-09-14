@@ -37,6 +37,15 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "examples",
+    "prisma",
+    "src/lib/db.ts",
+    "src/components/ui/chart.tsx",
+    "src/components/ui/calendar.tsx",
+    "src/components/ui/carousel.tsx",
+    "src/components/ui/command.tsx",
+    "src/components/ui/sidebar.tsx",
+    "src/components/ui/form.tsx"
   ]
 }

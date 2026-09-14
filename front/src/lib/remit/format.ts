@@ -124,6 +124,6 @@ export function sideLabel(side: "buy" | "sell"): string {
 }
 
 export function pct(n: number | null | undefined): string {
-  if (n == null) return "Sealed";
+  if (n == null) return PRIVACY_LABEL_COPY.sealed;
   return `${Math.round(n)}%`;
 }

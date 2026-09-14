@@ -20,6 +20,12 @@ export type FictionKillItem = {
 
 export const FICTIONS: FictionKillItem[] = [
   {
+    id: "ignore-build-errors",
+    file: "front/next.config.ts",
+    issue: "Removed typescript.ignoreBuildErrors. Typecheck excludes unused examples/prisma/db and unused shadcn offenders.",
+    status: "killed-this-shift",
+  },
+  {
     id: "hello-world-api",
     file: "front/src/app/api/route.ts:1",
     issue: "Next GET /api returned Hello, world!; unused. File deleted this shift.",
@@ -99,27 +105,27 @@ export const FICTIONS: FictionKillItem[] = [
   },
   {
     id: "catalog-usdc-n",
-    file: "front/src/lib/remit/catalog.ts:62",
-    issue: "USDC.n remains in isolated ASSETS array. Live lookups use LIVE_ASSETS only (tNIGHT, REMIT-Q, DUST).",
-    status: "isolated",
+    file: "front/src/lib/remit/catalog.ts",
+    issue: "Deleted USDC.n / wBTC.n / wETH.n / XAU.n / TGF-NAV / MMLF. LIVE_ASSETS is tNIGHT, REMIT-Q, DUST only.",
+    status: "killed-this-shift",
   },
   {
     id: "catalog-corvus",
-    file: "front/src/lib/remit/catalog.ts:189",
-    issue: "EXECUTORS Corvus array kept isolated. executorById never consults it; ex-remit → Constrained broker.",
-    status: "isolated",
+    file: "front/src/lib/remit/catalog.ts",
+    issue: "Deleted EXECUTORS Corvus/Halcyon/Ledgerline arrays. executorById still maps ex-remit → Constrained broker.",
+    status: "killed-this-shift",
   },
   {
     id: "catalog-md-2841",
-    file: "front/src/lib/remit/catalog.ts:220",
-    issue: "MANDATES / OFFERS / EXECUTIONS / AUDIT_RECORDS / ACTIVITY fixtures (MD-2841, USDC.n, fake audit roots). Not imported by live provider or live views.",
-    status: "isolated",
+    file: "front/src/lib/remit/catalog.ts",
+    issue: "Deleted MANDATES / OFFERS / EXECUTIONS / AUDIT_RECORDS / ACTIVITY / COUNTERPARTIES / PRINCIPAL fixtures.",
+    status: "killed-this-shift",
   },
   {
     id: "catalog-hardcoded-scores",
-    file: "front/src/lib/remit/catalog.ts:326",
-    issue: "Catalog offer executionScore/compatibility 92/96 etc. Isolated from getRemitProvider.",
-    status: "isolated",
+    file: "front/src/lib/remit/catalog.ts",
+    issue: "Deleted catalog executionScore/compatibility fixtures. Offer cards never render a score bar.",
+    status: "killed-this-shift",
   },
   {
     id: "mapper-hardcoded-40-60-32",
@@ -172,7 +178,7 @@ export const FICTIONS: FictionKillItem[] = [
   {
     id: "executions-fallback-40-50-60",
     file: "front/src/components/remit/app/view-executions.tsx",
-    issue: "EnforcementShowcase uses formatUsd(null)/sealed amounts. Agent blotter uses real offer count + friction + indexer tx/block.",
+    issue: "EnforcementShowcase uses formatUsd(null)/sealed amounts. Agent blotter fetches public GET /agent/status (rank, httpSubmit, k, globalBest) without inventing AI confidence.",
     status: "killed-this-shift",
   },
   {
@@ -223,7 +229,7 @@ export const OVERFLOW_NAV: FictionKillItem[] = [
   {
     id: "ov-1024-settings",
     file: "front/src/components/remit/app/view-settings.tsx",
-    issue: "Profile title shortAddress; wallet data row HashChip (truncated+copy), not full mn_addr dump.",
+    issue: "Profile title shortAddress; wallet HashChip; preference rows wrap on narrow; revoke button stacks. Chrome matrix not re-measured this agent.",
     status: "killed-this-shift",
   },
   {
@@ -235,8 +241,8 @@ export const OVERFLOW_NAV: FictionKillItem[] = [
   {
     id: "nav-390-settings-wallet",
     file: "front/src/components/remit/wallet/wallet-button.tsx",
-    issue: "Settings address truncated. Wallet chip still h-9 with DUST — wallet connect out of scope.",
-    status: "open",
+    issue: "Wallet chip min-h-11, truncates address, DUST only at lg (also in menu). Header cluster max-width + min-w-0. Chrome matrix not re-measured this agent.",
+    status: "killed-this-shift",
   },
   {
     id: "nav-audit-full-hash",

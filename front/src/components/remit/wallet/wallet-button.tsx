@@ -131,10 +131,11 @@ export function WalletButton() {
         variant="outline"
         size="sm"
         onClick={() => openDialog(true)}
-        className="h-9 gap-2 border-[rgba(239,235,224,0.16)] bg-transparent text-[13px] text-cream/85 hover:bg-[rgba(239,235,224,0.06)] hover:text-cream"
+        className="h-11 min-w-0 shrink gap-2 border-[rgba(239,235,224,0.16)] bg-transparent px-3 text-[13px] whitespace-normal text-cream/85 hover:bg-[rgba(239,235,224,0.06)] hover:text-cream"
       >
-        <WalletIcon className="h-4 w-4 text-gold" />
-        Connect wallet
+        <WalletIcon className="h-4 w-4 shrink-0 text-gold" />
+        <span className="hidden sm:inline">Connect wallet</span>
+        <span className="sm:hidden">Connect</span>
       </Button>
     );
   }
@@ -145,7 +146,7 @@ export function WalletButton() {
         variant="outline"
         size="sm"
         disabled
-        className="h-9 gap-2 border-[rgba(239,235,224,0.16)] bg-transparent text-[13px] text-cream/60"
+        className="h-11 min-w-0 shrink gap-2 border-[rgba(239,235,224,0.16)] bg-transparent px-3 text-[13px] whitespace-normal text-cream/60"
       >
         <RefreshCcw className="h-3.5 w-3.5 animate-spin text-gold" />
         Connecting…
@@ -159,24 +160,24 @@ export function WalletButton() {
         <Button
           variant="outline"
           size="sm"
-          className="h-9 gap-2.5 border-[rgba(239,235,224,0.16)] bg-[#121c17] pl-2 pr-3 text-[13px] text-cream/90 hover:bg-[#18241e] hover:text-cream"
+          className="h-auto min-h-11 min-w-0 max-w-full shrink gap-2 border-[rgba(239,235,224,0.16)] bg-[#121c17] px-2 py-1.5 text-[13px] whitespace-normal text-cream/90 hover:bg-[#18241e] hover:text-cream sm:px-3"
         >
-          <span className="flex items-center gap-2">
+          <span className="flex min-w-0 items-center gap-2">
             {wallet.provider === "1am" ? (
-              <OneAmMark className="h-6 w-6 rounded-lg" />
+              <OneAmMark className="h-6 w-6 shrink-0 rounded-lg" />
             ) : (
-              <LaceMark className="h-6 w-6 rounded-lg" />
+              <LaceMark className="h-6 w-6 shrink-0 rounded-lg" />
             )}
-            <span className="font-data text-[12px]">
+            <span className="font-data min-w-0 truncate text-[12px]">
               {shortAddress(wallet.address)}
             </span>
           </span>
           {wallet.dustHeader ? (
-            <span className="hidden items-center gap-1.5 rounded-md border border-gold/25 bg-gold/10 px-2 py-0.5 font-data text-[11px] text-gold sm:flex">
+            <span className="hidden min-w-0 max-w-[7.5rem] truncate items-center rounded-md border border-gold/25 bg-gold/10 px-2 py-0.5 font-data text-[11px] text-gold lg:inline-flex">
               {wallet.dustHeader}
             </span>
           ) : null}
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -190,6 +191,12 @@ export function WalletButton() {
           <p className="flex items-center gap-1.5 font-data text-[11px] text-muted-foreground">
             <Check className="h-3 w-3 text-mint" /> Network: {wallet.networkId ?? "Midnight Preprod"}
           </p>
+          {wallet.dustHeader ? (
+            <p className="font-data min-w-0 truncate text-[11px] text-gold" title={wallet.dustHeader}>
+              {wallet.dustHeader}
+              <span className="mt-0.5 block text-[10px] text-sage">header DUST is not spendable coins</span>
+            </p>
+          ) : null}
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-[rgba(239,235,224,0.09)]" />
         <DropdownMenuItem

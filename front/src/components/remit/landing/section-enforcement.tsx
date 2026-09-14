@@ -58,6 +58,11 @@ export function SectionEnforcement() {
 
   const attempt = () => {
     clearTimers();
+    if (reduced) {
+      setTicked(CHECKS.length);
+      setStage(overCap ? "rejected" : "verified");
+      return;
+    }
     setStage("checking");
     setTicked(0);
 

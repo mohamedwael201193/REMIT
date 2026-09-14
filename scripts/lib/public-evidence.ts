@@ -48,6 +48,38 @@ export function readLocalLifecycleEvidence(root: string): PublicEvidenceBody | n
   };
 }
 
+export function readCommittedEvidence(root: string): PublicEvidenceBody | null {
+  const candidates = [
+    `${root.replace(/\\/g, "/")}/apps/api/preprod-evidence.json`,
+    root.endsWith("/") ? `${root}apps/api/preprod-evidence.json` : `${root}/apps/api/preprod-evidence.json`,
+  ];
+  const file = candidates.find((p) => existsSync(p));
+  if (!file) return null;
+  const raw = JSON.parse(readFileSync(file, "utf8")) as PublicEvidenceBody & {
+    pool?: { address?: string; txHash?: string; block?: number };
+    quote?: { address?: string; txHash?: string; block?: number };
+  };
+  if (!raw?.present || !Array.isArray(raw.steps)) return null;
+  return {
+    present: true,
+    network: raw.network ?? "preprod",
+    pool: raw.pool?.address
+      ? { address: raw.pool.address, txHash: raw.pool.txHash, block: raw.pool.block }
+      : undefined,
+    quote: raw.quote?.address
+      ? { address: raw.quote.address, txHash: raw.quote.txHash, block: raw.quote.block }
+      : undefined,
+    steps: raw.steps.map((s) => ({
+      name: s.name,
+      ok: Boolean(s.ok),
+      txHash: s.txHash,
+      block: s.block,
+      detail: s.detail,
+    })),
+    mpc: false,
+  };
+}
+
 export async function publishPublicEvidence(apiUrl: string, admin: string, body: PublicEvidenceBody): Promise<number> {
   const res = await fetch(new URL("/evidence", apiUrl.endsWith("/") ? apiUrl : `${apiUrl}/`), {
     method: "POST",

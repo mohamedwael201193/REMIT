@@ -52,10 +52,11 @@ Live contracts (Preprod, ledger 8):
 | quote REMIT-Q (reused) | `7559e38693725dafef73486f2ee3aa30ee0b5b543e22d0aa5ad7303c37b55e3f` | `04800c4ca43dd572d77ca1e5cf604702c609ff091ecb567f942ff15e17c08008` | 2538374 |
 | pool **v1** (historical single-offer fill) | `e82dea02b2397332df0bb10e2df6d9e257c8ceba696415ed3c10f639f68d43d4` | `f8b9b32446234af794a6d9fe33c27cd12e0815593c8e18816caa4b549418ba2c` | 2538382 |
 | pool **MBBE K=3** (new immutable address) | `01bebd52ad1b243b390c853bbc2c1588d1cf0f487934d54d79f8a590505c105e` | `55224e41e1b68f5cc65286f19e7269b199563158806fc5ae03fe9f536c61798a` | 2541620 |
-| MBBE K=3 fill (padded book, not global-book) | | `8fac31ab4a7b76e91f8da95d8bfd0099f0a754daa4641d571dcdd45b59b92e55` | 2541757 |
+| MBBE K=3 fill (padded book, not 3-maker) | | `8fac31ab4a7b76e91f8da95d8bfd0099f0a754daa4641d571dcdd45b59b92e55` | 2541757 |
+| MBBE K=3 fill (3 live makers, partial residual) | | `12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20` | 2542039 |
 | 1AM createMandate (v1 pool, Chrome) | | `e860c49a915837f17e39a2da46989e0a6e37eb42bbc105d3b6d283e214f5156b` | 2539639 |
 
-MBBE pool deploy reused the existing REMIT-Q faucet and the same operator wallet. A 3-maker fill on this address is not yet indexer-confirmed. Do not treat v1 fill `22c76487…` as K-set best-compliant evidence.
+MBBE pool deploy reused the existing REMIT-Q faucet and the same operator wallet. Compact `fill` on `01bebd52…` now has indexer-confirmed **three live maker openings** in one K-set (tx `12306cbe…`, block 2542039, 9492 B). Do not treat v1 fill `22c76487…` as K-set best-compliant evidence.
 
 Over-cap and price-limit fills are **rejected in Compact** (no settlement tx). Executor visibility is a constrained broker, not MPC.
 

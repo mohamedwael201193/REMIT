@@ -9,7 +9,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { motion, useInView, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
 import { AlertTriangle, Check, Copy, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isLikelyHash, truncateHash } from "@/lib/remit/format";
@@ -31,6 +31,33 @@ export const MOTION = {
     draw: 1.1,
   },
 } as const;
+
+/** Cross-fade a keyed state (eligible/rejected, proof pending, settlement). Honors reduced motion. */
+export function StateFade({
+  stateKey,
+  children,
+  className,
+}: {
+  stateKey: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={stateKey}
+        className={className}
+        initial={reduced ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={reduced ? undefined : { opacity: 0, y: -6 }}
+        transition={{ duration: reduced ? 0 : MOTION.duration.fast, ease: MOTION.ease }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 export function Reveal({
   children,
@@ -65,10 +92,19 @@ export function DrawPath({
   className,
   duration = MOTION.duration.draw,
   delay = 0,
-  ...pathProps
-}: React.SVGProps<SVGPathElement> & {
+  stroke,
+  strokeWidth,
+  strokeLinecap,
+  fill = "none",
+}: {
+  d: string;
+  className?: string;
   duration?: number;
   delay?: number;
+  stroke?: string;
+  strokeWidth?: number | string;
+  strokeLinecap?: "butt" | "round" | "square";
+  fill?: string;
 }) {
   const ref = React.useRef<SVGPathElement>(null);
   const inView = useInView(ref, { once: true, margin: "-8% 0px" });
@@ -78,10 +114,13 @@ export function DrawPath({
       ref={ref}
       d={d}
       className={className}
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeLinecap={strokeLinecap}
+      fill={fill}
       initial={{ pathLength: reduced ? 1 : 0 }}
       animate={inView || reduced ? { pathLength: 1 } : undefined}
       transition={{ duration: reduced ? 0 : duration, delay: reduced ? 0 : delay, ease: MOTION.ease }}
-      {...pathProps}
     />
   );
 }
@@ -376,7 +415,7 @@ export function HashChip({
   const body = (
     <>
       {label ? <span className="shrink-0 text-sage">{label}</span> : null}
-      <span className="font-data max-w-[11rem] truncate" title={value}>
+      <span className="font-data min-w-0 max-w-[min(11rem,100%)] truncate" title={value}>
         {display}
       </span>
       <button
@@ -399,7 +438,7 @@ export function HashChip({
     return (
       <span className={chipClass}>
         {label ? <span className="shrink-0 text-sage">{label}</span> : null}
-        <a href={href} target="_blank" rel="noreferrer" className="font-data max-w-[11rem] truncate text-gold/90 hover:text-gold" title={value}>
+        <a href={href} target="_blank" rel="noreferrer" className="font-data min-w-0 max-w-[min(11rem,100%)] truncate text-gold/90 hover:text-gold" title={value}>
           {display}
         </a>
         <button

@@ -218,7 +218,7 @@ export function AppShell() {
         <div className="flex min-w-0 flex-1 flex-col">
           {/* top bar */}
           <header className="sticky top-0 z-40 border-b border-[rgba(239,235,224,0.08)] bg-[#0d1512]/88 backdrop-blur-xl">
-            <div className="flex h-16 min-w-0 items-center gap-3 px-4 sm:px-6 lg:px-8">
+            <div className="flex h-auto min-h-16 min-w-0 items-center gap-2 px-4 py-1.5 sm:gap-3 sm:px-6 lg:px-8">
               {/* mobile menu */}
               <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
                 <SheetTrigger asChild>
@@ -264,9 +264,11 @@ export function AppShell() {
                 {VIEW_TITLES[appView]}
               </h1>
 
-              <div className="ml-auto flex min-w-0 items-center gap-2.5 sm:gap-3">
+              <div className="ml-auto flex min-w-0 max-w-[min(100%,22rem)] items-center justify-end gap-2 sm:gap-3">
                 <RoleSwitcher className="hidden min-w-0 lg:block" />
-                <WalletButton />
+                <div className="min-w-0 max-w-full shrink">
+                  <WalletButton />
+                </div>
               </div>
             </div>
           </header>

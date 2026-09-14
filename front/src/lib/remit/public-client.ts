@@ -178,6 +178,53 @@ export async function fetchRemitEvidence(apiUrl: string): Promise<RemitPublicEvi
   return (await res.json()) as RemitPublicEvidence;
 }
 
+/** Public GET /agent/status — no admin token. Do not invent rank/K/globalBest. */
+export type RemitAgentStatus = {
+  ok?: boolean;
+  rank: boolean;
+  httpSubmit: boolean;
+  k: number;
+  globalBest: boolean;
+  mpc: false;
+  rule?: string;
+  inbox?: { offers: number; mandates: number };
+  last?: {
+    at: number;
+    candidateCount: number;
+    eligibleCount: number;
+    rejectedCount: number;
+    selected: boolean;
+    rule: string;
+    globalBest: false;
+    mpc: false;
+  } | null;
+};
+
+export async function fetchRemitAgentStatus(apiUrl: string): Promise<RemitAgentStatus> {
+  const res = await fetch(new URL("/agent/status", apiRoot(apiUrl)));
+  if (!res.ok) throw new Error(`agent/status ${res.status}`);
+  const body = (await res.json()) as Partial<RemitAgentStatus>;
+  if (
+    typeof body.rank !== "boolean" ||
+    typeof body.httpSubmit !== "boolean" ||
+    typeof body.k !== "number" ||
+    typeof body.globalBest !== "boolean"
+  ) {
+    throw new Error("GET /agent/status missing rank, httpSubmit, k, or globalBest");
+  }
+  return {
+    ok: body.ok,
+    rank: body.rank,
+    httpSubmit: body.httpSubmit,
+    k: body.k,
+    globalBest: body.globalBest,
+    mpc: false,
+    rule: body.rule,
+    inbox: body.inbox,
+    last: body.last ?? null,
+  };
+}
+
 const KIND_BY_STEP: Record<string, MappedActivity["kind"]> = {
   "pool-create-mandate": "mandate",
   "pool-place-offer": "offer",

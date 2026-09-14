@@ -58,7 +58,7 @@ describe("api (no private openings stored in plaintext)", () => {
     expect(JSON.stringify(bootEv).includes(rec.secretHex)).toBe(false);
     if (bootEv.present) {
       expect(Array.isArray(bootEv.steps)).toBe(true);
-      expect(bootEv.steps?.some((s) => s.name === "pool-fill" && Boolean(s.txHash))).toBe(true);
+      expect(bootEv.steps?.some((s) => /fill/i.test(s.name ?? "") && Boolean(s.txHash))).toBe(true);
     }
 
     const unauthEv = await app.inject({

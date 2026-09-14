@@ -46,7 +46,7 @@ function PreferenceRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-[52px] items-center justify-between gap-4 py-3.5">
+    <div className="flex min-h-[52px] min-w-0 flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="min-w-0 space-y-1">
         <p className="text-[13.5px] font-medium text-cream/90">{label}</p>
         {description ? (
@@ -122,15 +122,15 @@ export function ViewSettings() {
       <Reveal delay={0.05}>
         <section aria-label="Profile" className={cardClass}>
           <p className="eyebrow text-muted-foreground">Profile</p>
-          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
+          <div className="mt-4 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
               <Avatar className="h-14 w-14 border border-gold/30">
                 <AvatarFallback className="bg-gold/15 font-display text-lg font-semibold text-gold">
                   {wallet.address ? wallet.address.slice(3, 5).toUpperCase() : roleLabel(role).slice(0, 2)}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 space-y-1.5">
-                <p className="font-display text-lg font-semibold tracking-tight" title={wallet.address ?? undefined}>
+                <p className="font-display min-w-0 text-lg font-semibold tracking-tight" title={wallet.address ?? undefined}>
                   {wallet.address ? shortAddress(wallet.address) : "Not connected"}
                 </p>
                 <p className="text-[12.5px] text-muted-foreground">
@@ -178,7 +178,7 @@ export function ViewSettings() {
                     <div className="min-w-0">
                       <HashChip value={wallet.address} />
                     </div>
-                    <p className="font-data text-[12.5px] text-gold">
+                    <p className="font-data min-w-0 break-words text-[12.5px] text-gold">
                       {wallet.dustHeader ?? "header DUST is not spendable coins"}
                     </p>
                   </div>
@@ -238,7 +238,7 @@ export function ViewSettings() {
             )}
           </div>
 
-          <p className="mt-5 flex items-center gap-2 border-t border-[rgba(239,235,224,0.07)] pt-4 text-[11.5px] text-muted-foreground">
+          <p className="mt-5 flex min-w-0 items-start gap-2 border-t border-[rgba(239,235,224,0.07)] pt-4 text-[11.5px] text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-mint" aria-hidden="true" />
             REMIT never asks for your seed phrase.
           </p>
@@ -355,7 +355,7 @@ export function ViewSettings() {
       <Reveal delay={0.17}>
         <section aria-label="Authorization" className={cardClass}>
           <p className="eyebrow text-clay/80">Authorization</p>
-          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-4 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <p className="text-[14px] font-semibold text-cream/90">
                 Executor authorizations
@@ -369,7 +369,7 @@ export function ViewSettings() {
               <AlertDialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="min-h-10 border-clay/40 bg-transparent px-4 text-clay hover:bg-clay/10 hover:text-clay"
+                  className="min-h-10 whitespace-normal border-clay/40 bg-transparent px-4 text-clay hover:bg-clay/10 hover:text-clay"
                 >
                   Revoke all executor authorizations
                 </Button>

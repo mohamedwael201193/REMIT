@@ -26,14 +26,13 @@ import {
   DataChip,
   EmptyState,
   HashChip,
-  ProgressTrack,
   Reveal,
   StatusPill,
   type PillTone,
 } from "@/components/remit/primitives";
 import { assetBySymbol, counterpartyById, executorById } from "@/lib/remit/catalog";
-import { formatUsd, pct, timeAgo } from "@/lib/remit/format";
-import type { Offer, OfferState } from "@/lib/remit/types";
+import { formatUsd, timeAgo } from "@/lib/remit/format";
+import { isIndexerSettled, type Offer, type OfferState } from "@/lib/remit/types";
 import { useRemitStore } from "@/store/remit";
 import { useToast } from "@/hooks/use-toast";
 
@@ -161,7 +160,7 @@ function OfferCard({
               {[counterparty.desk, counterparty.region].filter(Boolean).join(" · ")}
             </p>
           ) : (
-            <p className="text-[11.5px] text-muted-foreground">Desk not disclosed</p>
+            <p className="text-[11.5px] text-muted-foreground">NOT DISCLOSED</p>
           )}
         </div>
         {offer.txHash ? (
@@ -176,30 +175,10 @@ function OfferCard({
           You never see the principal&apos;s mandate. Compact enforces it. Eligible vs ineligible is
           not visible from this desk.
         </p>
-      ) : offer.compatibility != null && offer.executionScore != null ? (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <div className="flex items-baseline justify-between">
-            <p className="eyebrow text-muted-foreground">Compatibility</p>
-            <p className="font-data text-[11.5px] text-gold">
-              {pct(offer.compatibility)}
-            </p>
-          </div>
-          <ProgressTrack value={offer.compatibility} max={100} />
-        </div>
-        <div className="space-y-1.5">
-          <div className="flex items-baseline justify-between">
-            <p className="eyebrow text-muted-foreground">Rank (not AI)</p>
-            <p className="font-data text-[11.5px] text-mint">
-              {pct(offer.executionScore)}
-            </p>
-          </div>
-          <ProgressTrack value={offer.executionScore} max={100} tone="mint" />
-        </div>
-      </div>
       ) : (
         <p className="rounded-xl border border-[rgba(239,235,224,0.08)] bg-[#101915] px-3 py-2.5 text-[12.5px] text-cream/60">
-          Eligibility is private. Compact ranks the K openings the executor actually opened — not a public score.
+          Eligibility is private. Compact ranks the K openings the executor actually opened — not a
+          public score and not an AI confidence.
         </p>
       )}
 
@@ -287,17 +266,24 @@ function ExecutionDialog({
     try {
       const execution = await executeFill({ offerId: offer.id });
       onClose();
-      if (execution.status === "settled") {
+      if (isIndexerSettled(execution)) {
         toast({
-          title: "Fill settled",
-          description: `Receipt ${execution.receipt?.code ?? "—"} issued — proof verified.`,
+          title: "Indexer-confirmed fill",
+          description: execution.txHash
+            ? `tx ${execution.txHash.slice(0, 10)}… · block ${execution.block}`
+            : "contractAction returned a tx and block.",
         });
-      } else {
+      } else if (execution.status === "rejected") {
         toast({
           title: "Attempt refused",
           description:
             execution.refusalReason ?? "The offer fell outside the mandate envelope.",
           variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Proof pending",
+          description: "This tab does not treat the fill as settled until the indexer returns a tx and block.",
         });
       }
     } catch (error) {

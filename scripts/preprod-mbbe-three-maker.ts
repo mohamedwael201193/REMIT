@@ -355,8 +355,8 @@ async function main() {
       ok: decision.action === "fill" && decision.id === "maker-c",
       detail:
         decision.action === "fill"
-          ? `selected=${decision.id} chosenIndex=${decision.chosenIndex} fillBase=${decision.fillBase} fillQuote=${decision.fillQuote} eligible=${decision.ranked.filter((r) => r.ok).length}`
-          : `rejected:${"reason" in decision ? decision.reason : "unknown"}`,
+          ? `eligible=${decision.ranked.filter((r) => r.ok).length} rejected=${decision.ranked.filter((r) => !r.ok).length} selected=true globalBest=false`
+          : "rejected no-compliant-offer",
     });
 
     const fillsBefore = (await poolState()).ld.fills;
@@ -398,12 +398,13 @@ async function main() {
       });
       const after = await poolState();
       const residual = residualOf(decision.offer, decision.offerRand ?? randC, decision.fillBase, decision.fillQuote);
+      if (residual.offer.baseAmount <= 0n) throw new Error("expected nonzero residual after partial fill");
       record({
         name: "pool-k3-fill",
         ok: after.ld.fills === fillsBefore + 1n,
         txHash: after.hit.txHash,
         block: after.hit.blockHeight,
-        detail: `${filled.status} · chosenIndex private · residualBase=${residual.offer.baseAmount}`,
+        detail: `${filled.status} · K=3 live candidates · partial residual committed · not global-book`,
       });
     } catch (e) {
       record({

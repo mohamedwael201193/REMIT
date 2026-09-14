@@ -13,9 +13,12 @@ export type Role = "principal" | "executor" | "auditor" | "maker";
 export type PrivacyLabel = "sealed" | "not-disclosed";
 
 export const PRIVACY_LABEL_COPY: Record<PrivacyLabel, string> = {
-  sealed: "Sealed",
-  "not-disclosed": "Not disclosed",
+  sealed: "SEALED",
+  "not-disclosed": "NOT DISCLOSED",
 };
+
+/** Product copy for amounts that have no public opening. Never format absence as $0 / TVL. */
+export const PRIVATE_COPY = "PRIVATE";
 
 export type Side = "buy" | "sell";
 
@@ -136,6 +139,14 @@ export type ExecutionStatus =
   | "settled"
   | "rejected"
   | "expired";
+
+export function isIndexerSettled(execution: {
+  status: ExecutionStatus;
+  txHash?: string;
+  block?: number;
+}): boolean {
+  return execution.status === "settled" && Boolean(execution.txHash) && execution.block != null;
+}
 
 export interface ExecutionEvent {
   at: string;

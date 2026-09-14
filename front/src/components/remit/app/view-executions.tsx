@@ -20,12 +20,22 @@ import {
   MOTION,
   ProofSeal,
   Reveal,
+  StateFade,
   StatusPill,
   type PillTone,
 } from "@/components/remit/primitives";
 import { assetBySymbol, counterpartyById } from "@/lib/remit/catalog";
 import { formatDateTime, formatUsd, sideLabel, timeAgo } from "@/lib/remit/format";
-import type { Execution, ExecutionStatus, Offer } from "@/lib/remit/types";
+import {
+  fetchRemitAgentStatus,
+  type RemitAgentStatus,
+} from "@/lib/remit/public-client";
+import {
+  isIndexerSettled,
+  type Execution,
+  type ExecutionStatus,
+  type Offer,
+} from "@/lib/remit/types";
 import { useRemitStore } from "@/store/remit";
 
 function executionPill(status: ExecutionStatus): { tone: PillTone; label: string } {
@@ -83,12 +93,7 @@ const STAGE_NOTES: Record<Stage, string> = {
 };
 
 function indexerSettled(execution: Execution | null): boolean {
-  return Boolean(
-    execution &&
-      execution.status === "settled" &&
-      execution.txHash &&
-      execution.block != null,
-  );
+  return Boolean(execution && isIndexerSettled(execution));
 }
 
 function pickSelected(offers: Offer[]): Offer | null {
@@ -119,6 +124,85 @@ function BlotterSection({
       </div>
       <div className="mt-4 min-w-0">{children}</div>
     </section>
+  );
+}
+
+function AgentStatusCard() {
+  const [status, setStatus] = React.useState<RemitAgentStatus | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_REMIT_API_URL ?? "";
+    if (!apiUrl) {
+      setError("API URL not configured — GET /agent/status was not called.");
+      return;
+    }
+    let cancelled = false;
+    void fetchRemitAgentStatus(apiUrl)
+      .then((next) => {
+        if (!cancelled) {
+          setStatus(next);
+          setError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setStatus(null);
+          setError(err instanceof Error ? err.message : "GET /agent/status failed");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const kLabel = status && Number.isFinite(status.k) ? String(status.k) : "unknown";
+
+  return (
+    <BlotterSection eyebrow="Agent status">
+      <StateFade stateKey={error ?? (status ? "ok" : "loading")}>
+        {error ? (
+          <p className="text-[13px] text-muted-foreground">{error}</p>
+        ) : !status ? (
+          <p className="text-[13px] text-muted-foreground">Reading GET /agent/status…</p>
+        ) : (
+          <div className="min-w-0 space-y-3">
+            <p className="text-[13px] leading-relaxed text-cream/80">
+              Ranker is {status.rank ? "on" : "off"} · HTTP fill submit is{" "}
+              {status.httpSubmit ? "on" : "off"} · K={kLabel} · global-book best is{" "}
+              {status.globalBest ? "claimed" : "not claimed"} · MPC is off.
+            </p>
+            <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+              Compact proves the selected candidate among the K openings the executor
+              included. This tab does not invent an AI confidence score, and it cannot
+              HTTP-submit fills.
+            </p>
+            <div className="flex min-w-0 flex-wrap gap-2">
+              <DataChip>rank {status.rank ? "true" : "false"}</DataChip>
+              <DataChip>httpSubmit {status.httpSubmit ? "true" : "false"}</DataChip>
+              <DataChip>K={kLabel}</DataChip>
+              <DataChip>globalBest {status.globalBest ? "true" : "false"}</DataChip>
+              {status.rule ? <DataChip>{status.rule}</DataChip> : null}
+            </div>
+            {status.inbox ? (
+              <p className="font-data text-[12px] text-sage">
+                Inbox counts from the public status: {status.inbox.offers} offers ·{" "}
+                {status.inbox.mandates} mandates
+              </p>
+            ) : null}
+            {status.last ? (
+              <p className="font-data text-[12px] text-sage">
+                Last rank (counts only): {status.last.candidateCount} candidates ·{" "}
+                {status.last.eligibleCount} eligible · {status.last.rejectedCount} rejected
+                {status.last.selected ? " · a slot was selected" : " · no selected slot"}
+              </p>
+            ) : (
+              <p className="text-[12px] text-sage">No last rank recorded on this API process.</p>
+            )}
+          </div>
+        )}
+      </StateFade>
+    </BlotterSection>
   );
 }
 
@@ -199,7 +283,7 @@ function LiveExecutionPanel() {
         <AnimatePresence mode="wait">
           {lastExecution && !running ? (
             <motion.div
-              key={lastExecution.id}
+              key={`${lastExecution.id}:${settledTruth ? "settled" : lastExecution.status}`}
               initial={reduced ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reduced ? undefined : { opacity: 0, y: -8 }}
@@ -554,6 +638,8 @@ export function ViewExecutions() {
 
       <LiveExecutionPanel />
 
+      <AgentStatusCard />
+
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         <BlotterSection eyebrow="Private RFQs received" count={received.length}>
           {received.length === 0 ? (
@@ -572,31 +658,36 @@ export function ViewExecutions() {
 
         <div className="flex min-w-0 flex-col gap-4">
           <BlotterSection eyebrow="Mandate-compatible" count={compatible.length}>
-            {compatible.length === 0 ? (
-              <p className="text-[13px] text-muted-foreground">No compatible openings in the K-set.</p>
-            ) : (
-              <ul className="space-y-2">
-                {compatible.map((offer) => (
-                  <OfferLine key={offer.id} offer={offer} />
-                ))}
-              </ul>
-            )}
+            <StateFade stateKey={`eligible:${compatible.map((o) => o.id).join(",") || "empty"}`}>
+              {compatible.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">No compatible openings in the K-set.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {compatible.map((offer) => (
+                    <OfferLine key={offer.id} offer={offer} />
+                  ))}
+                </ul>
+              )}
+            </StateFade>
           </BlotterSection>
           <BlotterSection eyebrow="Rejected" count={rejected.length}>
-            {rejected.length === 0 ? (
-              <p className="text-[13px] text-muted-foreground">No Compact friction recorded.</p>
-            ) : (
-              <ul className="space-y-2">
-                {rejected.map((offer) => (
-                  <OfferLine key={offer.id} offer={offer} />
-                ))}
-              </ul>
-            )}
+            <StateFade stateKey={`rejected:${rejected.map((o) => o.id).join(",") || "empty"}`}>
+              {rejected.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">No Compact friction recorded.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {rejected.map((offer) => (
+                    <OfferLine key={offer.id} offer={offer} />
+                  ))}
+                </ul>
+              )}
+            </StateFade>
           </BlotterSection>
         </div>
       </div>
 
       <BlotterSection eyebrow="Selection">
+        <StateFade stateKey={selected ? `${selected.id}:${selected.state}` : "none"}>
         {selected ? (
           <div className="min-w-0 space-y-2">
             <p className="font-data text-[15px] text-cream">
@@ -618,13 +709,21 @@ export function ViewExecutions() {
             Sealed — no eligible candidate among the openings this executor holds.
           </p>
         )}
+        </StateFade>
       </BlotterSection>
 
       <BlotterSection eyebrow="Proof / settlement">
+        <StateFade
+          stateKey={
+            executions
+              .map((e) => `${e.id}:${e.status}:${e.txHash ?? ""}:${e.block ?? ""}`)
+              .join("|") || "none"
+          }
+        >
         {executions.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">
-            Proof and settlement appear only after indexer evidence (tx + block). No fake verification
-            rate.
+            Proof stays pending until the indexer returns a tx and block. Settlement is not
+            animated from a local success.
           </p>
         ) : (
           <ul className="space-y-2">
@@ -655,6 +754,7 @@ export function ViewExecutions() {
             ))}
           </ul>
         )}
+        </StateFade>
       </BlotterSection>
 
       <EnforcementShowcase />

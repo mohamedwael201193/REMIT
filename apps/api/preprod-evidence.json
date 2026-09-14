@@ -5,6 +5,7 @@
   "globalBest": false,
   "semantics": "mbbe-k3",
   "fillTxBytes": 9492,
+  "k": 3,
   "pool": {
     "address": "01bebd52ad1b243b390c853bbc2c1588d1cf0f487934d54d79f8a590505c105e",
     "txHash": "55224e41e1b68f5cc65286f19e7269b199563158806fc5ae03fe9f536c61798a",
@@ -21,23 +22,19 @@
     "block": 2538382
   },
   "steps": [
-    { "name": "quote-indexer", "ok": true, "txHash": "e5046aee9e370f145e4702195439abcf99a79f267c68f8e50e810d51f9a47fc1", "block": 2541617 },
+    { "name": "quote-indexer", "ok": true, "txHash": "043caa5dd84907af73bc428304142949c4be05ecc994e398ecb1c2a03cde6cf1", "block": 2541691 },
     { "name": "pool-indexer", "ok": true, "txHash": "55224e41e1b68f5cc65286f19e7269b199563158806fc5ae03fe9f536c61798a", "block": 2541620 },
-    { "name": "quote-claim", "ok": true, "txHash": "043caa5dd84907af73bc428304142949c4be05ecc994e398ecb1c2a03cde6cf1", "block": 2541691, "detail": "SucceedEntirely" },
-    { "name": "pool-bound", "ok": true, "detail": "bound via findDeployedContract" },
-    { "name": "pool-deposit-night", "ok": true, "txHash": "a750def4db6ed6f96dae237b4ddacd57e0a07d79f20b7d7cf0a403645b32308d", "block": 2541696, "detail": "SucceedEntirely" },
-    { "name": "pool-deposit-quote", "ok": true, "txHash": "74a7906b5f8ee0e6e02fc64d71be40d90b48ae416ac38e09f16826af962b3630", "block": 2541700, "detail": "SucceedEntirely" },
-    { "name": "pool-place-over-offer", "ok": true, "txHash": "b2123aece6e26713eb6a6ec219b5be3cc60d4234618ec75e2d13c9f9e13f8311", "block": 2541707, "detail": "SucceedEntirely" },
-    { "name": "pool-create-mandate", "ok": true, "txHash": "809311bf77861a195b0c4c5eecc9f0c2a05e13ab9b85920081897a8b46479c92", "block": 2541714, "detail": "SucceedEntirely" },
-    { "name": "overreach-precheck", "ok": false, "detail": "local pre-check allowed a legal slice of a larger offer (minFill=1); Compact still rejected unsliced X+20% bypass" },
-    { "name": "overreach-compact", "ok": true, "detail": "circuit rejected the call" },
-    { "name": "pool-place-price-offer", "ok": true, "txHash": "ca397f1f57a89e4ddda401e2ef9c4edbe436a850a3322563a5c1b2275797d802", "block": 2541719, "detail": "SucceedEntirely" },
-    { "name": "price-violation-compact", "ok": true, "detail": "circuit rejected the call" },
-    { "name": "pool-place-offer", "ok": true, "txHash": "67d9002e0d4dacff6c5af7d6ee682aeac5aa44ec5e0bd1622d09fea0ae09535c", "block": 2541724, "detail": "SucceedEntirely" },
-    { "name": "pool-fill", "ok": true, "txHash": "8fac31ab4a7b76e91f8da95d8bfd0099f0a754daa4641d571dcdd45b59b92e55", "block": 2541757, "detail": "SucceedEntirely · 9492 B raw tx" },
-    { "name": "selective-audit", "ok": true, "detail": "pass" },
-    { "name": "pool-cancel-over-offer", "ok": true, "txHash": "367f4afdc360274df19806810bdea47d9943671c4468f9f0be6d8708d4769df4", "block": 2541762, "detail": "SucceedEntirely" },
-    { "name": "pool-revoke", "ok": true, "txHash": "e0e7322aa79a1ef7907b48d91869f5cd67c9f3c762647c16245bde153675dd6e", "block": 2541769, "detail": "SucceedEntirely" },
-    { "name": "pool-withdraw", "ok": true, "txHash": "d3647fe69dd7a5a614967034e56300fa308264b43be762a2b8d789804c59120a", "block": 2541774, "detail": "SucceedEntirely" }
+    { "name": "mbbe-padded-fill-historical", "ok": true, "txHash": "8fac31ab4a7b76e91f8da95d8bfd0099f0a754daa4641d571dcdd45b59b92e55", "block": 2541757, "detail": "SucceedEntirely · 9492 B · padded K=3 not 3-maker" },
+    { "name": "quote-claim", "ok": true, "txHash": "48c52141065f93842aaa5075c087e9ce8e179676cf7ec12856385c0299d52f63", "block": 2541947, "detail": "SucceedEntirely" },
+    { "name": "pool-deposit-night", "ok": true, "txHash": "568f3acc2220d421c5c84212e4fbbf9e5f4002750e833349f885331475baa7d5", "block": 2541954, "detail": "SucceedEntirely" },
+    { "name": "pool-deposit-quote-a", "ok": true, "txHash": "c95a598d4c7ba4bf05e6c9dc788b65d21f563674e1fb7a5c45372727893e263a", "block": 2541958, "detail": "SucceedEntirely" },
+    { "name": "pool-deposit-quote-b", "ok": true, "txHash": "dc340b2d3a001104541525c812a9a3625083a852754c6b1a15fe40807e14c95a", "block": 2541962, "detail": "SucceedEntirely" },
+    { "name": "pool-deposit-quote-c", "ok": true, "txHash": "53511c70bf0e5ba2a23f21027d1c39de604039b241af195e840c625347882647", "block": 2541966, "detail": "SucceedEntirely" },
+    { "name": "pool-create-mandate", "ok": true, "txHash": "308c7b2c57a8ab9aeefea4a1c243f5da056e6b5f4dbd4dc234cdb84aa1010749", "block": 2541972, "detail": "SucceedEntirely" },
+    { "name": "pool-place-maker-a-ineligible", "ok": true, "txHash": "90463ffda78440cb79808db3d9f5dea4d09226de355fcec3d94d2a05f9b3bd4e", "block": 2541978, "detail": "SucceedEntirely" },
+    { "name": "pool-place-maker-b-eligible", "ok": true, "txHash": "07624ecca82d1cbd83a8a46aa01bce4972426d7f89117c29febc79d47c8e3663", "block": 2541986, "detail": "SucceedEntirely" },
+    { "name": "pool-place-maker-c-best-partial", "ok": true, "txHash": "727611314f6b8f773932ad2ca21daed5652763ffccbdf4d9b378341ac5968861", "block": 2541991, "detail": "SucceedEntirely" },
+    { "name": "agent-rank", "ok": true, "detail": "eligible=2 rejected=1 selected=true globalBest=false" },
+    { "name": "pool-k3-fill", "ok": true, "txHash": "12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20", "block": 2542039, "detail": "SucceedEntirely · 9492 B · K=3 live candidates · partial residual committed · not global-book" }
   ]
 }

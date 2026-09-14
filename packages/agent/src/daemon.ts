@@ -8,14 +8,48 @@ export type AgentReceipt = {
   eligibleCount: number;
   rejected: { id: string; reason: string }[];
   selectedId: string | null;
-  chosenIndex: string | null;
-  fillBase: string | null;
-  fillQuote: string | null;
   rule: "mbbe-eligible-only";
   globalBest: false;
   mpc: false;
   status: "ranked" | "rejected";
 };
+
+/** HTTP `/agent/status` snapshot — never openings, fill sizes, or secrets. */
+export type PublicAgentStatus = {
+  at: number;
+  candidateCount: number;
+  eligibleCount: number;
+  rejectedCount: number;
+  selected: boolean;
+  rule: "mbbe-eligible-only";
+  globalBest: false;
+  mpc: false;
+};
+
+/** HTTP `/agent/rank` body — ids and policy reasons only. */
+export type PublicAgentRank = {
+  ranked: Array<{ id: string; ok: true } | { id: string; ok: false; reason: string }>;
+  eligibleCount: number;
+  rejected: { id: string; reason: string }[];
+  selectedId: string | null;
+  candidateCount: number;
+  dropped: number;
+  rule: "mbbe-eligible-only";
+  mpc: false;
+  globalBest: false;
+};
+
+const HTTP_LEAK_KEYS = [
+  "fillBase",
+  "fillQuote",
+  "chosenIndex",
+  "offerRand",
+  "payNonce",
+  "rfqSk",
+  "execSk",
+  "openings",
+  "ownerSk",
+] as const;
 
 export type PlannedFill = {
   opened: number;
@@ -115,13 +149,44 @@ export function planFillFromInbox(input: {
     eligibleCount,
     rejected,
     selectedId: fill ? decision.id : null,
-    chosenIndex: fill ? decision.chosenIndex.toString() : null,
-    fillBase: fill ? decision.fillBase.toString() : null,
-    fillQuote: fill ? decision.fillQuote.toString() : null,
     rule: "mbbe-eligible-only",
     globalBest: false,
     mpc: false,
     status: fill ? "ranked" : "rejected",
   };
   return { opened: candidates.length, dropped, decision, receipt, candidates };
+}
+
+export function publicAgentStatusView(receipt: AgentReceipt): PublicAgentStatus {
+  return {
+    at: receipt.at,
+    candidateCount: receipt.candidateCount,
+    eligibleCount: receipt.eligibleCount,
+    rejectedCount: receipt.rejected.length,
+    selected: receipt.selectedId !== null,
+    rule: "mbbe-eligible-only",
+    globalBest: false,
+    mpc: false,
+  };
+}
+
+export function publicAgentRankView(planned: PlannedFill): PublicAgentRank {
+  return {
+    ranked: planned.decision.ranked.map((r) =>
+      r.ok ? { id: r.id, ok: true as const } : { id: r.id, ok: false as const, reason: r.reason },
+    ),
+    eligibleCount: planned.receipt.eligibleCount,
+    rejected: planned.receipt.rejected,
+    selectedId: planned.receipt.selectedId,
+    candidateCount: planned.receipt.candidateCount,
+    dropped: planned.dropped,
+    rule: "mbbe-eligible-only",
+    mpc: false,
+    globalBest: false,
+  };
+}
+
+export function agentHttpHasLeakKeys(payload: unknown): string[] {
+  const text = JSON.stringify(payload);
+  return HTTP_LEAK_KEYS.filter((k) => text.includes(`"${k}"`));
 }
