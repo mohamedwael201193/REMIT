@@ -86,7 +86,7 @@ export async function waitForOperatorWalletUnlocked(timeoutMs = 30 * 60_000) {
   while (Date.now() - started < timeoutMs) {
     if (!existsSync(WALLET_LOCK_FILE)) return;
     const pid = Number(readFileSync(WALLET_LOCK_FILE, "utf8").trim());
-    if (!Number.isInteger(pid) || pid <= 0 || !pidAlive(pid)) {
+    if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid || !pidAlive(pid)) {
       try {
         unlinkSync(WALLET_LOCK_FILE);
       } catch {
@@ -280,6 +280,7 @@ export async function openOperatorWallet() {
     });
 
   let wallet: WalletFacade;
+  console.log("opening operator wallet", cachePresent() ? "restore serializeState" : "cold start");
   if (cachePresent()) {
     try {
       const shieldedState = readFileSync(WALLET_CACHE.shielded, "utf8");

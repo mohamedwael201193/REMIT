@@ -35,11 +35,18 @@ export function publicErrorMessage(err: unknown): string {
 }
 
 export function mapLedgerFailure(message: string): RemitError {
-  if (message.includes("138") || /BalanceCheckOverspend/i.test(message)) {
-    return new RemitError("DUST", "insufficient DUST", "insufficient DUST");
+  const clipped = message.replace(/\s+/g, " ").slice(0, 220);
+  if (clipped.includes("138") || /BalanceCheckOverspend/i.test(clipped)) {
+    return new RemitError("DUST", "insufficient DUST", clipped);
   }
-  if (message.includes("111") || /TransactionTooLarge/i.test(message)) {
-    return new RemitError("INTERNAL", "transaction too large", "transaction too large");
+  if (clipped.includes("111") || /TransactionTooLarge/i.test(clipped)) {
+    return new RemitError("INTERNAL", "transaction too large", clipped);
   }
-  return new RemitError("INTERNAL", "ledger rejected transaction", "ledger rejected transaction");
+  if (/Incorrect call transaction configuration|privateStateId/i.test(clipped)) {
+    return new RemitError("CONFIG", clipped, clipped);
+  }
+  if (/not staged|WITNESS_MISSING|Cannot read properties of undefined/i.test(clipped)) {
+    return new RemitError("WITNESS_MISSING", clipped, clipped);
+  }
+  return new RemitError("INTERNAL", clipped || "ledger rejected transaction", clipped || "ledger rejected transaction");
 }

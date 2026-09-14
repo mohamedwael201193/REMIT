@@ -34,6 +34,7 @@ import {
   walletNamespace,
   type QuotePrivateState,
 } from "../packages/core/src/index.ts";
+import { encodeUserAddress } from "@midnight-ntwrk/ledger-v8";
 import { constructFill } from "../packages/agent/src/fill-circuit.ts";
 import {
   closeOperatorWallet,
@@ -48,11 +49,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 type Step = { name: string; ok: boolean; txHash?: string; block?: number; detail?: string };
 
-function userAddressBytes(keystore: { getPublicKey: () => unknown }): Uint8Array {
-  const pk = keystore.getPublicKey() as { bytes?: Uint8Array } | Uint8Array;
-  if (pk instanceof Uint8Array && pk.length === 32) return pk;
-  if (pk && typeof pk === "object" && pk.bytes instanceof Uint8Array && pk.bytes.length === 32) return pk.bytes;
-  throw new Error("cannot derive 32-byte UserAddress from unshielded keystore");
+function userAddressBytes(keystore: { getAddress: () => string }): Uint8Array {
+  const encoded = encodeUserAddress(keystore.getAddress());
+  if (encoded.length !== 32) {
+    throw new Error(`encodeUserAddress produced ${encoded.length} bytes, expected 32`);
+  }
+  return encoded;
 }
 
 function envSk(name: string): Uint8Array {
@@ -108,18 +110,20 @@ async function main() {
     });
 
     const dayBucket = BigInt(Math.floor(Date.now() / 86_400_000));
-    const to = {
-      is_left: false,
-      left: { bytes: new Uint8Array(32) },
-      right: { bytes: userAddressBytes(session.unshieldedKeystore) },
-    };
     try {
+      const to = {
+        is_left: false,
+        left: { bytes: new Uint8Array(32) },
+        right: { bytes: userAddressBytes(session.unshieldedKeystore) },
+      };
+      console.log("quote claim UserAddress encoded", to.right.bytes.length, "bytes");
       const claim = await submitCircuit(quoteProviders, {
         contractAddress: deployed.quote.address,
         compiledContract: compiledQuote(),
+        privateStateId: "remit-quote",
         circuitId: "claim",
         args: [1_000_000n, dayBucket, to],
-      } as never);
+      });
       if (!claim.txId) throw new Error("claim submit missing tx id");
       const after = requireContractAction(
         await fetchContractAction(session.indexerHttpUrl, deployed.quote.address),

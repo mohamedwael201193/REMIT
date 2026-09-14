@@ -37,13 +37,32 @@ const secrets = [
   "REMIT_AGENT_RFQ_BOX_SECRET_HEX",
   "REMIT_API_ADMIN_TOKEN",
   "REMIT_AGENT_PRIVATE_STATE_PASSWORD",
+  "REMIT_EXECUTOR_SECRET_HEX",
 ];
 for (const k of secrets) {
   const v = process.env[k];
   if (v) vars.push({ key: k, value: v });
 }
 
+async function existingKeys(id: string): Promise<string[]> {
+  const res = await fetch(`https://api.render.com/v1/services/${id}/env-vars`, {
+    headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`env GET ${id} HTTP ${res.status}`);
+  const rows = (await res.json()) as { envVar?: { key?: string }; key?: string }[];
+  return rows.map((r) => r.envVar?.key ?? r.key ?? "").filter(Boolean);
+}
+
 async function putEnv(id: string) {
+  const before = await existingKeys(id);
+  console.log("env existing", id, before.sort().join(","));
+  const merged = new Map(vars.map((v) => [v.key, v.value]));
+  const localKeep = ["REMIT_EXECUTOR_SECRET_HEX"];
+  for (const k of localKeep) {
+    const v = process.env[k];
+    if (v && !merged.has(k)) merged.set(k, v);
+  }
+  const body = [...merged.entries()].map(([k, value]) => ({ key: k, value }));
   const res = await fetch(`https://api.render.com/v1/services/${id}/env-vars`, {
     method: "PUT",
     headers: {
@@ -51,9 +70,9 @@ async function putEnv(id: string) {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(vars.map((v) => ({ key: v.key, value: v.value }))),
+    body: JSON.stringify(body),
   });
-  const names = vars.map((v) => v.key);
+  const names = [...merged.keys()].sort();
   console.log("env PUT", id, res.status, names.join(","));
   if (!res.ok) throw new Error(`env PUT ${id} HTTP ${res.status}`);
   const deploy = await fetch(`https://api.render.com/v1/services/${id}/deploys`, {

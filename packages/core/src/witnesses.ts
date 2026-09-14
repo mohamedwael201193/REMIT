@@ -59,12 +59,12 @@ function mandateState(s: RemitPrivateState["pending"]["mandateStateData"]): Mand
 
 export const witnesses: Witnesses<RemitPrivateState> = {
   ownerSecret: ({ privateState }) => {
-    const sk = privateState.pending.ownerSecret ?? privateState.ownerSk;
+    const sk = privateState?.pending?.ownerSecret ?? privateState?.ownerSk;
     if (!sk) throw new RemitError("WITNESS_MISSING", "owner secret not staged");
     return [privateState, b(sk)];
   },
   executorSecret: ({ privateState }) => {
-    const sk = privateState.pending.executorSecret ?? privateState.executorSk;
+    const sk = privateState?.pending?.executorSecret ?? privateState?.executorSk;
     if (!sk) throw new RemitError("WITNESS_MISSING", "executor secret not staged");
     return [privateState, b(sk)];
   },

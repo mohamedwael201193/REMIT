@@ -79,21 +79,38 @@ export async function deployCompiled(
   }
 }
 
+function failureText(e: unknown): string {
+  if (e instanceof RemitError) return e.message;
+  const parts: string[] = [];
+  if (e instanceof Error) parts.push(e.message);
+  const extra = e as { finalizedTxData?: { status?: string }; circuitId?: string; cause?: unknown };
+  if (extra.finalizedTxData?.status) parts.push(`status=${extra.finalizedTxData.status}`);
+  if (extra.circuitId) parts.push(`circuit=${String(extra.circuitId)}`);
+  if (extra.cause instanceof Error) parts.push(extra.cause.message);
+  return parts.join(" ").replace(/\s+/g, " ").slice(0, 240);
+}
+
 export async function submitCircuit(
   providers: Providers,
-  options: Parameters<typeof submitCallTx>[1],
+  options: {
+    contractAddress: string;
+    compiledContract: unknown;
+    circuitId: string;
+    args?: unknown[];
+    privateStateId?: string;
+  },
 ): Promise<FinalizedEvidence> {
   try {
-    const result = await submitCallTx(providers, options);
+    const result = await submitCallTx(providers, options as never);
     return asEvidence(
       result as unknown as Record<string, unknown>,
-      String((options as { contractAddress?: string }).contractAddress ?? ""),
+      options.contractAddress,
     );
   } catch (e) {
     if (e instanceof RemitError) throw e;
-    const msg = e instanceof Error ? e.message : "call failed";
-    if (/assert|failed to prove|Constraint/i.test(msg)) {
-      throw new RemitError("POLICY_REJECT", "circuit rejected the call", "circuit rejected");
+    const msg = failureText(e);
+    if (/assert|failed to prove|Constraint/i.test(msg) && !/not staged/i.test(msg)) {
+      throw new RemitError("POLICY_REJECT", "circuit rejected the call", msg);
     }
     throw mapLedgerFailure(msg);
   }

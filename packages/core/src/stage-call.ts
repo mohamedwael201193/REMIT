@@ -46,7 +46,8 @@ export async function submitStagedCircuit(
   return submitCircuit(providers, {
     contractAddress: args.contractAddress,
     compiledContract: args.compiledContract,
+    privateStateId: args.privateStateId,
     circuitId: args.circuitId,
     args: args.circuitArgs,
-  } as never);
+  });
 }

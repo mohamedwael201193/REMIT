@@ -9,7 +9,7 @@ export type QuotePrivateState = {
 
 export const quoteWitnesses: Witnesses<QuotePrivateState> = {
   callerSecret: ({ privateState }) => {
-    if (!privateState.callerSk) throw new RemitError("WITNESS_MISSING", "quote caller secret not staged");
+    if (!privateState?.callerSk) throw new RemitError("WITNESS_MISSING", "quote caller secret not staged");
     return [privateState, fromArray(privateState.callerSk)];
   },
 };
