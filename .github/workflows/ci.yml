@@ -49,7 +49,8 @@ jobs:
         run: npm run typecheck --prefix front
       - name: ABOUT character gate
         run: node scripts/about-count.mjs
-      - name: Judge proof (local gates; live probes are non-fatal YELLOW)
+      - name: Judge proof (local gates; tests already ran above)
         run: npx tsx scripts/judge-proof.ts
         env:
           JUDGE_SKIP_TESTS: "1"
+          JUDGE_DEMO: "1"

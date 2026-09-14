@@ -57,6 +57,7 @@
     "local:up": "node scripts/local-up.mjs",
     "typecheck": "npm run build -w @remit/api && npm run typecheck --prefix front",
     "judge:proof": "npx tsx scripts/judge-proof.ts",
+    "judge:demo": "npx tsx scripts/judge-proof.ts --demo",
     "about:count": "node scripts/about-count.mjs",
     "docs:scan": "node scripts/public-doc-scan.mjs"
   },

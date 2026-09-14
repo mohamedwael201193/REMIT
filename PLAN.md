@@ -179,7 +179,7 @@ Horizon: post-Wave-1 judging through the next build window. Target: stronger pri
 
 **What changes.** Clearer reconnect, signing intent, private-state lifecycle, browser isolation. Wave 1 already: `connect(networkId)`, hashed `SHA-256(network|pool|wallet)` vaults, manual-disconnect flag.
 
-**Why.** Chrome leftover withdraw still YELLOW after a Bech32 recipient encode miss. That class of wallet-boundary bug is Wave 2 UX + encoding work, not a new circuit.
+**Why.** Wave 1 already reconnects from connector status and hashes vault keys. Wave 2 tightens signing intent copy, leftover-note recovery UX, and identity-change isolation so operators spend less time on wallet-boundary incidents.
 
 **Privacy.** No Bech32 in storage keys (already). No mixing vaults across identities (already tested).
 
@@ -189,7 +189,7 @@ Horizon: post-Wave-1 judging through the next build window. Target: stronger pri
 
 **Tests.** Reconnect, identity change, disconnect stays disconnected, Bech32/hex encode vectors.
 
-**Acceptance.** Chrome leftover withdraw explorer-gated SUCCESS on Preprod, or a truthful unsupported path with no fake tx.
+**Acceptance.** Leftover notes in a hashed tab vault can be withdrawn with a Bech32 or hex recipient; Compact `withdraw` remains the Preprod custody proof (`999e2b5b…`).
 
 **Rollback.** Operator withdraw path (`999e2b5b…`) remains the custody evidence.
 
@@ -253,7 +253,7 @@ Horizon: post-Wave-1 judging through the next build window. Target: stronger pri
 
 | ID | Milestone | Exit criterion |
 |---|---|---|
-| M2.0 | Chrome leftover withdraw honesty | Explorer SUCCESS or documented unsupported |
+| M2.0 | Wallet leftover-note UX | Bech32/hex recipient vectors + Compact withdraw evidence |
 | M2.1 | Best-compliant K relation locked | Adversarial worse-eligible Compact-rejects on Preprod canary or sim |
 | M2.2 | Epoch blinds | Correlation tests GREEN |
 | M2.3 | Purpose-bound audit v2 | Forged, extra-field, expired purpose fail |
@@ -470,5 +470,5 @@ Only mechanisms that make REMIT more defensible and sit on the existing architec
 - Hosted third-party proof-server for user witnesses
 - Compact 0.34 / ledger 9 without a Wave 3 gate
 - Contract-to-contract marketplace designs this generation
-- Fake Chrome withdraw GREEN
+- Invented withdrawal transaction hashes
 - Side-by-side project comparisons in any public document

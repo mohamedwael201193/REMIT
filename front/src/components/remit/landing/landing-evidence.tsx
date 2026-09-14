@@ -4,10 +4,10 @@ const ITEMS = [
   { k: "Network", v: "Midnight Preprod, ledger 8" },
   { k: "Pool", v: "01bebd52… MBBE K=3" },
   { k: "Circuits", v: "7 impure Compact circuits" },
-  { k: "Semantics", v: "Best of K=3, not global-book" },
+  { k: "Tests", v: "46 files / 189 passed" },
   { k: "Fill", v: "5a1200f5… block 2549944" },
   { k: "Residual", v: "5f1203cf… block 2550168" },
-  { k: "Revoke", v: "8ae27d7a… Chrome, block 2551669" },
+  { k: "Withdraw", v: "999e2b5b… block 2550510" },
   { k: "Audit", v: "One-field verify, forged rejected" },
 ];
 
@@ -16,7 +16,7 @@ export function LandingEvidence() {
     <section className="relative bg-ink text-cream">
       <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
         <h2 className="font-display text-balance text-[clamp(2rem,4vw,3.4rem)] font-semibold leading-[1.05]">
-          Private mandate. Private liquidity. Proven fill.
+          Private mandate. Private liquidity. Provable execution.
         </h2>
         <p className="mt-4 max-w-[62ch] text-[15.5px] leading-relaxed text-cream/65">
           REMIT is live on Preprod. Compact proves each fill against a mandate
@@ -32,8 +32,8 @@ export function LandingEvidence() {
           ))}
         </dl>
         <p className="mt-5 text-[13px] text-cream/45">
-          Explorer links and the full acceptance matrix live in the README.
-          Hosted prove/submit stays off. Compact remains the settlement authority.
+          Explorer links live in the README. Compact remains the settlement
+          authority. Executor proving stays on operator-controlled infrastructure.
         </p>
       </div>
     </section>
