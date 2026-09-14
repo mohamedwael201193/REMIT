@@ -60,7 +60,7 @@ export function makeOfferBox(
 export function makeMandateBox(
   recipientPubHex: string,
   mandateId: number[],
-  ttlMs = 15 * 60_000,
+  ttlMs = 7 * 24 * 60 * 60_000,
   opening?: {
     mandate: JsonMandate;
     mandateRand: number[];

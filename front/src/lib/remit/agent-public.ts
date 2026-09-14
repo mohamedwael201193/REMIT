@@ -36,9 +36,13 @@ export function publicAgentView(raw: RemitAgentStatus): RemitAgentStatus {
       eligibleCount: asCount(lastRaw.eligibleCount),
       rejectedCount: asCount(lastRaw.rejectedCount),
       selected: asBool(lastRaw.selected),
+      selectedId: typeof lastRaw.selectedId === "string" ? lastRaw.selectedId : null,
       rule: typeof lastRaw.rule === "string" ? lastRaw.rule : "mbbe-eligible-only",
       globalBest: false,
       mpc: false,
+      submitted: asBool(lastRaw.submitted),
+      txHash: typeof lastRaw.txHash === "string" ? lastRaw.txHash : undefined,
+      block: typeof lastRaw.block === "number" ? lastRaw.block : undefined,
     };
   }
   return {

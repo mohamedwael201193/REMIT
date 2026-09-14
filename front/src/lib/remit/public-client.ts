@@ -259,9 +259,13 @@ export type RemitAgentStatus = {
     eligibleCount: number;
     rejectedCount: number;
     selected: boolean;
+    selectedId?: string | null;
     rule: string;
     globalBest: false;
     mpc: false;
+    submitted?: boolean;
+    txHash?: string;
+    block?: number;
   } | null;
 };
 

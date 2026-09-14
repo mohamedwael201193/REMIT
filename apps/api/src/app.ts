@@ -245,6 +245,70 @@ export async function buildApp(cfg: ApiConfig) {
     });
   });
 
+  app.get("/inbox", async (req, reply) => {
+    const token = String((req.headers.authorization ?? "").replace(/^Bearer\s+/i, ""));
+    if (!cfg.admin || token !== cfg.admin) return reply.code(401).send({ error: "unauthorized" });
+    return {
+      offers: offers.map((item) => ({ id: item.id, box: item.boxed })),
+      mandates: mandates.map((item) => ({ id: item.id, box: item.boxed })),
+    };
+  });
+
+  app.post("/inbox/restore", async (req, reply) => {
+    const token = String((req.headers.authorization ?? "").replace(/^Bearer\s+/i, ""));
+    if (!cfg.admin || token !== cfg.admin) return reply.code(401).send({ error: "unauthorized" });
+    const body = req.body as { offers?: { id?: string; box?: string }[]; mandates?: { id?: string; box?: string }[] };
+    const idOk = (id: string) => /^[A-Za-z0-9._:-]{1,128}$/.test(id);
+    const boxOk = (box: string) => typeof box === "string" && box.length >= 32 && box.length <= 16_384;
+    const upsert = (list: InboxItem[], id: string, box: string) => {
+      const i = list.findIndex((item) => item.id === id);
+      const next: InboxItem = { id, boxed: box, receivedAt: Date.now() };
+      if (i >= 0) list[i] = next;
+      else list.push(next);
+    };
+    for (const row of body.offers ?? []) {
+      const id = typeof row.id === "string" ? row.id : "";
+      const box = typeof row.box === "string" ? row.box : "";
+      if (!idOk(id) || !boxOk(box)) return reply.code(400).send({ error: "invalid offer restore" });
+      upsert(offers, id, box);
+    }
+    for (const row of body.mandates ?? []) {
+      const id = typeof row.id === "string" ? row.id : "";
+      const box = typeof row.box === "string" ? row.box : "";
+      if (!idOk(id) || !boxOk(box)) return reply.code(400).send({ error: "invalid mandate restore" });
+      upsert(mandates, id, box);
+    }
+    persistInbox();
+    return { ok: true, offers: offers.length, mandates: mandates.length };
+  });
+
+  app.post("/agent/settled", async (req, reply) => {
+    const token = String((req.headers.authorization ?? "").replace(/^Bearer\s+/i, ""));
+    if (!cfg.admin || token !== cfg.admin) return reply.code(401).send({ error: "unauthorized" });
+    const body = req.body as { selectedId?: string; txHash?: string; block?: number };
+    const selectedId = typeof body.selectedId === "string" ? body.selectedId : "";
+    const txHash = typeof body.txHash === "string" ? body.txHash.toLowerCase() : "";
+    const block = typeof body.block === "number" && Number.isFinite(body.block) ? body.block : NaN;
+    if (!selectedId || selectedId.length > 128) return reply.code(400).send({ error: "invalid selectedId" });
+    if (!/^[0-9a-f]{64}$/.test(txHash)) return reply.code(400).send({ error: "invalid txHash" });
+    if (!Number.isInteger(block) || block <= 0) return reply.code(400).send({ error: "invalid block" });
+    lastAgent = stripPublicLeaks({
+      at: lastAgent?.at ?? Date.now(),
+      candidateCount: lastAgent?.candidateCount ?? 1,
+      eligibleCount: lastAgent?.eligibleCount ?? 1,
+      rejectedCount: lastAgent?.rejectedCount ?? 0,
+      selected: true,
+      selectedId,
+      rule: "mbbe-eligible-only" as const,
+      globalBest: false as const,
+      mpc: false as const,
+      submitted: true,
+      txHash,
+      block,
+    });
+    return stripPublicLeaks({ ok: true, last: lastAgent });
+  });
+
   app.get("/config", async () => {
     const { pool, quote, live } = liveAddresses();
     const executorKey = publicExecutorKeyHex(cfg.execSk);

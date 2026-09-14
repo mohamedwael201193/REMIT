@@ -210,7 +210,7 @@ export async function createMandateFromWallet(args: BrowserCircuitArgs) {
   writeTabPrivate(args.network, args.pool, addr, nextPs);
   if (!config.rfqPublic) throw new Error("API does not expose rfqPublic — mandate box cannot be delivered");
   const jsonMandate = nextPs.mandates[0]!.mandate;
-  const { boxed: mandateBox } = makeMandateBox(config.rfqPublic, Array.from(mandate.mandateId), 15 * 60_000, {
+  const { boxed: mandateBox } = makeMandateBox(config.rfqPublic, Array.from(mandate.mandateId), 7 * 24 * 60 * 60_000, {
     mandate: jsonMandate,
     mandateRand: Array.from(mandateRand),
     remaining: amount.toString(),

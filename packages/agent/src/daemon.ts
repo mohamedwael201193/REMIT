@@ -21,9 +21,13 @@ export type PublicAgentStatus = {
   eligibleCount: number;
   rejectedCount: number;
   selected: boolean;
+  selectedId: string | null;
   rule: "mbbe-eligible-only";
   globalBest: false;
   mpc: false;
+  submitted?: boolean;
+  txHash?: string;
+  block?: number;
 };
 
 /** HTTP `/agent/rank` body — ids and policy reasons only. Never fill sizes or chosenIndex. */
@@ -210,6 +214,7 @@ export function publicAgentStatusView(receipt: AgentReceipt): PublicAgentStatus 
     eligibleCount: receipt.eligibleCount,
     rejectedCount: receipt.rejected.length,
     selected: receipt.selectedId !== null,
+    selectedId: receipt.selectedId,
     rule: "mbbe-eligible-only",
     globalBest: false,
     mpc: false,
