@@ -56,6 +56,8 @@ Live contracts (Preprod, ledger 8):
 
 Over-cap and price-limit fills are **rejected in Compact** (no settlement tx). Executor visibility is a constrained broker, not MPC.
 
+The live Preprod pool address above is the **v1** desk (single-offer `fill`). Mandate-bound best execution among a private K=3 candidate set is implemented in `CONTRACT/src/remit_pool.compact` and `constructFillK`. It will deploy as a **new** immutable pool address. Do not treat v1 fill `22c76487…` as MBBE evidence.
+
 ## Honest limits
 
-The executor is a constrained broker: it sees mandate and offer openings it is given. Matching is not MPC. Deposit/withdraw amounts are public. `fill` is proven on the executor, not in the browser.
+The executor is a constrained broker: it sees mandate and offer openings it is given. Matching is not MPC and is **not** global-book best execution. Compact `fill` proves the selected candidate is the unique best *eligible* opening among the K=3 private slots supplied in that transaction. Padding copies are `live=false` and cannot win. Deposit/withdraw amounts are public. `fill` is proven on the executor (proof-server 8.1.0), not in the browser. `/agent/rank` returns a `selectedId` without openings; it does not prove or submit.
