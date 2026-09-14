@@ -2,33 +2,42 @@
   "present": true,
   "network": "preprod",
   "mpc": false,
+  "globalBest": false,
+  "semantics": "mbbe-k3",
+  "fillTxBytes": 9492,
   "pool": {
-    "address": "e82dea02b2397332df0bb10e2df6d9e257c8ceba696415ed3c10f639f68d43d4",
-    "txHash": "f8b9b32446234af794a6d9fe33c27cd12e0815593c8e18816caa4b549418ba2c",
-    "block": 2538382
+    "address": "01bebd52ad1b243b390c853bbc2c1588d1cf0f487934d54d79f8a590505c105e",
+    "txHash": "55224e41e1b68f5cc65286f19e7269b199563158806fc5ae03fe9f536c61798a",
+    "block": 2541620
   },
   "quote": {
     "address": "7559e38693725dafef73486f2ee3aa30ee0b5b543e22d0aa5ad7303c37b55e3f",
     "txHash": "04800c4ca43dd572d77ca1e5cf604702c609ff091ecb567f942ff15e17c08008",
     "block": 2538374
   },
+  "historicalV1Pool": {
+    "address": "e82dea02b2397332df0bb10e2df6d9e257c8ceba696415ed3c10f639f68d43d4",
+    "txHash": "f8b9b32446234af794a6d9fe33c27cd12e0815593c8e18816caa4b549418ba2c",
+    "block": 2538382
+  },
   "steps": [
-    { "name": "quote-indexer", "ok": true, "txHash": "1b8877e512aafa13a6ac006c3a7c41bc5a0d90b80956cc4cea2b30b6b75f5a16", "block": 2538378 },
-    { "name": "pool-indexer", "ok": true, "txHash": "f8b9b32446234af794a6d9fe33c27cd12e0815593c8e18816caa4b549418ba2c", "block": 2538382 },
-    { "name": "quote-claim", "ok": true, "txHash": "055256fe4e116036fe53036ecab61ec13e7458ff06a00411ac9fe3ea7f55d1f9", "block": 2538594, "detail": "SucceedEntirely" },
-    { "name": "pool-deposit-night", "ok": true, "txHash": "01213b2cc4e36472109ef521182f5320159204574411f5254f651ac0edd32f5c", "block": 2538598, "detail": "SucceedEntirely" },
-    { "name": "pool-deposit-quote", "ok": true, "txHash": "f155b18427b1b9dbf4ab8b8785a123487908e6414d9b47a3c1a22dfcaa335bf9", "block": 2538602, "detail": "SucceedEntirely" },
-    { "name": "pool-place-over-offer", "ok": true, "txHash": "3e8e491107ed436f081f8b0a3cf3b8dbff36d1303f16eb580b96299254bbaf41", "block": 2538607, "detail": "SucceedEntirely" },
-    { "name": "pool-create-mandate", "ok": true, "txHash": "7c95b2e48503e8e5034a2694f4dbce90e0f542670fb3c77ac3f086872cc0f596", "block": 2538615, "detail": "SucceedEntirely" },
-    { "name": "overreach-precheck", "ok": true, "detail": "local pre-check rejected fill" },
+    { "name": "quote-indexer", "ok": true, "txHash": "e5046aee9e370f145e4702195439abcf99a79f267c68f8e50e810d51f9a47fc1", "block": 2541617 },
+    { "name": "pool-indexer", "ok": true, "txHash": "55224e41e1b68f5cc65286f19e7269b199563158806fc5ae03fe9f536c61798a", "block": 2541620 },
+    { "name": "quote-claim", "ok": true, "txHash": "043caa5dd84907af73bc428304142949c4be05ecc994e398ecb1c2a03cde6cf1", "block": 2541691, "detail": "SucceedEntirely" },
+    { "name": "pool-bound", "ok": true, "detail": "bound via findDeployedContract" },
+    { "name": "pool-deposit-night", "ok": true, "txHash": "a750def4db6ed6f96dae237b4ddacd57e0a07d79f20b7d7cf0a403645b32308d", "block": 2541696, "detail": "SucceedEntirely" },
+    { "name": "pool-deposit-quote", "ok": true, "txHash": "74a7906b5f8ee0e6e02fc64d71be40d90b48ae416ac38e09f16826af962b3630", "block": 2541700, "detail": "SucceedEntirely" },
+    { "name": "pool-place-over-offer", "ok": true, "txHash": "b2123aece6e26713eb6a6ec219b5be3cc60d4234618ec75e2d13c9f9e13f8311", "block": 2541707, "detail": "SucceedEntirely" },
+    { "name": "pool-create-mandate", "ok": true, "txHash": "809311bf77861a195b0c4c5eecc9f0c2a05e13ab9b85920081897a8b46479c92", "block": 2541714, "detail": "SucceedEntirely" },
+    { "name": "overreach-precheck", "ok": false, "detail": "local pre-check allowed a legal slice of a larger offer (minFill=1); Compact still rejected unsliced X+20% bypass" },
     { "name": "overreach-compact", "ok": true, "detail": "circuit rejected the call" },
-    { "name": "pool-place-price-offer", "ok": true, "txHash": "33dc7e37b158c4c2123ff04ee0f14a840ec89925fbf9fa0d4cbfd14e528a8d56", "block": 2538620, "detail": "SucceedEntirely" },
+    { "name": "pool-place-price-offer", "ok": true, "txHash": "ca397f1f57a89e4ddda401e2ef9c4edbe436a850a3322563a5c1b2275797d802", "block": 2541719, "detail": "SucceedEntirely" },
     { "name": "price-violation-compact", "ok": true, "detail": "circuit rejected the call" },
-    { "name": "pool-place-offer", "ok": true, "txHash": "6f23a47b2bcdf17c107b5ef54dac702d41981b564dcf89149a8529a163b198da", "block": 2538625, "detail": "SucceedEntirely" },
-    { "name": "pool-fill", "ok": true, "txHash": "22c76487e28d09b1bd1150fe7ba2f3e8007b81ebe48b65ff276ef62455bafe8e", "block": 2538634, "detail": "SucceedEntirely" },
+    { "name": "pool-place-offer", "ok": true, "txHash": "67d9002e0d4dacff6c5af7d6ee682aeac5aa44ec5e0bd1622d09fea0ae09535c", "block": 2541724, "detail": "SucceedEntirely" },
+    { "name": "pool-fill", "ok": true, "txHash": "8fac31ab4a7b76e91f8da95d8bfd0099f0a754daa4641d571dcdd45b59b92e55", "block": 2541757, "detail": "SucceedEntirely · 9492 B raw tx" },
     { "name": "selective-audit", "ok": true, "detail": "pass" },
-    { "name": "pool-cancel-over-offer", "ok": true, "txHash": "5a5f630e3fa9eab78f543e52feccc2a9e512880aa524e6ce45aab64fd396b6f1", "block": 2538639, "detail": "SucceedEntirely" },
-    { "name": "pool-revoke", "ok": true, "txHash": "db25cbc2c8de3911220e862abb8b985668db149cd2bdce11c13f1cdd54f311fa", "block": 2538644, "detail": "SucceedEntirely" },
-    { "name": "pool-withdraw", "ok": true, "txHash": "7e5f20947aa85611b48e1bbbbd2c8f79959a619150187cd15b9db2098d391474", "block": 2538649, "detail": "SucceedEntirely" }
+    { "name": "pool-cancel-over-offer", "ok": true, "txHash": "367f4afdc360274df19806810bdea47d9943671c4468f9f0be6d8708d4769df4", "block": 2541762, "detail": "SucceedEntirely" },
+    { "name": "pool-revoke", "ok": true, "txHash": "e0e7322aa79a1ef7907b48d91869f5cd67c9f3c762647c16245bde153675dd6e", "block": 2541769, "detail": "SucceedEntirely" },
+    { "name": "pool-withdraw", "ok": true, "txHash": "d3647fe69dd7a5a614967034e56300fa308264b43be762a2b8d789804c59120a", "block": 2541774, "detail": "SucceedEntirely" }
   ]
 }

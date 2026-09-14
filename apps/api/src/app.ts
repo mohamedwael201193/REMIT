@@ -19,11 +19,10 @@ import {
   indexerWsFromHttp,
   loadInbox,
   saveInbox,
-  withOfferDefaults,
   fromHex,
   type InboxItem,
 } from "@remit/core";
-import { pickBest, rankOffers } from "@remit/agent";
+import { planFillFromInbox } from "@remit/agent";
 
 export type ApiConfig = {
   cors: string;
@@ -58,6 +57,19 @@ export async function buildApp(cfg: ApiConfig) {
       receipts: [...receipts.entries()],
     });
   };
+  let lastAgent:
+    | {
+        at: number;
+        candidateCount: number;
+        eligibleCount: number;
+        rejectedCount: number;
+        selected: boolean;
+        rule: "mbbe-eligible-only";
+        globalBest: false;
+        mpc: false;
+      }
+    | null = null;
+
   let publicEvidence: {
     present: boolean;
     network: string;
@@ -87,6 +99,11 @@ export async function buildApp(cfg: ApiConfig) {
 
   const fileDeploy = (): { pool?: string; quote?: string } => {
     const candidates = [
+      resolve(process.cwd(), "deployments/preprod-mbbe.json"),
+      resolve(process.cwd(), "../../deployments/preprod-mbbe.json"),
+      resolve(process.cwd(), "apps/api/preprod-evidence.json"),
+      resolve(process.cwd(), "preprod-evidence.json"),
+      resolve(process.cwd(), "../../apps/api/preprod-evidence.json"),
       resolve(process.cwd(), "deployments/preprod.json"),
       resolve(process.cwd(), "../../deployments/preprod.json"),
     ];
@@ -97,9 +114,9 @@ export async function buildApp(cfg: ApiConfig) {
           pool?: { address?: string };
           quote?: { address?: string };
         };
-        return { pool: j.pool?.address, quote: j.quote?.address };
+        if (j.pool?.address && j.quote?.address) return { pool: j.pool.address, quote: j.quote.address };
       } catch {
-        return {};
+        continue;
       }
     }
     return {};
@@ -209,6 +226,24 @@ export async function buildApp(cfg: ApiConfig) {
       dustGate: "availableCoins>=1",
       circuit: Boolean(browserRoot && existsSync(resolve(browserRoot, "remit-circuit.js"))),
       block,
+      k: 3,
+      globalBest: false,
+      semantics: "mbbe-k3",
+      agent: { rank: true, httpSubmit: false },
+    };
+  });
+
+  app.get("/agent/status", async () => {
+    return {
+      ok: true,
+      rank: true,
+      httpSubmit: false,
+      k: 3,
+      globalBest: false,
+      mpc: false,
+      rule: "mbbe-eligible-only",
+      inbox: { offers: offers.length, mandates: mandates.length },
+      last: lastAgent,
     };
   });
 
@@ -444,63 +479,34 @@ export async function buildApp(cfg: ApiConfig) {
     };
     const remaining = BigInt(body.remaining ?? "0");
     const nowBound = BigInt(body.nowBound ?? Math.floor(Date.now() / 1000) + 86_400);
-    const candidates = offers.flatMap((item) => {
-      try {
-        const opened = openJson<{
-          kind?: string;
-          offer?: {
-            side: string;
-            baseAmount: string;
-            quoteAmount: string;
-            maker: number[];
-            payNonce: number[];
-            expiry?: string;
-            minFillBase?: string;
-          };
-          offerRand?: number[];
-        }>(cfg.rfqSk, item.boxed);
-        if (opened.kind && opened.kind !== "offer") return [];
-        if (!opened.offer) return [];
-        const offer = withOfferDefaults({
-          side: BigInt(opened.offer.side),
-          baseAmount: BigInt(opened.offer.baseAmount),
-          quoteAmount: BigInt(opened.offer.quoteAmount),
-          maker: Uint8Array.from(opened.offer.maker),
-          payNonce: Uint8Array.from(opened.offer.payNonce),
-          expiry: opened.offer.expiry ? BigInt(opened.offer.expiry) : undefined,
-          minFillBase: opened.offer.minFillBase ? BigInt(opened.offer.minFillBase) : undefined,
-        });
-        return [
-          {
-            id: item.id,
-            offer,
-            remaining,
-            receivedAt: item.receivedAt,
-            rand: opened.offerRand ? Uint8Array.from(opened.offerRand) : undefined,
-          },
-        ];
-      } catch {
-        return [];
-      }
-    });
-    const live = candidates.filter((c) => c.offer.baseAmount > 0n);
-    const rankArgs = {
+    const planned = planFillFromInbox({
+      rfqSk: cfg.rfqSk,
+      offers,
       esk,
       mandate,
       remaining,
       nowBound,
       revoked: false,
-      candidates: live,
-      allowCounterparty: () => true,
+    });
+    lastAgent = {
+      at: planned.receipt.at,
+      candidateCount: planned.receipt.candidateCount,
+      eligibleCount: planned.receipt.eligibleCount,
+      rejectedCount: planned.receipt.rejected.length,
+      selected: planned.receipt.selectedId !== null,
+      rule: "mbbe-eligible-only",
+      globalBest: false,
+      mpc: false,
     };
-    const ranked = rankOffers(rankArgs);
-    const selectedId = pickBest(ranked, rankArgs) ?? null;
     return {
-      ranked: ranked.map((r) => (r.ok ? { id: r.id, ok: true as const } : { id: r.id, ok: false as const, reason: r.reason })),
-      eligibleCount: ranked.filter((r) => r.ok).length,
-      rejected: ranked.filter((r) => !r.ok).map((r) => ({ id: r.id, reason: r.ok ? undefined : r.reason })),
-      selectedId,
-      candidateCount: live.length,
+      ranked: planned.decision.ranked.map((r) =>
+        r.ok ? { id: r.id, ok: true as const } : { id: r.id, ok: false as const, reason: r.reason },
+      ),
+      eligibleCount: planned.receipt.eligibleCount,
+      rejected: planned.receipt.rejected,
+      selectedId: planned.receipt.selectedId,
+      candidateCount: planned.receipt.candidateCount,
+      dropped: planned.dropped,
       rule: "mbbe-eligible-only",
       mpc: false,
       globalBest: false,

@@ -118,6 +118,30 @@ export function sliceAmounts(o: Offer, fillBase: bigint): { fillBase: bigint; fi
   return { fillBase, fillQuote: (fillBase * o.quoteAmount) / o.baseAmount };
 }
 
+/**
+ * Authorized residual opening after a fill. Compact inserts this commitment
+ * unconditionally. Replay of the consumed opening must fail.
+ */
+export function residualOf(
+  o: Offer,
+  rand: Uint8Array,
+  fillBase: bigint,
+  fillQuote: bigint,
+): { offer: Offer; rand: Uint8Array } {
+  return {
+    offer: {
+      side: o.side,
+      baseAmount: o.baseAmount - fillBase,
+      quoteAmount: o.quoteAmount - fillQuote,
+      maker: o.maker,
+      payNonce: pureCircuits.residualPayNonceOf(o.payNonce),
+      expiry: o.expiry,
+      minFillBase: o.minFillBase,
+    },
+    rand: pureCircuits.residualRandOf(rand),
+  };
+}
+
 /** Largest legal slice under cap/budget/minFill that Compact will accept. */
 export function legalSlice(
   oIn: LooseOffer,

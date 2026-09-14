@@ -5,7 +5,7 @@
 import { config as loadEnv } from "dotenv";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync, readFileSync } from "node:fs";
+import { readLiveDeploy } from "./lib/live-deploy.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 loadEnv({ path: resolve(root, ".env.preprod.local") });
@@ -29,17 +29,9 @@ async function vercel(path: string, init: RequestInit = {}) {
 }
 
 function publicEnv(): { key: string; value: string; target: ("production" | "preview" | "development")[] }[] {
-  let pool = "";
-  let quote = "";
-  const preprodPath = resolve(root, "deployments", "preprod.json");
-  if (existsSync(preprodPath)) {
-    const j = JSON.parse(readFileSync(preprodPath, "utf8")) as {
-      pool?: { address?: string };
-      quote?: { address?: string };
-    };
-    pool = j.pool?.address ?? "";
-    quote = j.quote?.address ?? "";
-  }
+  const live = readLiveDeploy(root);
+  const pool = live?.pool.address ?? "";
+  const quote = live?.quote.address ?? "";
   const apiUrl = (process.env.REMIT_API_PUBLIC_URL ?? "https://remit-api-node.onrender.com").replace(/\/$/, "");
   const pairs: Record<string, string> = {
     NEXT_PUBLIC_MIDNIGHT_NETWORK: "preprod",

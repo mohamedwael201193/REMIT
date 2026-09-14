@@ -260,6 +260,7 @@ async function main() {
       ...offer,
       baseAmount: 60n,
       quoteAmount: 1920n,
+      minFillBase: 60n,
       payNonce: randomBytes32(),
     };
     const offerRand = randomBytes32();

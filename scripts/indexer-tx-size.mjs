@@ -32,6 +32,6 @@ console.log(
     txMax: TX_MAX,
     underBroadcast: bytes < BROADCAST,
     underTxMax: bytes < TX_MAX,
-    note: "v1 historical fill — not MBBE fill evidence",
+    note: "measured indexer raw tx bytes",
   }),
 );

@@ -137,6 +137,15 @@ describe("api (no private openings stored in plaintext)", () => {
     expect(rank.json().selectedId === null || typeof rank.json().selectedId === "string").toBe(true);
     expect(rank.json().globalBest).toBe(false);
     expect(JSON.stringify(rank.json()).includes(rec.secretHex)).toBe(false);
+
+    const status = await app.inject({ method: "GET", url: "/agent/status" });
+    expect(status.statusCode).toBe(200);
+    expect(status.json().httpSubmit).toBe(false);
+    expect(status.json().globalBest).toBe(false);
+    expect(status.json().k).toBe(3);
+    expect(JSON.stringify(status.json()).includes(rec.secretHex)).toBe(false);
+    expect(health.json().semantics).toBe("mbbe-k3");
+    expect(health.json().globalBest).toBe(false);
     await app.close();
   });
 });

@@ -5,6 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLiveDeploy } from "./lib/live-deploy.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -55,13 +56,17 @@ export function serializeFrontPublicEnv(env: FrontPublicEnv): string {
   ].join("\n");
 }
 
-export function writeFrontPublicEnv(deployPath = resolve(root, "deployments", "preprod.json")): string | null {
-  if (!existsSync(deployPath)) return null;
-  const deploy = JSON.parse(readFileSync(deployPath, "utf8")) as {
-    network?: string;
-    quote?: { address?: string };
-    pool?: { address?: string };
-  };
+export function writeFrontPublicEnv(deployPath?: string): string | null {
+  const deploy = deployPath
+    ? existsSync(deployPath)
+      ? (JSON.parse(readFileSync(deployPath, "utf8")) as {
+          network?: string;
+          quote?: { address?: string };
+          pool?: { address?: string };
+        })
+      : null
+    : readLiveDeploy(root);
+  if (!deploy) return null;
   const env = frontPublicEnvFromDeploy(deploy);
   if (!env) return null;
   const frontDir = resolve(root, "front");
@@ -73,5 +78,5 @@ export function writeFrontPublicEnv(deployPath = resolve(root, "deployments", "p
 
 if (process.argv[1] && process.argv[1].includes("write-front-public-env")) {
   const written = writeFrontPublicEnv();
-  console.log(written ? `wrote ${written}` : "no indexer-backed deployments/preprod.json yet");
+  console.log(written ? `wrote ${written}` : "no indexer-backed MBBE/v1 deploy file yet");
 }

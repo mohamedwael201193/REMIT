@@ -202,21 +202,29 @@ export async function waitForDustReadyFile(timeoutMs = 3 * 60 * 60_000) {
 
 export async function waitForPreprodDeployFile(timeoutMs = 3 * 60 * 60_000) {
   const started = Date.now();
+  const deployFile = process.env.REMIT_DEPLOY_FILE
+    ? resolve(repoRoot, process.env.REMIT_DEPLOY_FILE)
+    : PREPROD_DEPLOY_FILE;
   while (Date.now() - started < timeoutMs) {
-    if (existsSync(PREPROD_DEPLOY_FILE)) {
-      const raw = JSON.parse(readFileSync(PREPROD_DEPLOY_FILE, "utf8")) as {
-        quote?: { address?: string; txHash?: string; block?: number };
+    if (existsSync(deployFile)) {
+      const raw = JSON.parse(readFileSync(deployFile, "utf8")) as {
+        quote?: { address?: string; txHash?: string; block?: number; reused?: boolean };
         pool?: { address?: string; txHash?: string; block?: number };
+        historicalV1Pool?: { address?: string; txHash?: string; block?: number };
       };
-      if (raw.quote?.address && raw.quote.txHash && raw.quote.block != null && raw.pool?.address && raw.pool.txHash && raw.pool.block != null) {
-        return raw as {
-          quote: { address: string; txHash: string; block: number };
-          pool: { address: string; txHash: string; block: number };
+      const quote = raw.quote;
+      const pool = raw.pool;
+      const quoteHash = quote?.txHash ?? raw.historicalV1Pool?.txHash;
+      const quoteBlock = quote?.block ?? raw.historicalV1Pool?.block;
+      if (quote?.address && pool?.address && pool.txHash && pool.block != null && quoteHash && quoteBlock != null) {
+        return {
+          quote: { address: quote.address, txHash: quoteHash, block: quoteBlock },
+          pool: { address: pool.address, txHash: pool.txHash, block: pool.block },
         };
       }
-      throw new Error("deployments/preprod.json exists but is missing indexer tx hash + block");
+      throw new Error(`${deployFile} exists but is missing indexer tx hash + block`);
     }
-    console.log("waiting for deployments/preprod.json (indexer-backed)");
+    console.log("waiting for", deployFile, "(indexer-backed)");
     await sleep(15_000);
   }
   throw new Error("timed out waiting for Preprod deploy evidence");
