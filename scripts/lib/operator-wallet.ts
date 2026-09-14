@@ -12,15 +12,14 @@ import {
   HDWallet,
   Roles,
   WalletFacade,
-  ShieldedWallet,
   UnshieldedWallet,
-  DustWallet,
   createKeystore,
   PublicKey,
   NoOpTransactionHistoryStorage,
 } from "@midnightntwrk/wallet-sdk";
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { RemitNodeWallet } from "../../packages/core/src/node-wallet.ts";
+import { restoreSyncDustWallet, restoreSyncShieldedWallet } from "./restore-sync-wallets.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 loadEnv({ path: resolve(repoRoot, ".env.preprod.local") });
@@ -371,9 +370,9 @@ export async function openOperatorWallet() {
   try {
     wallet = await WalletFacade.init({
       configuration,
-      shielded: () => ShieldedWallet(shieldedConfig).restore(shieldedState),
+      shielded: () => restoreSyncShieldedWallet(shieldedConfig).restore(shieldedState),
       unshielded: () => UnshieldedWallet(unshieldedConfig).restore(unshieldedState),
-      dust: () => DustWallet(dustConfig).restore(dustState),
+      dust: () => restoreSyncDustWallet(dustConfig).restore(dustState),
     });
   } catch (e) {
     throw new Error(

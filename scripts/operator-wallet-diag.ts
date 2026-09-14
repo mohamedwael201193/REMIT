@@ -10,6 +10,7 @@ import {
   snapshotOperatorDiagnostics,
   waitForOperatorWalletUnlocked,
   waitForPreprodDeployFile,
+  waitUntilSynced,
 } from "./lib/operator-wallet.ts";
 
 loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../.env.preprod.local") });
@@ -23,6 +24,10 @@ async function main() {
     const wallet = await snapshotOperatorDiagnostics(session, deployed.pool.address);
     console.log(JSON.stringify({ wallet }, null, 2));
     if (wallet.restored !== true) process.exit(1);
+    const synced = await waitUntilSynced(session.wallet, 120_000);
+    const after = await snapshotOperatorDiagnostics(session, deployed.pool.address);
+    console.log(JSON.stringify({ wallet: after, waitedForSync: synced }, null, 2));
+    if (after.restored !== true) process.exit(1);
   } finally {
     await closeOperatorWallet(session);
   }
