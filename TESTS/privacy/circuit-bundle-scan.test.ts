@@ -82,5 +82,5 @@ describe("circuit bundle / source-map secret scan", () => {
     expect(sample.includes("sourceMappingURL"), "hosted circuit bundle embeds a source map").toBe(false);
     expect(bundleHasEnvSecret(sample), "hosted circuit bundle contains an env secret value").toBe(false);
     expect(sample.includes("REMIT_OPERATOR_MNEMONIC")).toBe(false);
-  });
+  }, 90_000);
 });

@@ -66,5 +66,5 @@ describe("hosted Preprod honesty (read-only)", () => {
     }
     expect(lower).not.toMatch(/all systems operational/);
     expect(lower).not.toMatch(/simulated settlement/);
-  });
+  }, 90_000);
 });

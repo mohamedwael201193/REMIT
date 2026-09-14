@@ -11,6 +11,7 @@ import {
   expectCompactFail,
   publicLedger,
   revokeMandate,
+  serializedPublicState,
   withdraw,
 } from "../../packages/core/src/sim.ts";
 import {
@@ -661,6 +662,105 @@ describe.skipIf(!mbbe)(mbbeDescribeTitle("MARKET — eligible-only K=3"), () => 
         }),
       ["zero amounts", "zero fill base", "fill exceeds offer base", "selected slot is not eligible"],
     );
+  });
+
+  it("A ineligible / B worse-eligible / C best-eligible: Compact rejects non-best chosenIndex with zero mutation", () => {
+    const desk = bootDesk();
+    const ineligibleA = sellOffer(desk.k.maker, { quoteAmount: 4000n, expiry: NOW - 1n });
+    const worseB = sellOffer(desk.k.maker, { quoteAmount: 1280n });
+    const bestC = sellOffer(desk.k.maker, { quoteAmount: 2000n });
+    let sim = desk.sim;
+    const pA = placeQuoted(sim, desk.k.makerSk, ineligibleA);
+    sim = pA.sim;
+    const pB = placeQuoted(sim, desk.k.makerSk, worseB);
+    sim = pB.sim;
+    const pC = placeQuoted(sim, desk.k.makerSk, bestC);
+    sim = pC.sim;
+    const book = paddedBook([
+      liveSlot(ineligibleA, pA.offerRand),
+      liveSlot(worseB, pB.offerRand),
+      liveSlot(bestC, pC.offerRand),
+    ]);
+    expect(pickChosenIndex(book, desk.mandate, NOW, desk.remaining)).toBe(2n);
+
+    const snapshot = () => ({
+      dump: serializedPublicState(sim).hex,
+      fills: publicLedger(sim).fills,
+      openOffers: publicLedger(sim).openOffers,
+      free: publicLedger(sim).offers.firstFree(),
+    });
+    const before = snapshot();
+
+    const attempt = (idx: bigint) =>
+      fillAttack(sim, {
+        esk: desk.k.esk,
+        mandate: desk.mandate,
+        mandateRand: desk.mandateRand,
+        remaining: desk.remaining,
+        stateNonce: desk.stateNonce,
+        nowBound: NOW,
+        book,
+        chosenIndex: idx,
+      });
+
+    expectCompactFailAny(() => attempt(1n), ["slot 2 is strictly better", "strictly better"]);
+    expect(snapshot()).toEqual(before);
+
+    expectCompactFailAny(() => attempt(0n), ["offer expired", "selected slot is not eligible"]);
+    expect(snapshot()).toEqual(before);
+
+    expectCompactFail(() => attempt(3n), "chosen index out of range");
+    expect(snapshot()).toEqual(before);
+
+    sim = attempt(2n);
+    expect(publicLedger(sim).fills).toBe(before.fills + 1n);
+    expect(publicLedger(sim).openOffers).toBe(before.openOffers);
+  });
+
+  it("padding slot and an all-ineligible book cannot settle", () => {
+    const desk = bootDesk();
+    const live = sellOffer(desk.k.maker);
+    const placed = placeQuoted(desk.sim, desk.k.makerSk, live);
+    const padded = paddedBook([liveSlot(live, placed.offerRand)]);
+    expect(padded[1]?.live).toBe(false);
+    const before = serializedPublicState(placed.sim).hex;
+    expectCompactFail(
+      () =>
+        fillAttack(placed.sim, {
+          esk: desk.k.esk,
+          mandate: desk.mandate,
+          mandateRand: desk.mandateRand,
+          remaining: desk.remaining,
+          stateNonce: desk.stateNonce,
+          nowBound: NOW,
+          book: padded,
+          chosenIndex: 1n,
+        }),
+      "chosen slot is empty",
+    );
+    expect(serializedPublicState(placed.sim).hex).toBe(before);
+
+    const dead = sellOffer(desk.k.maker, { expiry: NOW - 1n });
+    const pDead = placeQuoted(desk.sim, desk.k.makerSk, dead);
+    const none = paddedBook([liveSlot(dead, pDead.offerRand)]);
+    expect(pickChosenIndex(none, desk.mandate, NOW, desk.remaining)).toBeUndefined();
+    const deadBefore = serializedPublicState(pDead.sim).hex;
+    expectCompactFailAny(
+      () =>
+        fillAttack(pDead.sim, {
+          esk: desk.k.esk,
+          mandate: desk.mandate,
+          mandateRand: desk.mandateRand,
+          remaining: desk.remaining,
+          stateNonce: desk.stateNonce,
+          nowBound: NOW,
+          book: none,
+          chosenIndex: 0n,
+        }),
+      ["offer expired", "selected slot is not eligible"],
+    );
+    expect(serializedPublicState(pDead.sim).hex).toBe(deadBefore);
+    expect(publicLedger(pDead.sim).fills).toBe(0n);
   });
 
   it("selecting a worse eligible while a better eligible is live fails unique-best", () => {

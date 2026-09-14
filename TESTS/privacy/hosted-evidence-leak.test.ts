@@ -82,5 +82,5 @@ describe("hosted /evidence and /agent/status omit leak keys", () => {
     expect(status.httpSubmit).toBe(false);
     expect(status.globalBest).toBe(false);
     assertLeakFree("hosted-status", status);
-  });
+  }, 90_000);
 });

@@ -89,3 +89,48 @@ describe("serialized public ledger privacy", () => {
     expect(encodingsOfBigint(40n).some((x) => x.length >= 8)).toBe(true);
   });
 });
+
+describe("POST /audit/verify checks a one-field package against a real auditRoot", () => {
+  it("accepts the authorized field and rejects a forged value", async () => {
+    const { buildApp } = await import("../../apps/api/src/app.ts");
+    const { rfqKeyPair } = await import("../../packages/core/src/box.ts");
+    const rec = rfqKeyPair();
+    const { app } = await buildApp({
+      cors: "*",
+      admin: "admin",
+      rfqSk: rec.secretHex,
+      execSk: "ab".repeat(32),
+      pool: "",
+      quote: "",
+      network: "preprod",
+      indexer: "https://indexer.preprod.midnight.network/api/v4/graphql",
+    });
+    const seed = randomBytes32();
+    const values = {
+      side: 1n,
+      baseAmount: 50n,
+      quoteAmount: 2000n,
+      principal: randomBytes32(),
+      counterparty: randomBytes32(),
+      mandateId: randomBytes32(),
+    };
+    const pkg = makeDisclosure(0, seed, values, [1]);
+    const ok = await app.inject({
+      method: "POST",
+      url: "/audit/verify",
+      payload: { package: pkg, rootHex: pkg.auditRootHex },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().ok).toBe(true);
+    expect(ok.json().fields).toEqual(["baseAmount"]);
+    expect(JSON.stringify(ok.json())).not.toMatch(/fillBase|chosenIndex|ownerSk/);
+    const forged = { ...pkg, openings: pkg.openings.map((o) => ({ ...o, valueDec: "1" })) };
+    const bad = await app.inject({
+      method: "POST",
+      url: "/audit/verify",
+      payload: { package: forged, rootHex: pkg.auditRootHex },
+    });
+    expect(bad.json().ok).toBe(false);
+    await app.close();
+  });
+});

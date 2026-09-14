@@ -20,6 +20,7 @@ import {
   loadInbox,
   saveInbox,
   fromHex,
+  toHex,
   sanitizePublicDetail,
   stripPublicLeaks,
   type InboxItem,
@@ -215,6 +216,7 @@ export async function buildApp(cfg: ApiConfig) {
       rfqPublic: cfg.rfqSk ? rfqPublicFromSecret(cfg.rfqSk) : null,
       inbox: { offers: offers.length, mandates: mandates.length },
       visibility: EXECUTOR_VISIBILITY.model,
+      trust: EXECUTOR_VISIBILITY,
       mpc: false,
       dustGate: "availableCoins>=1",
       circuit: Boolean(browserRoot && existsSync(resolve(browserRoot, "remit-circuit.js"))),
@@ -259,7 +261,64 @@ export async function buildApp(cfg: ApiConfig) {
       zkirUrl: "/zkir",
       explorerTx: "https://preprod.midnightexplorer.com/tx/",
       visibility: EXECUTOR_VISIBILITY.model,
+      trust: EXECUTOR_VISIBILITY,
     };
+  });
+
+  app.get("/audit/head", async () => {
+    const { pool } = liveAddresses();
+    if (!pool) return { ok: false, auditRoot: null, fills: "0" };
+    try {
+      const hit = await fetchContractAction(cfg.indexer, pool);
+      if (!hit?.stateHex) return { ok: false, auditRoot: null, fills: "0" };
+      const ld = poolLedgerFromStateHex(hit.stateHex);
+      let auditRoot: string | null = null;
+      for (const x of ld.auditRoots) {
+        auditRoot = toHex(x);
+        break;
+      }
+      return stripPublicLeaks({
+        ok: Boolean(auditRoot),
+        auditRoot,
+        fills: ld.fills.toString(),
+        openOffers: ld.openOffers.toString(),
+        txHashIsNotAuditRoot: true,
+      });
+    } catch {
+      return { ok: false, auditRoot: null, fills: "0" };
+    }
+  });
+
+  app.post("/audit/verify", async (req, reply) => {
+    const body = req.body as { package?: Parameters<typeof verifyDisclosure>[0]; rootHex?: string };
+    if (!body?.package) return reply.code(400).send({ error: "invalid package" });
+    let rootHex = typeof body.rootHex === "string" ? body.rootHex.replace(/^0x/i, "") : "";
+    if (!rootHex) {
+      const { pool } = liveAddresses();
+      if (pool) {
+        try {
+          const hit = await fetchContractAction(cfg.indexer, pool);
+          if (hit?.stateHex) {
+            const ld = poolLedgerFromStateHex(hit.stateHex);
+            for (const x of ld.auditRoots) {
+              rootHex = toHex(x);
+              break;
+            }
+          }
+        } catch {
+          /* caller must supply rootHex */
+        }
+      }
+    }
+    if (!rootHex || rootHex.length !== 64) return reply.code(400).send({ error: "auditRoot missing" });
+    const root = fromHex(rootHex);
+    const result = verifyDisclosure(body.package, root);
+    return stripPublicLeaks({
+      ok: result.ok,
+      failed: result.failed,
+      fields: Array.isArray(body.package.openings) ? body.package.openings.map((o) => o.field) : [],
+      auditRoot: rootHex,
+    });
   });
 
   app.get("/chain", async () => {
