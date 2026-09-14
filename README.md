@@ -2,6 +2,8 @@
 
 Private execution where an agent can choose, but cannot exceed the mandate.
 
+![REMIT: private mandate, private liquidity, constrained executor, ZK policy, verifiable execution](docs/remit-idea.png)
+
 ```
 PRIVATE MANDATE
 +

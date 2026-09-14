@@ -6,7 +6,7 @@ Private mandate + private liquidity + constrained executor + ZK policy enforceme
 
 REMIT is a mandate-bound dark RFQ desk on Midnight. A principal seals trading rules the market never sees. Counterparties quote privately. A constrained executor may rank eligible offers. Compact proves the fill obeyed the mandate before value moves. Selective audit can later open one authorized fact without opening the book.
 
-Wave 1 is live on Midnight Preprod. Wave 2 hardens the same protocol. Wave 3 targets Mainnet after an explicit capability gate. Explorer hashes are the settlement record.
+Wave 1 is live on Midnight Preprod. Wave 2 hardens the same protocol. Wave 3 targets Mainnet after an explicit capability gate. Explorer hashes are the settlement record. Judges can verify without a wallet via the hosted UI and public API.
 
 ## The problem
 
