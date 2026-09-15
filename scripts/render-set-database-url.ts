@@ -40,4 +40,11 @@ for (const id of ids) {
   });
   console.log("env merge DATABASE_URL", id, "vars", merged.length, "http", res.status);
   if (!res.ok) throw new Error(`env ${id} HTTP ${res.status}`);
+  const deploy = await fetch(`https://api.render.com/v1/services/${id}/deploys`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ clearCache: "do_not_clear" }),
+  });
+  console.log("deploy", id, deploy.status);
+  if (!deploy.ok) throw new Error(`deploy ${id} HTTP ${deploy.status}`);
 }

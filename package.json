@@ -41,6 +41,8 @@
     "front:circuit": "node scripts/build-browser-circuit.mjs",
     "keys:fetch": "node scripts/fetch-prover-keys.mjs",
     "persist:migrate": "npx tsx scripts/durable-migrate.ts",
+    "persist:inspect": "npx tsx scripts/persist-inspect.ts",
+    "persist:copy": "npx tsx scripts/persist-copy.ts",
     "e2e:preprod": "npx tsx scripts/chrome-preprod-smoke.ts",
     "build": "npm run compile:skip-zk && npm run -ws --if-present build",
     "api": "npm run start -w @remit/api",

@@ -102,8 +102,12 @@ describe("api (no private openings stored in plaintext)", () => {
     const replay = await app.inject({ method: "POST", url: "/rfq/offer", payload: { box: boxed } });
     expect(replay.statusCode).toBe(409);
 
-    const unauth = await app.inject({ method: "POST", url: "/disclose", payload: { package: {}, rootHex: "00" } });
-    expect(unauth.statusCode).toBe(401);
+    const unauthInbox = await app.inject({ method: "GET", url: "/inbox" });
+    expect(unauthInbox.statusCode).toBe(401);
+    expect(JSON.stringify(unauthInbox.json()).includes("RMTB1")).toBe(false);
+    expect(body.persist.backend).toBe("memory");
+    expect(body.persist.ok).toBe(true);
+    expect(typeof body.persist.queries).toBe("number");
 
     const { boxed: mandateBox } = makeMandateBox(rec.publicHex, Array.from({ length: 32 }, () => 4));
     const mOk = await app.inject({ method: "POST", url: "/mandate", payload: { box: mandateBox } });

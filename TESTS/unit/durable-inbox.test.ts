@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { encryptInbox, decryptInbox } from "../../packages/core/src/inbox.ts";
 import { privateStateNamespace as ns, tabStorageKeys as keys } from "../../packages/core/src/tab-seal.ts";
-import { createDurableInbox, remitEnvelopeSchema } from "../../apps/api/src/durable.ts";
+import { createDurableInbox, PERSIST_PING_CACHE_MS, remitEnvelopeSchema } from "../../apps/api/src/durable.ts";
 import { rfqKeyPair } from "../../packages/core/src/box.ts";
 import { makeOfferBox } from "../../packages/core/src/rfq.ts";
 
@@ -73,5 +76,25 @@ describe("remit_envelopes RLS", () => {
     expect(sql).toMatch(/remit_envelopes_deny_authenticated/);
     expect(sql).toMatch(/USING \(false\) WITH CHECK \(false\)/);
     expect(sql).toMatch(/ciphertext text NOT NULL/);
+  });
+});
+
+describe("runtime persist traffic", () => {
+  it("does not run schema DDL inside the inbox client and caches health pings", () => {
+    const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../../apps/api/src/durable.ts"), "utf8");
+    const runtime = src.slice(src.indexOf("export function createDurableInbox"));
+    expect(runtime).not.toMatch(/sql\.unsafe\(remitEnvelopeSchema/);
+    expect(runtime).not.toMatch(/CREATE TABLE IF NOT EXISTS/);
+    expect(runtime).not.toMatch(/CREATE POLICY/);
+    expect(PERSIST_PING_CACHE_MS).toBe(60_000);
+    expect(runtime).toContain("PERSIST_PING_CACHE_MS");
+  });
+
+  it("memory ping does not invent a database round-trip", async () => {
+    const rec = rfqKeyPair();
+    const store = createDurableInbox({ password: rec.secretHex, memory: true });
+    expect(await store.ping()).toBe(true);
+    expect(store.stats().queries).toBe(0);
+    await store.close();
   });
 });

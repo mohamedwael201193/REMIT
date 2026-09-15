@@ -30,7 +30,10 @@ function gate(tone: Tone, label: string, detail = "") {
   log(`[${tone}] ${label}${detail ? `  ${detail}` : ""}`);
 }
 function run(cmd: string, args: string[], timeoutMs: number) {
-  const r = spawnSync(cmd, args, {
+  const exe = process.platform === "win32" && !cmd.endsWith(".cmd") && !cmd.endsWith(".exe") && cmd !== process.execPath
+    ? `${cmd}.cmd`
+    : cmd;
+  const r = spawnSync(exe, args, {
     cwd: root,
     encoding: "utf8",
     timeout: timeoutMs,

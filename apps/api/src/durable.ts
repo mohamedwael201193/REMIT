@@ -10,8 +10,17 @@ import {
 
 dns.setDefaultResultOrder("ipv4first");
 
+/** Health probes reuse this so Render checks do not open Postgres on every request. */
+export const PERSIST_PING_CACHE_MS = 60_000;
+
+export type PersistStats = {
+  queries: number;
+  pings: number;
+  lastPingAt: number | null;
+};
+
 /** Strip Prisma/supabase-js query flags and pass discrete fields so `@` in passwords cannot split the host. */
-function pgClient(databaseUrl: string) {
+function pgClient(databaseUrl: string, applicationName = "remit-api") {
   const u = new URL(databaseUrl);
   u.searchParams.delete("pgbouncer");
   return postgres({
@@ -24,8 +33,9 @@ function pgClient(databaseUrl: string) {
     prepare: false,
     max: 1,
     connect_timeout: 15,
-    idle_timeout: 20,
-    connection: { application_name: "remit-api" },
+    idle_timeout: 30,
+    max_lifetime: 60 * 10,
+    connection: { application_name: applicationName },
     onnotice: () => undefined,
   });
 }
@@ -38,6 +48,7 @@ export type DurableInbox = {
   save: (snap: InboxSnapshot) => Promise<void>;
   ping: () => Promise<boolean>;
   close: () => Promise<void>;
+  stats: () => PersistStats;
 };
 
 const SNAPSHOT_KIND = "snapshot";
@@ -81,7 +92,7 @@ END $$;
 }
 
 export async function ensureRemitSchema(databaseUrl: string): Promise<void> {
-  const sql = pgClient(databaseUrl);
+  const sql = pgClient(databaseUrl, "remit-migrate");
   try {
     await sql.unsafe(remitEnvelopeSchema());
   } finally {
@@ -96,7 +107,9 @@ export function createDurableInbox(opts: {
   memory?: boolean;
   /** Override only in tests. Production API always uses inbox-v1. */
   snapshotNonce?: string;
+  now?: () => number;
 }): DurableInbox {
+  const emptyStats = (): PersistStats => ({ queries: 0, pings: 0, lastPingAt: null });
   if (opts.memory) {
     let snap: InboxSnapshot = { ...EMPTY, offers: [], mandates: [], nonces: [], receipts: [] };
     return {
@@ -107,30 +120,34 @@ export function createDurableInbox(opts: {
       },
       ping: async () => true,
       close: async () => undefined,
+      stats: emptyStats,
     };
   }
   if (opts.databaseUrl) {
     const sql = pgClient(opts.databaseUrl);
     const snapshotNonce = opts.snapshotNonce || SNAPSHOT_NONCE;
-    let ready = false;
-    const ensure = async () => {
-      if (ready) return;
-      await sql.unsafe(remitEnvelopeSchema());
-      ready = true;
-    };
+    const now = opts.now ?? Date.now;
+    const stats: PersistStats = { queries: 0, pings: 0, lastPingAt: null };
+    let cachedPing: { ok: boolean; at: number } | null = null;
     return {
       backend: "supabase",
+      stats: () => ({ ...stats }),
       ping: async () => {
+        const t = now();
+        if (cachedPing && t - cachedPing.at < PERSIST_PING_CACHE_MS) return cachedPing.ok;
+        stats.pings += 1;
+        stats.queries += 1;
         try {
-          await ensure();
           await sql`select 1 as ok`;
-          return true;
+          cachedPing = { ok: true, at: t };
         } catch {
-          return false;
+          cachedPing = { ok: false, at: t };
         }
+        stats.lastPingAt = t;
+        return cachedPing.ok;
       },
       load: async () => {
-        await ensure();
+        stats.queries += 1;
         const rows = await sql<{ ciphertext: string }[]>`
           select ciphertext from remit_envelopes
           where kind = ${SNAPSHOT_KIND} and nonce = ${snapshotNonce}
@@ -141,8 +158,8 @@ export function createDurableInbox(opts: {
         return decryptInbox(Buffer.from(ct, "base64"), opts.password);
       },
       save: async (snap) => {
-        await ensure();
         const ciphertext = encryptInbox(snap, opts.password).toString("base64");
+        stats.queries += 1;
         await sql`
           insert into remit_envelopes (kind, owner_binding, nonce, ciphertext, meta)
           values (${SNAPSHOT_KIND}, ${"operator"}, ${snapshotNonce}, ${ciphertext}, ${sql.json({ v: 1 })})
@@ -152,6 +169,7 @@ export function createDurableInbox(opts: {
             version = remit_envelopes.version + 1
         `;
         for (const item of snap.offers) {
+          stats.queries += 1;
           await sql`
             insert into remit_envelopes (kind, owner_binding, nonce, ciphertext, meta)
             values (${"rfq"}, ${"executor"}, ${item.id}, ${item.boxed}, ${sql.json({ receivedAt: item.receivedAt })})
@@ -162,6 +180,7 @@ export function createDurableInbox(opts: {
           `;
         }
         for (const item of snap.mandates) {
+          stats.queries += 1;
           await sql`
             insert into remit_envelopes (kind, owner_binding, nonce, ciphertext, meta)
             values (${"mandate"}, ${"executor"}, ${item.id}, ${item.boxed}, ${sql.json({ receivedAt: item.receivedAt })})
@@ -187,5 +206,6 @@ export function createDurableInbox(opts: {
     load: async () => loadInbox(file, opts.password),
     save: async (snap) => saveInbox(file, opts.password, snap),
     close: async () => undefined,
+    stats: emptyStats,
   };
 }

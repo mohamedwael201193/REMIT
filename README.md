@@ -23,21 +23,22 @@ VERIFIABLE EXECUTION
 3. [Why REMIT exists](#why-remit-exists)
 4. [Core idea](#core-idea)
 5. [Architecture](#system-architecture)
-6. [Private vs public state](#private-vs-public-state)
-7. [Compact contracts](#compact-contracts)
-8. [MBBE](#mbbe-k3)
-9. [RFQ](#rfq)
-10. [Residual execution](#residual-lifecycle)
-11. [Selective audit](#selective-audit)
-12. [Wallet architecture](#wallet-architecture)
-13. [Proof architecture](#proof-architecture)
-14. [Preprod evidence](#preprod-evidence)
-15. [Tests](#tests)
-16. [Judge / Local Contract Compilation](#judge--local-contract-compilation)
-17. [Judge: run REMIT locally](#judge-run-remit-locally)
-18. [Judge CLI](#one-command-judge-evidence)
-19. [Security and privacy](#security-verification)
-20. [Wave 1 / Wave 2 / Wave 3](#wave-1---proven-foundation)
+6. [Production persistence](#production-persistence)
+7. [Private vs public state](#private-vs-public-state)
+8. [Compact contracts](#compact-contracts)
+9. [MBBE](#mbbe-k3)
+10. [RFQ](#rfq)
+11. [Residual execution](#residual-lifecycle)
+12. [Selective audit](#selective-audit)
+13. [Wallet architecture](#wallet-architecture)
+14. [Proof architecture](#proof-architecture)
+15. [Preprod evidence](#preprod-evidence)
+16. [Tests](#tests)
+17. [Judge / Local Contract Compilation](#judge--local-contract-compilation)
+18. [Judge: run REMIT locally](#judge-run-remit-locally)
+19. [Judge CLI](#one-command-judge-evidence)
+20. [Security and privacy](#security-verification)
+21. [Wave 1 / Wave 2 / Wave 3](#wave-1---proven-foundation)
 
 ## What REMIT is
 
@@ -186,6 +187,29 @@ Where plaintext exists:
 | Render API | Public hashes, ciphertext boxes | RMTB1 envelopes; no openings in JSON |
 | Postgres | Ciphertext, owner binding | RLS deny-all; no service role in the browser |
 | Ledger | Amounts at unshielded deposit/withdraw; commitments, nullifiers, counters | Openings never stored |
+
+---
+
+## Production persistence
+
+```
+Browser → Render API → Postgres (transaction-mode pooler) → Midnight / Indexer
+```
+
+The API stores ciphertext envelopes (`RMTI1` snapshots and already-boxed `RMTB1` RFQ/mandate rows) plus allowed public metadata. It does not store mandate plaintext, offer prices or sizes, `chosenIndex`, `fillBase`, or private fill witnesses.
+
+Server-only secrets (`.env.preprod.local` and Render env — never `NEXT_PUBLIC_` / `VITE_`, never committed):
+
+- `DATABASE_URL` — transaction-mode pooler, port **6543**, `pgbouncer=true`. Runtime reads/writes. One process uses one connection (`max: 1`).
+- `DIRECT_URL` — session-mode pooler, port **5432**. Schema / `npm run persist:migrate` only.
+
+```bash
+npm run persist:migrate
+```
+
+creates `remit_envelopes` with RLS enabled and deny-all policies for `anon` / `authenticated`. The table owner is the server role, so the API still enforces authorization in HTTP (public routes never list boxes; `GET /inbox` is Bearer-admin). Runtime `GET /health` does not run DDL. Persist pings are cached for 60 seconds so Render health checks are not a Postgres round-trip on every probe.
+
+`npm run persist:inspect` prints redacted sizes and policy names only.
 
 ---
 
@@ -446,7 +470,7 @@ A leftover note is spendable only from the namespaced vault that holds its openi
 
 ## Tests
 
-Latest verified full run: **48 files / 200 passed** (`vitest run`; Playwright hosted spec is separate and not the default suite).
+Latest verified full run: **48 files / 202 passed** (`vitest run`; Playwright hosted spec is separate and not the default suite).
 
 Layout:
 

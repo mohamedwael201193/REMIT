@@ -271,7 +271,12 @@ export async function buildApp(cfg: ApiConfig) {
       globalBest: false,
       semantics: "mbbe-k3",
       agent: { rank: true, httpSubmit: Boolean(cfg.httpSubmit && cfg.submitFill) },
-      persist: { backend: durable.backend, ok: await durable.ping() },
+      persist: {
+        backend: durable.backend,
+        ok: await durable.ping(),
+        queries: durable.stats().queries,
+        pings: durable.stats().pings,
+      },
     };
   });
 
