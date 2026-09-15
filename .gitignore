@@ -54,6 +54,7 @@ RESEARCH/spikes/**/out-*/
 !README.md
 !PLAN.md
 !ABOUT.md
+!SLIDES.md
 
 # ---- local deploy evidence / wallet snapshots ----
 deployments/

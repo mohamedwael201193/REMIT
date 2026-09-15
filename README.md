@@ -16,6 +16,31 @@ ZK POLICY ENFORCEMENT
 VERIFIABLE EXECUTION
 ```
 
+## Contents
+
+1. [What REMIT is](#what-remit-is)
+2. [On-chain proofs](#on-chain-proofs)
+3. [Why REMIT exists](#why-remit-exists)
+4. [Core idea](#core-idea)
+5. [Architecture](#system-architecture)
+6. [Private vs public state](#private-vs-public-state)
+7. [Compact contracts](#compact-contracts)
+8. [MBBE](#mbbe-k3)
+9. [RFQ](#rfq)
+10. [Residual execution](#residual-lifecycle)
+11. [Selective audit](#selective-audit)
+12. [Wallet architecture](#wallet-architecture)
+13. [Proof architecture](#proof-architecture)
+14. [Preprod evidence](#preprod-evidence)
+15. [Tests](#tests)
+16. [Judge: run REMIT locally](#judge-run-remit-locally)
+17. [Clean contract compile](#clean-contract-compile)
+18. [Judge CLI](#one-command-judge-evidence)
+19. [Security and privacy](#security-verification)
+20. [Wave 1 / Wave 2 / Wave 3](#wave-1---proven-foundation)
+
+## What REMIT is
+
 REMIT is a mandate-bound dark RFQ desk on Midnight. A principal seals trading rules the public ledger never contains. Counterparties quote privately. A constrained executor may choose among the private candidates it is given. Compact proves the fill obeyed the mandate before value moves. Selective audit can later open one authorized fact without opening the book.
 
 Wave 1 is live on Midnight Preprod (`protocolVersion` 1000000, ledger 8). Wave 2 hardens the same protocol. Wave 3 targets Mainnet after an explicit capability gate.
@@ -304,7 +329,26 @@ Live head: `1bbc1cc2aa2cd83de56cb8ea15ec5dfb8dd071cf2fb305980416ed726b81a694`. C
 
 ---
 
-## Wallet lifecycle
+## Wallet architecture
+
+Connector: DApp Connector **4.0.1**. `connect(networkId)` must run in the click handler. Connected means `getConnectionStatus().status === "connected"` on Preprod. Private vault keys are `SHA-256(network|pool|wallet)`. A different wallet is a different vault.
+
+### 1AM
+
+- Discovery via `window.midnight`, then `connect(networkId)`.
+- `getConnectionStatus()` must report `connected` before the UI says connected.
+- In-browser proving via `getProvingProvider` for user circuits: createMandate, revokeMandate, placeOffer, deposit, withdraw.
+- Preprod. Never asks for a seed.
+
+### Lace
+
+- Same connector connect path. Lace is **not** in-browser proving.
+- Compact proofs go to local proof-server **8.1.0** at `http://localhost:6300` (`npm run proof:up`).
+- Private witnesses stay on the operator/user machine. They are not uploaded to Render.
+- Compact calls fail truthfully if the proof-server is down. Connection can still succeed.
+- Lace Settings → Midnight → Local (`http://localhost:6300`).
+
+Header DUST is a fee meter, not spendable coins.
 
 ```mermaid
 stateDiagram-v2
@@ -318,17 +362,27 @@ stateDiagram-v2
   Disconnect --> [*]
 ```
 
-Header DUST is a fee meter, not spendable coins. Lace requires local proof-server 8.1.0 at `http://localhost:6300`.
-
 ---
 
 ## Proof architecture
 
-Compile (WSL): `compact compile` 0.31.1 → ZKIR + verifier keys (committed) + prover keys (gitignored, hosted at `/keys`).
+```
+SOURCE (.compact)
+  → compact compile 0.31.1
+  → managed/ (JS bindings, ZKIR, verifier keys, prover keys)
+  → runtime (midnight-js 4.1.1)
+  → proof (1AM in-tab, or Lace/operator proof-server 8.1.0)
+  → wallet balance/sign
+  → submitTransaction
+  → indexer truth-gate
+```
 
-- Browser path: 1AM `getProvingProvider` for createMandate, revokeMandate, placeOffer, deposit, withdraw.
-- Executor path: operator Node + Docker `midnightntwrk/proof-server:8.1.0`.
-- Hosted Render does not run a proof-server. That is the privacy boundary, not a missing feature.
+- **1AM user circuits:** `getProvingProvider` in the tab.
+- **Lace user circuits:** `httpClientProofProvider(http://localhost:6300)`.
+- **Executor `fill`:** operator Node + Docker `midnightntwrk/proof-server:8.1.0`.
+- Render does not receive fill witnesses. That is the privacy boundary, not a missing feature.
+
+Verifier keys and ZKIR are committed. Prover keys are gitignored (`CONTRACT/managed/**/keys/*.prover`) and hosted at `GET /keys`. Fetch with `npm run keys:fetch` if you need them locally.
 
 ---
 
@@ -379,7 +433,7 @@ A leftover note is spendable only from the namespaced vault that holds its openi
 
 ## Tests
 
-Latest verified full run: **46 files / 189 passed** (`vitest run`; Playwright hosted spec is separate and not the default suite).
+Latest verified full run: **47 files / 191 passed** (`vitest run`; Playwright hosted spec is separate and not the default suite).
 
 Layout:
 
@@ -402,39 +456,110 @@ npm run secret-scan
 
 ---
 
-## Judge quick start
+## Judge: run REMIT locally
 
-### Path A - read-only, no wallet
+Node **22**, npm **10**, Docker (proof-server). Compact **0.31.1** on Linux/macOS, or WSL Ubuntu on Windows. Do not bump the pin.
 
-1. Open https://remit-front.vercel.app (Overview reads indexer-backed `/evidence`).
-2. GET https://remit-api-node.onrender.com/health - `network=preprod`, `mpc=false`, persist supabase.
-3. GET https://remit-api-node.onrender.com/evidence - public hashes only.
-4. GET https://remit-api-node.onrender.com/chain - `fills`, `activeMandates`, `protocolVersion=1000000`.
-5. Click any hash in **On-chain proofs**.
+### A. Contract compilation
 
-### Path B - local reproduction
+Prerequisites: `compact compile --version` prints `0.31.1`.
 
 ```bash
 npm install
 npm run compile:skip-zk
-npm test
-npm run judge:proof
+node scripts/inspect-managed.mjs
 ```
 
-Full zk compile (WSL Ubuntu on Windows):
+Expected: pool + quote JS bindings present; compiler-version `0.31.1`; 7 pool verifier keys. Full ZK:
 
 ```bash
-compact compile --version   # 0.31.1
 npm run compile
-npm run proof:up            # docker midnightntwrk/proof-server:8.1.0 :6300
 ```
 
-### Path C - live Preprod + Chrome
+Windows without a native `compact`: the script uses WSL. Linux/macOS call `compact` on PATH.
 
-1. 1AM wallet, Midnight Preprod.
-2. https://remit-front.vercel.app - Connect, Open workspace.
-3. Seal a mandate. Indexer `activeMandates` must increase. Explorer `createMandate` SUCCESS, 0 public outputs.
-4. Settings: Revoke in the same tab namespace. Indexer must decrease. Explorer `revokeMandate` SUCCESS.
+Contract-only, no UI:
+
+```bash
+compact compile --skip-zk CONTRACT/src/remit_pool.compact CONTRACT/managed/remit_pool
+compact compile --skip-zk CONTRACT/src/remit_quote.compact CONTRACT/managed/remit_quote
+```
+
+### B. Test suite
+
+```bash
+npm test
+npm run test:unit
+npm run test:security
+npm run test:privacy
+npm run test:integration
+```
+
+Expected: vitest green. Playwright hosted spec is separate (`npm run test:e2e`) and is not the default suite.
+
+### C. Proof server
+
+```bash
+npm run proof:up
+```
+
+Expected: Docker `midnightntwrk/proof-server:8.1.0` listening on `http://localhost:6300`. Stop with `npm run proof:down`. Witnesses never go to Render.
+
+### D. API
+
+Gitignored `.env.preprod.local` (copy `.env.example`). No seeds in the shell history you paste to a judge.
+
+```bash
+npm run api
+```
+
+Expected: `GET /health` → `network=preprod`, `mpc=false`.
+
+### E. Frontend
+
+```bash
+npm run front:env
+cd front && npm install && npm run dev
+```
+
+Expected: local UI on the Next port. Public env is `NEXT_PUBLIC_*` only.
+
+### F. Chrome wallet
+
+**1AM:** Connect wallet → 1AM → authorize Preprod. UI connected only after `getConnectionStatus()`. Proving is in-browser.
+
+**Lace:** Start proof-server first. Connect wallet → Lace → authorize Preprod. Proving is local proof-server 8.1.0, not in-tab WASM. Compact calls fail truthfully if `:6300` is down.
+
+Reload reconnects from connector status + hashed vault. Switching wallets isolates private state.
+
+### G. Preprod verification
+
+Path without a wallet:
+
+1. https://remit-front.vercel.app
+2. https://remit-api-node.onrender.com/health
+3. https://remit-api-node.onrender.com/evidence
+4. https://remit-api-node.onrender.com/chain
+5. Click hashes in [On-chain proofs](#on-chain-proofs)
+
+---
+
+## Clean contract compile
+
+| Item | Value |
+|---|---|
+| Command | `npm run compile` or `npm run compile:skip-zk` |
+| Directory | repository root |
+| Compiler | Compact **0.31.1** (`compact compile --version`) |
+| Language | pragma `>= 0.22 && <= 0.23` (this pool is **0.23**) |
+| Sources | `CONTRACT/src/remit_pool.compact`, `CONTRACT/src/remit_quote.compact` |
+| Output | `CONTRACT/managed/remit_pool`, `CONTRACT/managed/remit_quote` |
+| Circuits | 7 impure pool circuits + quote faucet |
+| Committed | JS bindings, ZKIR, `.verifier` keys |
+| Gitignored | `CONTRACT/managed/**/keys/*.prover` (too large) |
+| Hosted provers | `GET https://remit-api-node.onrender.com/keys` |
+
+Inspect: `node scripts/inspect-managed.mjs` must print compiler-version `0.31.1` and 7 pool verifiers.
 
 ---
 
@@ -448,24 +573,7 @@ Prints a Wave 1 verification report: compile artifacts, circuit inventory, tests
 
 Never prints mnemonics, `DATABASE_URL`, service-role keys, or box plaintext.
 
----
-
-## Local setup
-
-Prerequisites: Node 22, npm 10, Docker (proof-server), WSL + Compact 0.31.1 for full zk.
-
-```bash
-npm install
-npm run compile:skip-zk
-npm run inspect:managed
-npm test
-npm run secret-scan
-npm run typecheck
-npm run front:env          # writes NEXT_PUBLIC_* only
-cd front && npm install && npm run dev
-```
-
-API: `npm run api` with gitignored `.env.preprod.local`. Public browser env never contains seeds, service-role keys, or executor secrets.
+Slide deck: [SLIDES.md](./SLIDES.md). Demo video is recorded separately and is not in this repository; this pass does not edit it.
 
 ---
 

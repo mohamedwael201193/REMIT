@@ -36,6 +36,7 @@ const roots = [
   join(root, "README.md"),
   join(root, "PLAN.md"),
   join(root, "ABOUT.md"),
+  join(root, "SLIDES.md"),
   join(root, "scripts", "judge-proof.ts"),
   join(root, "front", "src", "components", "remit", "landing"),
 ];

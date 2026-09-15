@@ -4,7 +4,7 @@ const ITEMS = [
   { k: "Network", v: "Midnight Preprod, ledger 8" },
   { k: "Pool", v: "01bebd52… MBBE K=3" },
   { k: "Circuits", v: "7 impure Compact circuits" },
-  { k: "Tests", v: "46 files / 189 passed" },
+  { k: "Tests", v: "47 files / 191 passed" },
   { k: "Fill", v: "5a1200f5… block 2549944" },
   { k: "Residual", v: "5f1203cf… block 2550168" },
   { k: "Withdraw", v: "999e2b5b… block 2550510" },
