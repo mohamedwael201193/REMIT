@@ -28,6 +28,33 @@ Source: this repository. License: Apache-2.0.
 
 ---
 
+## On-chain proofs
+
+Every claim below is a Compact transaction on Midnight Preprod (`protocolVersion` 1000000). Open a link. The explorer is the settlement record.
+
+Pool `01bebd52ad1b243b390c853bbc2c1588d1cf0f487934d54d79f8a590505c105e` · Quote `7559e38693725dafef73486f2ee3aa30ee0b5b543e22d0aa5ad7303c37b55e3f` · `auditRoot` `1bbc1cc2aa2cd83de56cb8ea15ec5dfb8dd071cf2fb305980416ed726b81a694`
+
+| What settled | Block | Explorer |
+|---|---|---|
+| Quote REMIT-Q deployed | 2538374 | [04800c4c…08008](https://explorer.1am.xyz/tx/04800c4ca43dd572d77ca1e5cf604702c609ff091ecb567f942ff15e17c08008?network=preprod) |
+| MBBE K=3 pool deployed | 2541620 | [55224e41…61798a](https://explorer.1am.xyz/tx/55224e41e1b68f5cc65286f19e7269b199563158806fc5ae03fe9f536c61798a?network=preprod) |
+| Padding cannot win | 2541757 | [8fac31ab…b92e55](https://explorer.1am.xyz/tx/8fac31ab4a7b76e91f8da95d8bfd0099f0a754daa4641d571dcdd45b59b92e55?network=preprod) |
+| Live K=3 fill | 2542039 | [12306cbe…38cbd20](https://explorer.1am.xyz/tx/12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20?network=preprod) |
+| Mandate created | 2541972 | [308c7b2c…010749](https://explorer.1am.xyz/tx/308c7b2c57a8ab9aeefea4a1c243f5da056e6b5f4dbd4dc234cdb84aa1010749?network=preprod) |
+| Private maker offer | 2548791 | [c303ec61…5265b2](https://explorer.1am.xyz/tx/c303ec61c09d406acfbec24915dd83c0546c1e833329a3e6a2f7de53b15265b2?network=preprod) |
+| RFQ fill 50 of 80 | 2549944 | [5a1200f5…16f00a](https://explorer.1am.xyz/tx/5a1200f5869cb60c81f9ebcb649da45fb47c563bc245c362d36665597b16f00a?network=preprod) |
+| Residual 30 consumed | 2550168 | [5f1203cf…12b99f](https://explorer.1am.xyz/tx/5f1203cf9cdde32192f4a2cdce275ff34529b19bbe24644f6014b1c24f12b99f?network=preprod) |
+| Compact withdraw | 2550510 | [999e2b5b…490fce5](https://explorer.1am.xyz/tx/999e2b5b3a32c7537ebba3ecb9afd7bce77f8ff205f97e361c2be5e35490fce5?network=preprod) |
+| Chrome createMandate | 2551299 | [5172ab71…36df8fa9](https://explorer.1am.xyz/tx/5172ab712e2cb39e5f455dd8cec609765d6fe2225ca0b0e97412cfc436df8fa9?network=preprod) |
+| Chrome revokeMandate | 2551669 | [8ae27d7a…1882f49](https://explorer.1am.xyz/tx/8ae27d7a3930c284a410198234d97ad110f0668af29cf89c42091b3b51882f49?network=preprod) |
+| Chrome deposit | 2551700 | [cdb04c15…05ff2d](https://explorer.1am.xyz/tx/cdb04c15462fad79bcd851ec39604bae32ef3b8f2463eb44aea7e7365c05ff2d?network=preprod) |
+
+Public JSON (hashes only, no openings): [hosted `/evidence`](https://remit-api-node.onrender.com/evidence) · [hosted `/chain`](https://remit-api-node.onrender.com/chain) · committed copy `apps/api/preprod-evidence.json`.
+
+> An agent can choose. It cannot exceed the mandate. These transactions are how you check.
+
+---
+
 ## Why REMIT exists
 
 Delegated execution leaks strategy. A limit price, a size, a remaining budget, an expiry, and an admitted counterparty set are signals. Anyone who can read them can trade against them. Asking an agent or a desk to "be careful" is not a proof.
@@ -330,28 +357,7 @@ Compile (WSL): `compact compile` 0.31.1 → ZKIR + verifier keys (committed) + p
 
 ## Preprod evidence
 
-Network: Preprod. Pool: `01bebd52ad1b243b390c853bbc2c1588d1cf0f487934d54d79f8a590505c105e`. Quote: `7559e38693725dafef73486f2ee3aa30ee0b5b543e22d0aa5ad7303c37b55e3f`.
-
-Explorer: `https://explorer.1am.xyz/tx/<hash>?network=preprod` (also `https://preprod.midnightexplorer.com/tx/<hash>`).
-
-| Action | Tx | Block | What it proves |
-|---|---|---|---|
-| Quote deploy | [`04800c4c…08008`](https://explorer.1am.xyz/tx/04800c4ca43dd572d77ca1e5cf604702c609ff091ecb567f942ff15e17c08008?network=preprod) | 2538374 | REMIT-Q instance |
-| Pool deploy | [`55224e41…61798a`](https://explorer.1am.xyz/tx/55224e41e1b68f5cc65286f19e7269b199563158806fc5ae03fe9f536c61798a?network=preprod) | 2541620 | MBBE K=3 pool |
-| Padded K=3 fill | [`8fac31ab…b92e55`](https://explorer.1am.xyz/tx/8fac31ab4a7b76e91f8da95d8bfd0099f0a754daa4641d571dcdd45b59b92e55?network=preprod) | 2541757 | padding cannot win |
-| 3-maker partial | [`12306cbe…38cbd20`](https://explorer.1am.xyz/tx/12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20?network=preprod) | 2542039 | live K=3 + residual commit |
-| Mandate | [`308c7b2c…010749`](https://explorer.1am.xyz/tx/308c7b2c57a8ab9aeefea4a1c243f5da056e6b5f4dbd4dc234cdb84aa1010749?network=preprod) | 2541972 | lifecycle createMandate |
-| Maker offer | [`c303ec61…5265b2`](https://explorer.1am.xyz/tx/c303ec61c09d406acfbec24915dd83c0546c1e833329a3e6a2f7de53b15265b2?network=preprod) | 2548791 | 0 public outputs |
-| RFQ fill 50/80 | [`5a1200f5…16f00a`](https://explorer.1am.xyz/tx/5a1200f5869cb60c81f9ebcb649da45fb47c563bc245c362d36665597b16f00a?network=preprod) | 2549944 | hosted RFQ consume |
-| Residual 30 | [`5f1203cf…12b99f`](https://explorer.1am.xyz/tx/5f1203cf9cdde32192f4a2cdce275ff34529b19bbe24644f6014b1c24f12b99f?network=preprod) | 2550168 | leftover consumed |
-| Withdraw | [`999e2b5b…490fce5`](https://explorer.1am.xyz/tx/999e2b5b3a32c7537ebba3ecb9afd7bce77f8ff205f97e361c2be5e35490fce5?network=preprod) | 2550510 | Compact `withdraw` SucceedEntirely |
-| Chrome createMandate | [`5172ab71…36df8fa9`](https://explorer.1am.xyz/tx/5172ab712e2cb39e5f455dd8cec609765d6fe2225ca0b0e97412cfc436df8fa9?network=preprod) | 2551299 | 1AM, 0 public outputs |
-| Chrome revoke | [`8ae27d7a…1882f49`](https://explorer.1am.xyz/tx/8ae27d7a3930c284a410198234d97ad110f0668af29cf89c42091b3b51882f49?network=preprod) | 2551669 | indexer `activeMandates` 4 to 3 |
-| Chrome deposit | [`cdb04c15…05ff2d`](https://explorer.1am.xyz/tx/cdb04c15462fad79bcd851ec39604bae32ef3b8f2463eb44aea7e7365c05ff2d?network=preprod) | 2551700 | in-tab `deposit` |
-
-v1 pool `e82dea02…` is historical single-offer evidence. It is not the K=3 pool.
-
-Committed copy: `apps/api/preprod-evidence.json`.
+The full clickable set is in **On-chain proofs** at the top of this README. Committed copy: `apps/api/preprod-evidence.json`. Explorer: `https://explorer.1am.xyz/tx/<hash>?network=preprod`. v1 pool `e82dea02…` is historical single-offer evidence. It is not the K=3 pool.
 
 ---
 
@@ -404,7 +410,7 @@ npm run secret-scan
 2. GET https://remit-api-node.onrender.com/health - `network=preprod`, `mpc=false`, persist supabase.
 3. GET https://remit-api-node.onrender.com/evidence - public hashes only.
 4. GET https://remit-api-node.onrender.com/chain - `fills`, `activeMandates`, `protocolVersion=1000000`.
-5. Click any hash in the table above.
+5. Click any hash in **On-chain proofs**.
 
 ### Path B - local reproduction
 
@@ -440,51 +446,7 @@ npm run judge:proof
 
 Prints a Wave 1 verification report: compile artifacts, circuit inventory, tests, committed Preprod hashes with explorer URLs, indexer/hosted probes, privacy keys absent from public JSON. Labels evidence as **REPRODUCED LOCALLY**, **COMMITTED EVIDENCE**, **INDEXER-VERIFIED**, or **VERIFIED AGAINST PREPROD**. It does not recreate historic private proofs from a hash.
 
-Video-length run after tests already passed:
-
-```bash
-npm run judge:demo
-```
-
 Never prints mnemonics, `DATABASE_URL`, service-role keys, or box plaintext.
-
----
-
-## Judge Demo
-
-Recommended recording order. Evidence before UI. No secrets on screen.
-
-**0:00–0:15 HOOK**
-
-"An agent can choose. It cannot exceed the mandate." Show the architecture diagram in this README.
-
-**0:15–1:15 CLI FIRST**
-
-```bash
-npm run judge:proof
-```
-
-Show Compact 0.31.1, seven circuits, key inventory, test counts, pool/quote addresses, fill / residual / auditRoot / revoke / withdraw, privacy checks. Do not linger on log spam.
-
-**1:15–1:45 CONTRACT**
-
-Open `CONTRACT/src/remit_pool.compact`. Point to `createMandate`, `revokeMandate`, `fill`. Private witness, assert, disclose.
-
-**1:45–2:30 PRODUCT**
-
-https://remit-front.vercel.app — connect, private mandate, private offer, RFQ pipeline, settled execution, residual, audit, revoke. Never invent balances.
-
-**2:30–3:15 PRIVACY**
-
-Public: commitment, nullifier, tx, block, `auditRoot`. Private: mandate terms, offer terms, `chosenIndex`, `fillBase`, openings. Authorized `baseAmount` VERIFIED. Forged `999` REJECTED.
-
-**3:15–3:45 AGENT CANNOT EXCEED**
-
-Run or show an adversarial Compact reject (over-cap, dominated candidate, replay). No state mutation. That is the climax.
-
-**3:45–4:00 CLOSE**
-
-"REMIT does not ask you to trust the executor. It makes the executor prove the boundary." Wave 1 on Preprod. Wave 2 hardening. Wave 3 Mainnet target.
 
 ---
 
