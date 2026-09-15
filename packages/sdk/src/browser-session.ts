@@ -4,7 +4,7 @@ import { HttpZkConfigProvider } from "../../core/src/http-zk.ts";
 import { RemitError } from "../../core/src/errors.ts";
 import { remitSetNetworkId } from "../../core/src/network-id.ts";
 import { connectorAsWalletProvider } from "./connector-wallet.js";
-import { capabilitiesOf, classifyWallet, type WalletKind } from "./wallet.js";
+import { capabilitiesOf, classifyWallet, provingPathFor, type WalletKind } from "./wallet.js";
 
 export type BrowserSessionOpts = {
   wallet: ConnectedAPI;
@@ -32,14 +32,12 @@ export async function createRemitBrowserProviders(opts: BrowserSessionOpts) {
   }
   const kind: WalletKind = classifyWallet(opts.walletName ?? "", opts.walletRdns);
   const caps = capabilitiesOf(opts.wallet);
+  const provingPath = provingPathFor(kind, caps);
   const wrapped = await connectorAsWalletProvider(opts.wallet);
   const midnightProvider = { submitTx: wrapped.submitTx.bind(wrapped) };
   const zk = new HttpZkConfigProvider(opts.apiUrl, opts.zkScope ?? "pool");
 
-  if (kind === "lace" || (!caps.getProvingProvider && kind !== "1am")) {
-    if (caps.getProvingProvider && kind === "lace") {
-      throw new RemitError("WALLET", "Lace must not be treated as in-tab proving", "lace needs proof server");
-    }
+  if (provingPath === "lace-http") {
     return createBrowserProviders({
       indexerHttp: opts.indexerHttp,
       indexerWs: opts.indexerWs,

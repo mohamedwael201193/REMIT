@@ -127,12 +127,19 @@ function classify(name: string, rdns?: string): WalletProviderKind | "unknown" {
   return "unknown";
 }
 
-async function assertLaceProofServer(url = "http://localhost:6300"): Promise<void> {
+async function probeLaceProofServer(url = "http://localhost:6300"): Promise<boolean> {
   try {
-    const res = await fetch(new URL("/health", url));
-    if (!res.ok) throw new Error("Lace local proof server unhealthy");
+    const res = await fetch(url, { method: "GET", mode: "no-cors", cache: "no-store" });
+    return res.type === "opaque" || res.type === "opaqueredirect" || res.ok;
   } catch {
-    throw new Error("Lace must use a local proof-server 8.1.0 at http://localhost:6300");
+    return false;
+  }
+}
+
+export async function assertLaceProofServer(url = "http://localhost:6300"): Promise<void> {
+  const ok = await probeLaceProofServer(url);
+  if (!ok) {
+    throw new Error("Lace local proof-server 8.1.0 is not reachable at http://localhost:6300. Start it with npm run proof:up. Private witnesses stay local; they are not sent to Render.");
   }
 }
 
@@ -190,32 +197,29 @@ export async function connectInjectedWallet(
   if (!networkMatches(expectedNetwork, status.networkId)) {
     throw new Error("wallet network does not match Preprod");
   }
+  const lace = kind === "lace";
   const inTabProving = typeof wallet.getProvingProvider === "function";
-  if (kind === "lace") {
-    if (inTabProving) {
-      throw new Error("Lace must not be treated as in-tab proving");
-    }
-    let prover = "http://localhost:6300";
-    try {
-      prover = (await wallet.getConfiguration?.())?.proverServerUri ?? prover;
-    } catch {
-      /* keep default */
-    }
-    await assertLaceProofServer(prover);
-  }
+  let prover = "http://localhost:6300";
   try {
-    await wallet.hintUsage?.([
-      "getUnshieldedAddress",
-      "getDustAddress",
-      "getDustBalance",
-      "getUnshieldedBalances",
-      "balanceUnsealedTransaction",
-      "submitTransaction",
-      "getConnectionStatus",
-      "getConfiguration",
-      "getShieldedAddresses",
-      "getProvingProvider",
-    ]);
+    prover = (await wallet.getConfiguration?.())?.proverServerUri ?? prover;
+  } catch {
+    /* keep default */
+  }
+  const proofServerReady = lace ? await probeLaceProofServer(prover) : inTabProving;
+  const hint = [
+    "getUnshieldedAddress",
+    "getDustAddress",
+    "getDustBalance",
+    "getUnshieldedBalances",
+    "balanceUnsealedTransaction",
+    "submitTransaction",
+    "getConnectionStatus",
+    "getConfiguration",
+    "getShieldedAddresses",
+  ];
+  if (!lace && inTabProving) hint.push("getProvingProvider");
+  try {
+    await wallet.hintUsage?.(hint);
   } catch {
     /* hintUsage is advisory */
   }
@@ -244,7 +248,11 @@ export async function connectInjectedWallet(
       dust: null,
       dustHeader,
       status: "connected",
-      lastError: null,
+      lastError: proofServerReady === false
+        ? "Connected. Compact calls need local proof-server 8.1.0 at http://localhost:6300."
+        : null,
+      provingPath: lace ? "lace-http" : "1am-intab",
+      proofServerReady,
     },
     api: wallet,
   };

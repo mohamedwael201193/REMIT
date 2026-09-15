@@ -9,6 +9,7 @@ import {
   markUserApproved,
   assertApproved,
   assertLaceProofServer,
+  provingPathFor,
   requireConnectorV4,
   assertSpendableDust,
 } from "../../packages/sdk/src/wallet.ts";
@@ -80,6 +81,8 @@ describe("wallet isolation + capability detection", () => {
     expect(capabilitiesOf({ getProvingProvider: () => undefined }).getProvingProvider).toBe(true);
     expect(capabilitiesOf({}).getProvingProvider).toBe(false);
     expect(capabilitiesOf({}).localProofServer).toBe(true);
+    expect(provingPathFor("lace", capabilitiesOf({ getProvingProvider: () => undefined }))).toBe("lace-http");
+    expect(provingPathFor("1am", capabilitiesOf({ getProvingProvider: () => undefined }))).toBe("1am-intab");
   });
 
   it("refuses colliding private-state namespaces", () => {
@@ -96,7 +99,7 @@ describe("wallet isolation + capability detection", () => {
     expect(() => assertApproved(gate)).toThrow(/user gesture required/);
     markUserApproved(gate);
     assertApproved(gate);
-    await expect(assertLaceProofServer("http://127.0.0.1:1")).rejects.toThrow(/Lace local proof server/);
+    await expect(assertLaceProofServer("http://127.0.0.1:1")).rejects.toThrow(/proof-server 8\.1\.0 is not reachable/);
   });
 });
 
@@ -136,9 +139,14 @@ describe("DApp connector v4 + DUST honesty", () => {
     );
   });
 
-  it("refuses to treat Lace as in-tab proving", async () => {
+  it("connects Lace on the local proof-server path even if getProvingProvider is a stub", async () => {
     const lace = fakeInitial({ name: "Lace", rdns: "io.lace" });
-    await expect(connectWallet(lace, "preprod", { fromClickHandler: true })).rejects.toThrow(/in-tab proving/);
+    const { state } = await connectWallet(lace, "preprod", { fromClickHandler: true });
+    expect(state.phase).toBe("connected");
+    expect(state.kind).toBe("lace");
+    expect(state.provingPath).toBe("lace-http");
+    expect(state.capabilities.localProofServer).toBe(true);
+    expect(state.unshieldedAddress).toContain("mn_addr_preprod1");
   });
 
   it("requires a fresh user gesture to reconnect and accepts a disconnected status", async () => {

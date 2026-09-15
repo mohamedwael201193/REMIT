@@ -95,11 +95,16 @@ describe("browser providers (no WalletFacade)", () => {
     ).toThrow(/getProvingProvider/);
   });
 
-  it("builds Lace providers against the local proof server without getProvingProvider", async () => {
-    const wallet = fakeConnected();
-    const { getProvingProvider: _, ...laceWallet } = wallet;
+  it("builds Lace providers against the local proof server and never calls getProvingProvider", async () => {
+    let provingCalls = 0;
+    const wallet = fakeConnected({
+      getProvingProvider: async () => {
+        provingCalls += 1;
+        return { check: async () => [], prove: async () => new Uint8Array() };
+      },
+    });
     const providers = await createRemitBrowserProviders({
-      wallet: laceWallet as ConnectedAPI,
+      wallet,
       apiUrl: "https://remit-api-node.onrender.com",
       indexerHttp: "https://indexer.preprod.midnight.network/api/v4/graphql",
       indexerWs: "wss://indexer.preprod.midnight.network/api/v4/graphql/ws",
@@ -107,6 +112,7 @@ describe("browser providers (no WalletFacade)", () => {
       walletName: "Lace",
       walletRdns: "io.lace",
     });
+    expect(provingCalls).toBe(0);
     expect(providers.proofProvider).toBeDefined();
   });
 });

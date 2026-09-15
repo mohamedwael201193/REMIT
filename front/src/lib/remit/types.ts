@@ -267,6 +267,8 @@ export interface WalletState {
   dustHeader?: string;
   status: "disconnected" | "connecting" | "reconnecting" | "connected";
   lastError?: string | null;
+  provingPath?: "1am-intab" | "lace-http";
+  proofServerReady?: boolean | null;
 }
 
 export interface NewMandateInput {

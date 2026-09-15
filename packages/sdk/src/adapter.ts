@@ -1,9 +1,9 @@
 import type { ConnectedAPI, InitialAPI } from "@midnight-ntwrk/dapp-connector-api";
 import { RemitError } from "@remit/core";
 import {
-  assertLaceProofServer,
   capabilitiesOf,
   classifyWallet,
+  provingPathFor,
   requireClickHandler,
   requireConnectorV4,
   type RemitClientState,
@@ -84,18 +84,8 @@ export async function connectWallet(
   }
   const caps = capabilitiesOf(wallet);
   const kind = classifyWallet(api.name ?? "", api.rdns ?? api.name);
-  let proverServerUri: string | undefined;
-  try {
-    proverServerUri = (await wallet.getConfiguration())?.proverServerUri;
-  } catch {
-    proverServerUri = undefined;
-  }
-  if (kind === "lace") {
-    if (caps.getProvingProvider) {
-      throw new RemitError("WALLET", "Lace must not be treated as in-tab proving", "lace needs proof server");
-    }
-    await assertLaceProofServer(proverServerUri ?? "http://localhost:6300");
-  }
+  const provingPath = provingPathFor(kind, caps);
+  const capabilities = { ...caps, localProofServer: provingPath === "lace-http" };
   try {
     await wallet.hintUsage([
       "getUnshieldedAddress",
@@ -106,6 +96,7 @@ export async function connectWallet(
       "submitTransaction",
       "getConnectionStatus",
       "getConfiguration",
+      ...(provingPath === "1am-intab" ? (["getProvingProvider"] as const) : []),
     ]);
   } catch {
     // hintUsage is advisory; some wallets resolve permissions on the first call instead.
@@ -118,7 +109,9 @@ export async function connectWallet(
     unshieldedAddress: pub.unshieldedAddress,
     dustAddress: pub.dustAddress,
     dust: pub.dust,
-    capabilities: caps,
+    capabilities,
+    provingPath,
+    proofServerReady: provingPath === "lace-http" ? null : true,
   };
   return { wallet, state };
 }

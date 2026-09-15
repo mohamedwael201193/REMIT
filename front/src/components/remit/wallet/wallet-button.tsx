@@ -43,8 +43,8 @@ const PROVIDERS: {
   name: string;
   blurb: string;
 }[] = [
-  { kind: "1am", name: "1AM", blurb: "In-tab Compact proving on Preprod" },
-  { kind: "lace", name: "Lace", blurb: "Needs local proof-server 8.1.0" },
+  { kind: "1am", name: "1AM", blurb: "Browser proving on Preprod" },
+  { kind: "lace", name: "Lace", blurb: "Local proof-server 8.1.0" },
 ];
 
 export function ConnectWalletDialog() {
@@ -108,8 +108,9 @@ export function ConnectWalletDialog() {
         </div>
 
         <p className="pt-1 text-center text-[11.5px] leading-relaxed text-muted-foreground">
-          Network: Midnight Preprod · connector v4 · 1AM proves in-tab · Lace needs
-          proof-server 8.1.0 at localhost:6300 · never asks for a seed
+          Network: Midnight Preprod · connector v4 · 1AM proves in the browser ·
+          Lace proves on local proof-server 8.1.0 at localhost:6300 · never asks
+          for a seed
         </p>
         {lastError ? (
           <p className="text-center text-[12px] text-clay">{lastError}</p>
@@ -218,6 +219,15 @@ export function WalletButton() {
           <p className="flex items-center gap-1.5 font-data text-[11px] text-muted-foreground">
             <Check className="h-3 w-3 text-mint" /> Network: {wallet.networkId ?? "Midnight Preprod"}
           </p>
+          {wallet.provingPath === "lace-http" ? (
+            <p className="font-data text-[11px] text-cream/70">
+              {wallet.proofServerReady === false
+                ? "Proof-server not reachable at localhost:6300"
+                : "Proving: local proof-server 8.1.0"}
+            </p>
+          ) : wallet.provingPath === "1am-intab" ? (
+            <p className="font-data text-[11px] text-cream/70">Proving: browser (1AM)</p>
+          ) : null}
           {wallet.dustHeader ? (
             <p className="font-data min-w-0 truncate text-[11px] text-gold" title={wallet.dustHeader}>
               {wallet.dustHeader}

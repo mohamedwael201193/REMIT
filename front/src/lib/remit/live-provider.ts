@@ -14,7 +14,7 @@ import {
   type MappedExecution,
   type MappedWorkspace,
 } from "./public-client";
-import { connectInjectedWallet, clearPrivateVault, clearWalletVault, forgetAdapter, rememberedAdapter, markManualDisconnect, isManualDisconnect, type ConnectedAPI, type MidnightWindow } from "./midnight-connector";
+import { connectInjectedWallet, clearPrivateVault, clearWalletVault, forgetAdapter, rememberedAdapter, markManualDisconnect, isManualDisconnect, assertLaceProofServer, type ConnectedAPI, type MidnightWindow } from "./midnight-connector";
 import { chainAuditRootFromHead } from "./audit-flow";
 import { loadRemitCircuitModule } from "./circuit-call";
 import { getRemitProvider as emptyProvider } from "./local-provider";
@@ -288,6 +288,15 @@ class LiveRemitProvider implements RemitProvider {
     await this.connectWallet(kind);
     if (this.wallet.status !== "connected" || !this.connected) {
       throw new Error("Connect 1AM or Lace in a click handler before Compact circuit-call");
+    }
+    if (kind === "lace") {
+      let prover = "http://localhost:6300";
+      try {
+        prover = (await this.connected.getConfiguration?.())?.proverServerUri ?? prover;
+      } catch {
+        /* default */
+      }
+      await assertLaceProofServer(prover);
     }
   }
   async restoreWallet(): Promise<WalletState> {

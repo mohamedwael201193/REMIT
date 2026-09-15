@@ -8,6 +8,8 @@ export type WalletCapabilities = {
   localProofServer: boolean;
 };
 
+export type ProvingPath = "1am-intab" | "lace-http";
+
 export type ConnectionPhase =
   | "disconnected"
   | "detecting"
@@ -34,6 +36,8 @@ export type RemitClientState = {
   dustAddress?: string;
   dust?: ConnectorDustView;
   capabilities: WalletCapabilities;
+  provingPath?: ProvingPath;
+  proofServerReady?: boolean | null;
   lastError?: string;
 };
 
@@ -65,11 +69,28 @@ export function capabilitiesOf(api: {
   getProvingProvider?: unknown;
   signData?: unknown;
 }): WalletCapabilities {
+  const getProvingProvider = typeof api.getProvingProvider === "function";
   return {
-    getProvingProvider: typeof api.getProvingProvider === "function",
+    getProvingProvider,
     signData: typeof api.signData === "function",
-    localProofServer: typeof api.getProvingProvider !== "function",
+    localProofServer: !getProvingProvider,
   };
+}
+
+/**
+ * Identity selects the proving backend. Lace always uses local proof-server
+ * 8.1.0, even if a stub `getProvingProvider` exists on ConnectedAPI.
+ * 1AM uses in-tab proving and must expose `getProvingProvider`.
+ */
+export function provingPathFor(kind: WalletKind, caps: WalletCapabilities): ProvingPath {
+  if (kind === "lace") return "lace-http";
+  if (kind === "1am") {
+    if (!caps.getProvingProvider) {
+      throw new RemitError("WALLET", "1AM must expose getProvingProvider for in-tab proving", "no proving provider");
+    }
+    return "1am-intab";
+  }
+  return caps.getProvingProvider ? "1am-intab" : "lace-http";
 }
 
 export function classifyWallet(name: string, rdns?: string): WalletKind {
@@ -106,12 +127,22 @@ export function assertApproved(gate: GestureGate): void {
   }
 }
 
-export async function assertLaceProofServer(url = "http://localhost:6300"): Promise<void> {
+export async function probeLaceProofServer(url = "http://localhost:6300"): Promise<boolean> {
   try {
-    const res = await fetch(new URL("/health", url));
-    if (!res.ok) throw new RemitError("WALLET", "Lace local proof server unhealthy", "lace needs proof server");
-  } catch (e) {
-    if (e instanceof RemitError) throw e;
-    throw new RemitError("WALLET", "Lace local proof server unreachable", "lace needs proof server");
+    const res = await fetch(url, { method: "GET", mode: "no-cors", cache: "no-store" });
+    return res.type === "opaque" || res.type === "opaqueredirect" || res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function assertLaceProofServer(url = "http://localhost:6300"): Promise<void> {
+  const ok = await probeLaceProofServer(url);
+  if (!ok) {
+    throw new RemitError(
+      "WALLET",
+      "Lace local proof-server 8.1.0 is not reachable at http://localhost:6300",
+      "lace needs proof server",
+    );
   }
 }
