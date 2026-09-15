@@ -12,10 +12,15 @@ describe("Compact compile CLI for a clean judge checkout", () => {
     expect(src).toContain("CONTRACT/managed/remit_quote");
   });
 
-  it("invokes compact compile on Unix and keeps a Windows WSL fallback", () => {
+  it("keeps --skip-zk as the fast gate and full compact compile as the default", () => {
     expect(src).toContain('spawnSync("compact"');
     expect(src).toContain("win32");
     expect(src).toContain("wsl");
     expect(src).toContain("--skip-zk");
+    expect(src).toContain("windowsToWsl");
+    expect(src).toContain('process.platform === "win32"');
+    expect(src).toContain("compileWsl");
+    expect(src).not.toContain("/mnt/d/route/midnight/REMIT");
+    expect(src).toMatch(/skipZk \? \["--skip-zk"\] : \[\]/);
   });
 });

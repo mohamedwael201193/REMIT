@@ -210,6 +210,9 @@ describe("wallet capability classification", () => {
     expect(button).toMatch(/beginConnect\(api, kind, CONNECT_NETWORK\)/);
     expect(button).toMatch(/Waiting for Lace authorization/);
     expect(button).toMatch(/LACE_CONNECT_TIMEOUT_MESSAGE/);
+    expect(button).toMatch(/Recommended for Preprod \/ browser proving/);
+    expect(button).toMatch(/Alternative wallet · local proof-server may be required/);
+    expect(LACE_CONNECT_TIMEOUT_MESSAGE).toMatch(/We recommend using 1AM for the Preprod demo/);
     const click = button.slice(button.indexOf("onClick={() => {"), button.indexOf("void connect(p.kind)"));
     expect(click).toMatch(/startConnectInClick/);
     expect(click).not.toMatch(/await /);

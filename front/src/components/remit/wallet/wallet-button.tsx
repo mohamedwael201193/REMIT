@@ -55,9 +55,22 @@ const PROVIDERS: {
   name: string;
   blurb: string;
 }[] = [
-  { kind: "1am", name: "1AM", blurb: "Browser proving on Preprod" },
-  { kind: "lace", name: "Lace", blurb: "Local proof-server 8.1.0" },
+  { kind: "1am", name: "1AM", blurb: "Recommended for Preprod / browser proving" },
+  { kind: "lace", name: "Lace", blurb: "Alternative wallet · local proof-server may be required" },
 ];
+
+function productWalletError(kind: WalletProviderKind | null, message: string): string {
+  if (kind === "lace" || /lace/i.test(message)) {
+    if (
+      /timeout|did not complete|did not resolve|proof-server|unavailable for proving|trouble connecting/i.test(
+        message,
+      )
+    ) {
+      return LACE_CONNECT_TIMEOUT_MESSAGE;
+    }
+  }
+  return message;
+}
 
 export function ConnectWalletDialog() {
   const open = useRemitStore((s) => s.walletDialogOpen);
@@ -72,16 +85,12 @@ export function ConnectWalletDialog() {
     const ok = await connectWallet(kind);
     setPending(null);
     if (!ok) {
-      const message = useRemitStore.getState().lastError ?? "Connect must run in this click with 1AM or Lace.";
-      const methods = /unavailable for proving/i.test(message);
-      const hung = /did not complete|did not resolve/i.test(message);
+      const raw = useRemitStore.getState().lastError ?? "Connect must run in this click with 1AM or Lace.";
+      const message = productWalletError(kind, raw);
+      const laceGuide = message === LACE_CONNECT_TIMEOUT_MESSAGE;
       toast({
-        title: methods
-          ? "Lace connected — wallet methods unavailable"
-          : hung && kind === "lace"
-            ? "Lace connection did not complete"
-            : "Wallet did not connect",
-        description: hung && kind === "lace" ? LACE_CONNECT_TIMEOUT_MESSAGE : message,
+        title: laceGuide ? "Try 1AM for the Preprod demo" : "Wallet did not connect",
+        description: message,
         variant: "destructive",
       });
     }
@@ -119,8 +128,15 @@ export function ConnectWalletDialog() {
             >
               {walletMark(p.kind)}
               <span className="flex-1">
-                <span className="block text-[15px] font-semibold text-cream">
-                  {p.name}
+                <span className="flex items-center gap-2">
+                  <span className="block text-[15px] font-semibold text-cream">
+                    {p.name}
+                  </span>
+                  {p.kind === "1am" ? (
+                    <span className="rounded-md border border-gold/30 bg-gold/10 px-1.5 py-0.5 font-data text-[10px] tracking-wide text-gold">
+                      Recommended
+                    </span>
+                  ) : null}
                 </span>
                 <span className="block text-[12.5px] text-muted-foreground">
                   {p.blurb}
@@ -139,12 +155,11 @@ export function ConnectWalletDialog() {
         </div>
 
         <p className="pt-1 text-center text-[11.5px] leading-relaxed text-muted-foreground">
-          Network: Midnight Preprod · connector v4 · 1AM proves in the browser ·
-          Lace proves on local proof-server 8.1.0 at localhost:6300 · never asks
-          for a seed
+          1AM is recommended for the Preprod demo. Lace is an alternative wallet;
+          a local proof-server may be required. REMIT never asks for a seed.
         </p>
         {lastError ? (
-          <p className="text-center text-[12px] text-clay">{lastError}</p>
+          <p className="text-center text-[12px] text-clay">{productWalletError(pending, lastError)}</p>
         ) : null}
       </DialogContent>
     </Dialog>

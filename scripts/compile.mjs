@@ -7,9 +7,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const skipZk = process.argv.includes("--skip-zk");
 const extra = skipZk ? ["--skip-zk"] : [];
 
-function compactAvailable() {
-  const r = spawnSync("compact", ["compile", "--version"], { encoding: "utf8", windowsHide: true });
-  return r.status === 0;
+/** Map a Windows path to the WSL mount so a judge checkout can live anywhere. */
+function windowsToWsl(p) {
+  const abs = resolve(p);
+  const m = /^([A-Za-z]):[\\/](.*)$/.exec(abs);
+  if (!m) return abs.replaceAll("\\", "/");
+  return `/mnt/${m[1].toLowerCase()}/${m[2].replaceAll("\\", "/")}`;
 }
 
 function compileNative(src, out) {
@@ -22,11 +25,13 @@ function compileNative(src, out) {
 
 function compileWsl(src, out) {
   mkdirSync(out, { recursive: true });
-  const wslSrc = "/mnt/d/route/midnight/REMIT/" + src.replaceAll("\\", "/");
-  const wslOut = "/mnt/d/route/midnight/REMIT/" + out.replaceAll("\\", "/");
-  const cmd = `compact compile ${extra.join(" ")} ${wslSrc} ${wslOut}`.replace(/\s+/g, " ");
+  const wslRoot = windowsToWsl(root);
+  const wslSrc = windowsToWsl(resolve(root, src));
+  const wslOut = windowsToWsl(resolve(root, out));
+  const flags = extra.length ? `${extra.join(" ")} ` : "";
+  const cmd = `compact compile ${flags}"${wslSrc}" "${wslOut}"`;
   console.log(cmd);
-  const r = spawnSync("wsl", ["-e", "bash", "-lc", `cd /mnt/d/route/midnight/REMIT && ${cmd}`], {
+  const r = spawnSync("wsl", ["-e", "bash", "-lc", `cd "${wslRoot}" && ${cmd}`], {
     stdio: "inherit",
     windowsHide: true,
   });
@@ -34,13 +39,14 @@ function compileWsl(src, out) {
 }
 
 function compile(src, out) {
-  if (process.platform !== "win32" || compactAvailable()) {
-    compileNative(src, out);
+  // Windows: Compact runs in WSL only. Node/npm stay on Windows.
+  if (process.platform === "win32") {
+    compileWsl(src, out);
     return;
   }
-  compileWsl(src, out);
+  compileNative(src, out);
 }
 
 compile("CONTRACT/src/remit_pool.compact", "CONTRACT/managed/remit_pool");
 compile("CONTRACT/src/remit_quote.compact", "CONTRACT/managed/remit_quote");
-console.log("compile complete");
+console.log(skipZk ? "compile complete (skip-zk; not a full ZK compile)" : "compile complete");

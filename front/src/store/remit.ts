@@ -44,6 +44,9 @@ function explainCircuitError(message: string): string {
   if (/Wallet UI disconnected|Wallet not initialized/i.test(message)) {
     return "1AM closed its proving toolbar. Click the 1AM icon, keep it open through Compact prove, then retry.";
   }
+  if (/proof-server|Lace local proof-server|unavailable for proving/i.test(message)) {
+    return "Having trouble connecting with Lace? We recommend using 1AM for the Preprod demo.";
+  }
   return message;
 }
 

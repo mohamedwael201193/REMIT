@@ -62,7 +62,7 @@ describe("1AM circuit bundle graph", () => {
     expect(live).not.toMatch(/indexer still reports activeMandates > 0/);
     expect(live).toMatch(/kind === "lace" && this.connected/);
     expect(live).toMatch(/await this.connectWallet\(kind\)/);
-    expect(live).toMatch(/Lace requires a click/);
+    expect(live).toMatch(/Reconnect wallet/);
     expect(live).not.toMatch(/await this.load\(\);\s*await this.ensureProvingSession/);
     const connect = live.slice(live.indexOf("async connectWallet"), live.indexOf("private async ensureProvingSession"));
     expect(connect).toMatch(/connectInjectedWallet/);

@@ -33,8 +33,8 @@ VERIFIABLE EXECUTION
 13. [Proof architecture](#proof-architecture)
 14. [Preprod evidence](#preprod-evidence)
 15. [Tests](#tests)
-16. [Judge: run REMIT locally](#judge-run-remit-locally)
-17. [Clean contract compile](#clean-contract-compile)
+16. [Judge / Local Contract Compilation](#judge--local-contract-compilation)
+17. [Judge: run REMIT locally](#judge-run-remit-locally)
 18. [Judge CLI](#one-command-judge-evidence)
 19. [Security and privacy](#security-verification)
 20. [Wave 1 / Wave 2 / Wave 3](#wave-1---proven-foundation)
@@ -333,31 +333,30 @@ Live head: `1bbc1cc2aa2cd83de56cb8ea15ec5dfb8dd071cf2fb305980416ed726b81a694`. C
 
 Connector: DApp Connector **4.0.1**. `connect(networkId)` must run in the click handler with no prior await. Private vault keys are `SHA-256(network|pool|wallet)`. A different wallet is a different vault.
 
-**Judge default: 1AM.** Lace is an alternate path. Compact settlement does not depend on Lace.
+**Recommended Preprod / judge path: 1AM** (browser proving). Lace is an alternative wallet; a local proof-server may be required. Compact settlement is the same either way.
 
 Connection and proving are different states:
 
 | State | Meaning |
 |---|---|
 | **CONNECTED** | `connect(networkId)` resolved. |
-| **CONNECTED / WALLET METHODS UNAVAILABLE** | Connector session exists, but wallet-backed methods (`getUnshieldedAddress`, balance, submit) failed or hung. Compact is not attempted. |
-| **PROVING SERVER UNAVAILABLE** | Lace is connected; local proof-server 8.1.0 at `http://localhost:6300` is not reachable. |
+| **CONNECTED / WALLET METHODS UNAVAILABLE** | Connector session exists, but wallet-backed methods (`getUnshieldedAddress`, balance, submit) are not ready. Compact is not attempted. |
+| **PROOF SERVER REQUIRED** | Lace is connected; proving uses local proof-server 8.1.0 at `http://localhost:6300`. |
 | **READY FOR PROVING** | 1AM: `getProvingProvider`. Lace: methods ready **and** local proof-server 8.1.0. |
 
 ### 1AM
 
+- Recommended for Preprod / browser proving.
 - Discovery via `window.midnight`, then `connect(networkId)` in the click.
 - Circuit clicks re-bind `connect(networkId)` so in-tab `getProvingProvider` still works after reload.
-- User circuits prove in the browser. Preprod. Never asks for a seed.
+- User circuits prove in the browser. Never asks for a seed.
 
 ### Lace
 
-- Same `connect("preprod")` on the wallet-tile click, before any other await. Lace is **not** in-browser proving.
-- Reload does **not** auto-call `connect()` (no user gesture → Lace popup is blocked and `connect()` hangs). Click **Reconnect wallet**.
-- One `connect()` per click. Compact actions reuse `ConnectedAPI` and do not call `connect()` again. A timed-out click does not keep a hung `connect()` for the next click.
+- Alternative wallet. Same `connect("preprod")` on the wallet-tile click.
 - Compact proofs go to local proof-server **8.1.0** at `http://localhost:6300` (`npm run proof:up`). Witnesses stay local, never Render.
-- Connecting shows **Waiting for Lace authorization**. If `connect()` does not resolve within 25 seconds, the UI reports **Lace connection did not complete. Retry.** That is not treated as a proof-server failure.
-- If `connect()` succeeds but methods return `Wallet is unavailable` (Lace/connector), the UI says **connected, methods unavailable** — it does not fake a Compact transaction.
+- Reload shows **Reconnect wallet** (a click is required). Compact actions reuse `ConnectedAPI`.
+- The picker labels 1AM as recommended. If Lace does not connect or cannot prove, the UI points the user to 1AM for the Preprod demo. It does not invent a Compact transaction.
 
 Header DUST is a fee meter, not spendable coins.
 
@@ -472,46 +471,19 @@ npm run secret-scan
 
 ## Judge: run REMIT locally
 
-Node **22**, npm **10**, Docker (proof-server). Compact **0.31.1** on Linux/macOS, or WSL Ubuntu on Windows. Do not bump the pin.
+Node **22**, npm **10**, Docker (proof-server). Compact **0.31.1** on Linux/macOS, or WSL Ubuntu on Windows. Do not bump the pin. No secret file is required to compile or run the test suite.
 
-### A. Contract compilation
+Contract compile (highest-priority judge step) is documented in [Judge / Local Contract Compilation](#judge--local-contract-compilation).
 
-Prerequisites: `compact compile --version` prints `0.31.1`.
-
-```bash
-npm install
-npm run compile:skip-zk
-node scripts/inspect-managed.mjs
-```
-
-Expected: pool + quote JS bindings present; compiler-version `0.31.1`; 7 pool verifier keys. Full ZK:
-
-```bash
-npm run compile
-```
-
-Windows without a native `compact`: the script uses WSL. Linux/macOS call `compact` on PATH.
-
-Contract-only, no UI:
-
-```bash
-compact compile --skip-zk CONTRACT/src/remit_pool.compact CONTRACT/managed/remit_pool
-compact compile --skip-zk CONTRACT/src/remit_quote.compact CONTRACT/managed/remit_quote
-```
-
-### B. Test suite
+### A. Test suite
 
 ```bash
 npm test
-npm run test:unit
-npm run test:security
-npm run test:privacy
-npm run test:integration
 ```
 
 Expected: vitest green. Playwright hosted spec is separate (`npm run test:e2e`) and is not the default suite.
 
-### C. Proof server
+### B. Proof server
 
 ```bash
 npm run proof:up
@@ -519,9 +491,9 @@ npm run proof:up
 
 Expected: Docker `midnightntwrk/proof-server:8.1.0` listening on `http://localhost:6300`. Stop with `npm run proof:down`. Witnesses never go to Render.
 
-### D. API
+### C. API
 
-Gitignored `.env.preprod.local` (copy `.env.example`). No seeds in the shell history you paste to a judge.
+Gitignored `.env.preprod.local` (copy `.env.example`). Not required for compile or `npm test`.
 
 ```bash
 npm run api
@@ -529,7 +501,7 @@ npm run api
 
 Expected: `GET /health` → `network=preprod`, `mpc=false`.
 
-### E. Frontend
+### D. Frontend
 
 ```bash
 npm run front:env
@@ -538,15 +510,15 @@ cd front && npm install && npm run dev
 
 Expected: local UI on the Next port. Public env is `NEXT_PUBLIC_*` only.
 
-### F. Chrome wallet
+### E. Chrome wallet
 
-**1AM (primary):** Connect wallet → 1AM → authorize Preprod. Proving is in-browser. This is the judge path.
+**1AM (recommended):** Connect wallet → 1AM → authorize Preprod. Proving is in-browser. This is the judge path.
 
-**Lace (alternate):** Start proof-server first (`npm run proof:up`). Connect wallet → Lace → authorize the Lace popup. Connecting shows “Waiting for Lace authorization”. If it does not finish, retry; REMIT does not invent a Compact tx. Proving is local proof-server 8.1.0, not in-tab WASM. Reload shows Reconnect (click required).
+**Lace (alternative):** Start proof-server first (`npm run proof:up`). Connect wallet → Lace. Proving is local proof-server 8.1.0. If Lace does not connect, use 1AM for the Preprod demo.
 
 Reload reconnects from connector status + hashed vault. Switching wallets isolates private state.
 
-### G. Preprod verification
+### F. Preprod verification
 
 Path without a wallet:
 
@@ -558,22 +530,150 @@ Path without a wallet:
 
 ---
 
-## Clean contract compile
+## Judge / Local Contract Compilation
+
+Any judge can compile the real Compact contracts from a clean checkout. The source of truth is the `.compact` in this repository.
+
+This matches the official Midnight compile shape (`compact compile <source> <outdir>`), as in [example-hello-world](https://github.com/midnightntwrk/example-hello-world): **no `--skip-zk` means a full ZK compile** (bindings + ZKIR + prover/verifier keys). `--skip-zk` is a faster bindings-only gate and is **not** a full compile.
+
+**Sources**
+
+- `CONTRACT/src/remit_pool.compact` — 7 impure circuits: `deposit`, `withdraw`, `placeOffer`, `cancelOffer`, `createMandate`, `revokeMandate`, `fill`
+- `CONTRACT/src/remit_quote.compact` — REMIT-Q faucet (`claim`)
+
+**Outputs** (after a **full** compile)
+
+```
+CONTRACT/managed/remit_pool/
+  compiler/contract-info.json
+  contract/index.js          # generated bindings
+  keys/*.prover              # prover artifacts (gitignored; regenerated)
+  keys/*.verifier            # 7 pool verifier keys
+  zkir/*.zkir                # 7 pool ZKIR files
+CONTRACT/managed/remit_quote/
+  … same layout for claim / quoteColor
+```
+
+`--skip-zk` writes bindings, `compiler/`, and `zkir/`. It does **not** write `keys/`. Do not call that a full ZK compile.
+
+### Prerequisites
 
 | Item | Value |
 |---|---|
-| Command | `npm run compile` or `npm run compile:skip-zk` |
-| Directory | repository root |
-| Compiler | Compact **0.31.1** (`compact compile --version`) |
-| Language | pragma `>= 0.22 && <= 0.23` (this pool is **0.23**) |
-| Sources | `CONTRACT/src/remit_pool.compact`, `CONTRACT/src/remit_quote.compact` |
-| Output | `CONTRACT/managed/remit_pool`, `CONTRACT/managed/remit_quote` |
-| Circuits | 7 impure pool circuits + quote faucet |
-| Committed | JS bindings, ZKIR, `.verifier` keys |
-| Gitignored | `CONTRACT/managed/**/keys/*.prover` (too large) |
-| Hosted provers | `GET https://remit-api-node.onrender.com/keys` |
+| Node / npm | **Windows or Unix:** Node **22**, npm **10**. JS/TS always uses host Node (`npm install`, `npm test`). |
+| Compact | **0.31.1** (`compact compile --version`) / language **0.23** |
+| Windows Compact | **WSL only** (Ubuntu). Do not run `compact` from Windows PowerShell. |
+| Secrets | **None.** Compile does not read `.env`, seeds, or private keys. |
 
-Inspect: `node scripts/inspect-managed.mjs` must print compiler-version `0.31.1` and 7 pool verifiers.
+### Install Compact 0.31.1 (Linux / macOS / WSL)
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+source ~/.bashrc   # or: source ~/.zshrc
+compact update 0.31.1
+compact compile --version            # 0.31.1
+compact compile --language-version   # 0.23.0
+```
+
+On Windows, run the block above **inside WSL**. Then use Windows `npm` for JavaScript.
+
+### Clean checkout
+
+```bash
+git clone https://github.com/mohamedwael201193/REMIT.git
+cd REMIT
+npm install
+```
+
+No `.env` file is required to compile.
+
+### 1. Fast `--skip-zk` compile (bindings gate)
+
+Use this to check that Compact accepts the sources and can emit JS. **This is not a full ZK compile.**
+
+Windows (Compact in WSL):
+
+```bash
+wsl -e bash -lc 'cd /mnt/<drive>/path/to/REMIT && compact compile --skip-zk CONTRACT/src/remit_pool.compact CONTRACT/managed/remit_pool && compact compile --skip-zk CONTRACT/src/remit_quote.compact CONTRACT/managed/remit_quote'
+```
+
+Or from the repo root, host Node wrapping WSL:
+
+```bash
+npm run compile:skip-zk
+```
+
+Expected last line: `compile complete (skip-zk; not a full ZK compile)`.
+
+### 2. Full ZK compile (judge acceptance)
+
+Same command as the official hello-world / bboard examples: `compact compile` **without** `--skip-zk`.
+
+Windows (Compact in WSL), from the checkout:
+
+```bash
+wsl -e bash -lc 'cd /mnt/<drive>/path/to/REMIT && compact compile --version && compact compile CONTRACT/src/remit_pool.compact CONTRACT/managed/remit_pool && compact compile CONTRACT/src/remit_quote.compact CONTRACT/managed/remit_quote'
+```
+
+Linux / macOS:
+
+```bash
+compact compile CONTRACT/src/remit_pool.compact CONTRACT/managed/remit_pool
+compact compile CONTRACT/src/remit_quote.compact CONTRACT/managed/remit_quote
+```
+
+Or:
+
+```bash
+npm run compile
+```
+
+Expected compiler output (pool):
+
+```
+Compiling 7 circuits:
+  circuit "deposit" …
+  circuit "withdraw" …
+  circuit "placeOffer" …
+  circuit "cancelOffer" …
+  circuit "createMandate" …
+  circuit "revokeMandate" …
+  circuit "fill" …
+```
+
+Then quote circuits. Last npm wrapper line: `compile complete`.
+
+A checkout is fully compiled only after this step succeeds and the files below exist.
+
+### Verify the 7 circuits
+
+Host Node (Windows or Unix):
+
+```bash
+node scripts/inspect-managed.mjs
+```
+
+Expected after a **full** compile:
+
+- `compilerVersion` **`0.31.1`**
+- pool verifier count **7**
+- `CONTRACT/managed/remit_pool/keys/`: `deposit`, `withdraw`, `placeOffer`, `cancelOffer`, `createMandate`, `revokeMandate`, `fill` — each `.verifier` and `.prover`
+- `CONTRACT/managed/remit_pool/zkir/` — the same 7 names as `.zkir`
+- `CONTRACT/managed/remit_pool/contract/index.js` and `CONTRACT/managed/remit_quote/contract/index.js`
+
+`.prover` files are gitignored (large). Full compile regenerates them. Hosted user-circuit provers: `GET https://remit-api-node.onrender.com/keys`.
+
+### Tests, proof-server, judge report
+
+```bash
+npm test
+npm run typecheck
+npm run secret-scan
+npm run proof:up
+npm run judge:proof
+```
+
+`npm run judge:proof` reprints committed Preprod hashes with explorer URLs and checks local compile artifacts. It does not recreate historic private proofs from a hash.
 
 ---
 

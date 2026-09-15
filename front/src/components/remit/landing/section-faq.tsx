@@ -31,7 +31,7 @@ const FAQS = [
   },
   {
     q: "Which wallets does REMIT work with?",
-    a: "1AM and Lace on Midnight. 1AM proves in the browser on Preprod. Lace proves on a local proof-server 8.1.0 at localhost:6300. REMIT never asks for a seed.",
+    a: "1AM is recommended for the Preprod demo (browser proving). Lace is an alternative wallet; a local proof-server may be required. REMIT never asks for a seed.",
   },
   {
     q: "What happens when I revoke the executor?",

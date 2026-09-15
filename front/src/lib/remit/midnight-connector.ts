@@ -192,7 +192,8 @@ const inflightConnect = new Map<WalletProviderKind, Promise<ConnectedAPI>>();
 
 export const LACE_CONNECT_TIMEOUT_MS = 25_000;
 export const ONEAM_CONNECT_TIMEOUT_MS = 45_000;
-export const LACE_CONNECT_TIMEOUT_MESSAGE = "Lace connection did not complete. Retry.";
+export const LACE_CONNECT_TIMEOUT_MESSAGE =
+  "Having trouble connecting with Lace? We recommend using 1AM for the Preprod demo.";
 
 export function injectedApiForKind(kind: WalletProviderKind, win: MidnightWindow): InitialAPI {
   const midnight = win.midnight ?? {};

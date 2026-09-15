@@ -311,7 +311,7 @@ class LiveRemitProvider implements RemitProvider {
         provider: "lace",
         provingPath: "lace-http",
         methodsReady: false,
-        lastError: "Reconnect wallet — Lace requires a click so the authorization popup can open",
+        lastError: "Reconnect wallet",
       };
     }
     this.wallet = {
