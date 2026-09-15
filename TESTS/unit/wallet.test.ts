@@ -149,6 +149,20 @@ describe("DApp connector v4 + DUST honesty", () => {
     expect(state.unshieldedAddress).toContain("mn_addr_preprod1");
   });
 
+  it("does not wait on hintUsage before returning a connected Lace session", async () => {
+    let hinted = 0;
+    const hung = fakeConnected({
+      hintUsage: async () => {
+        hinted += 1;
+        await new Promise(() => undefined);
+      },
+    });
+    const lace = fakeInitial({ name: "Lace", rdns: "io.lace" }, hung);
+    const { state } = await connectWallet(lace, "preprod", { fromClickHandler: true });
+    expect(state.phase).toBe("connected");
+    expect(hinted).toBe(0);
+  });
+
   it("requires a fresh user gesture to reconnect and accepts a disconnected status", async () => {
     const api = fakeInitial();
     const first = await connectWallet(api, "preprod", { fromClickHandler: true });

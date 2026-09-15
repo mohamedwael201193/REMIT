@@ -25,7 +25,10 @@ export type BrowserSessionOpts = {
 export async function createRemitBrowserProviders(opts: BrowserSessionOpts) {
   let network = remitSetNetworkId(opts.network ?? "preprod");
   try {
-    const status = await opts.wallet.getConnectionStatus();
+    const status = await Promise.race([
+      opts.wallet.getConnectionStatus(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("status timeout")), 400)),
+    ]);
     if (status.networkId) network = remitSetNetworkId(status.networkId);
   } catch {
     /* keep the configured network */

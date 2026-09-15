@@ -126,7 +126,6 @@ class LiveRemitProvider implements RemitProvider {
     return (await this.load()).offers.map(toOffer);
   }
   async createMandate(input: NewMandateInput): Promise<Mandate> {
-    await this.load();
     await this.ensureProvingSession();
     const circuit = await loadRemitCircuitModule(this.cfg.apiUrl);
     const created = (await circuit.createMandateFromWallet({
@@ -144,7 +143,6 @@ class LiveRemitProvider implements RemitProvider {
     return created;
   }
   async placeOffer(input: NewOfferInput): Promise<Offer> {
-    await this.load();
     await this.ensureProvingSession();
     const circuit = await loadRemitCircuitModule(this.cfg.apiUrl);
     const created = (await circuit.placeOfferFromWallet({
@@ -264,7 +262,6 @@ class LiveRemitProvider implements RemitProvider {
     return (await this.load()).activity;
   }
   async connectWallet(provider: WalletProviderKind): Promise<WalletState> {
-    await this.load();
     if (typeof window === "undefined") {
       throw new Error("Wallet connect only runs in the browser");
     }
@@ -285,18 +282,18 @@ class LiveRemitProvider implements RemitProvider {
     if (kind !== "1am" && kind !== "lace") {
       throw new Error("Connect 1AM or Lace in a click handler before Compact circuit-call");
     }
+    // Lace: a second connect() has no user-activation and hangs. Reuse ConnectedAPI.
+    // 1AM: re-bind on the circuit click so in-tab getProvingProvider still works after reload.
+    if (kind === "lace" && this.connected && this.wallet.status === "connected") {
+      await assertLaceProofServer("http://localhost:6300");
+      return;
+    }
     await this.connectWallet(kind);
     if (this.wallet.status !== "connected" || !this.connected) {
       throw new Error("Connect 1AM or Lace in a click handler before Compact circuit-call");
     }
     if (kind === "lace") {
-      let prover = "http://localhost:6300";
-      try {
-        prover = (await this.connected.getConfiguration?.())?.proverServerUri ?? prover;
-      } catch {
-        /* default */
-      }
-      await assertLaceProofServer(prover);
+      await assertLaceProofServer("http://localhost:6300");
     }
   }
   async restoreWallet(): Promise<WalletState> {

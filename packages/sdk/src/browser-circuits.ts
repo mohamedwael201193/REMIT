@@ -61,10 +61,7 @@ async function poolProviders(args: BrowserCircuitArgs) {
     throw new Error("API does not yet expose indexer-backed pool and quote addresses");
   }
   const indexerWs = config.indexerWs ?? `${config.indexer.replace(/^http/i, "ws")}/ws`;
-  const proofServer =
-    args.kind === "lace"
-      ? (await args.wallet.getConfiguration?.().catch(() => undefined))?.proverServerUri ?? "http://localhost:6300"
-      : undefined;
+  const proofServer = args.kind === "lace" ? "http://localhost:6300" : undefined;
   const providers = await createRemitBrowserProviders({
     wallet: args.wallet,
     apiUrl: args.apiUrl,

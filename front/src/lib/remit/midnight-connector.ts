@@ -129,7 +129,12 @@ function classify(name: string, rdns?: string): WalletProviderKind | "unknown" {
 
 async function probeLaceProofServer(url = "http://localhost:6300"): Promise<boolean> {
   try {
-    const res = await fetch(url, { method: "GET", mode: "no-cors", cache: "no-store" });
+    const res = await fetch(url, {
+      method: "GET",
+      mode: "no-cors",
+      cache: "no-store",
+      signal: AbortSignal.timeout(400),
+    });
     return res.type === "opaque" || res.type === "opaqueredirect" || res.ok;
   } catch {
     return false;
@@ -189,6 +194,8 @@ export async function connectInjectedWallet(
   }
   const api = entry[1];
   requireConnectorV4(api.apiVersion);
+  // Official: Lace connect() must run in the click handler with no prior await,
+  // or the popup is blocked and the call hangs.
   const wallet = await api.connect(expectedNetwork);
   const status = await wallet.getConnectionStatus();
   if (status.status !== "connected") {
@@ -198,31 +205,6 @@ export async function connectInjectedWallet(
     throw new Error("wallet network does not match Preprod");
   }
   const lace = kind === "lace";
-  const inTabProving = typeof wallet.getProvingProvider === "function";
-  let prover = "http://localhost:6300";
-  try {
-    prover = (await wallet.getConfiguration?.())?.proverServerUri ?? prover;
-  } catch {
-    /* keep default */
-  }
-  const proofServerReady = lace ? await probeLaceProofServer(prover) : inTabProving;
-  const hint = [
-    "getUnshieldedAddress",
-    "getDustAddress",
-    "getDustBalance",
-    "getUnshieldedBalances",
-    "balanceUnsealedTransaction",
-    "submitTransaction",
-    "getConnectionStatus",
-    "getConfiguration",
-    "getShieldedAddresses",
-  ];
-  if (!lace && inTabProving) hint.push("getProvingProvider");
-  try {
-    await wallet.hintUsage?.(hint);
-  } catch {
-    /* hintUsage is advisory */
-  }
   let address: string | null = null;
   try {
     address = (await wallet.getUnshieldedAddress?.())?.unshieldedAddress ?? null;
@@ -232,9 +214,22 @@ export async function connectInjectedWallet(
   if (!address) throw new Error("wallet did not return an unshielded address");
   clearManualDisconnect(win);
   rememberAdapter(kind, win);
+  const hint = [
+    "getUnshieldedAddress",
+    "getDustBalance",
+    "balanceUnsealedTransaction",
+    "submitTransaction",
+    "getConnectionStatus",
+    "getShieldedAddresses",
+  ];
+  if (!lace) hint.push("getProvingProvider");
+  void wallet.hintUsage?.(hint).catch(() => undefined);
   let dustHeader: string | undefined;
   try {
-    const d = await wallet.getDustBalance?.();
+    const d = await Promise.race([
+      wallet.getDustBalance?.() ?? Promise.resolve(undefined),
+      new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 250)),
+    ]);
     if (d) dustHeader = "header DUST (not spendable coins)";
   } catch {
     dustHeader = undefined;
@@ -248,11 +243,9 @@ export async function connectInjectedWallet(
       dust: null,
       dustHeader,
       status: "connected",
-      lastError: proofServerReady === false
-        ? "Connected. Compact calls need local proof-server 8.1.0 at http://localhost:6300."
-        : null,
+      lastError: null,
       provingPath: lace ? "lace-http" : "1am-intab",
-      proofServerReady,
+      proofServerReady: lace ? null : true,
     },
     api: wallet,
   };

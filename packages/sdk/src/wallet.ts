@@ -129,7 +129,12 @@ export function assertApproved(gate: GestureGate): void {
 
 export async function probeLaceProofServer(url = "http://localhost:6300"): Promise<boolean> {
   try {
-    const res = await fetch(url, { method: "GET", mode: "no-cors", cache: "no-store" });
+    const res = await fetch(url, {
+      method: "GET",
+      mode: "no-cors",
+      cache: "no-store",
+      signal: AbortSignal.timeout(400),
+    });
     return res.type === "opaque" || res.type === "opaqueredirect" || res.ok;
   } catch {
     return false;

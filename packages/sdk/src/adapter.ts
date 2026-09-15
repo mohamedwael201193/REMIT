@@ -40,18 +40,27 @@ export async function readConnectedPublicState(wallet: ConnectedAPI): Promise<{
     unshieldedAddress = undefined;
   }
   try {
-    dustAddress = (await wallet.getDustAddress()).dustAddress;
+    dustAddress = (await Promise.race([
+      wallet.getDustAddress(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("dust address timeout")), 250)),
+    ])).dustAddress;
   } catch {
     dustAddress = undefined;
   }
   try {
-    const d = await wallet.getDustBalance();
+    const d = await Promise.race([
+      wallet.getDustBalance(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("dust timeout")), 250)),
+    ]);
     dust = { balance: d.balance, cap: d.cap, spendableKnown: false };
   } catch {
     dust = undefined;
   }
   try {
-    const cfg = await wallet.getConfiguration();
+    const cfg = await Promise.race([
+      wallet.getConfiguration(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("config timeout")), 250)),
+    ]);
     networkId = cfg.networkId;
   } catch {
     networkId = undefined;
@@ -86,21 +95,6 @@ export async function connectWallet(
   const kind = classifyWallet(api.name ?? "", api.rdns ?? api.name);
   const provingPath = provingPathFor(kind, caps);
   const capabilities = { ...caps, localProofServer: provingPath === "lace-http" };
-  try {
-    await wallet.hintUsage([
-      "getUnshieldedAddress",
-      "getDustAddress",
-      "getDustBalance",
-      "getUnshieldedBalances",
-      "balanceUnsealedTransaction",
-      "submitTransaction",
-      "getConnectionStatus",
-      "getConfiguration",
-      ...(provingPath === "1am-intab" ? (["getProvingProvider"] as const) : []),
-    ]);
-  } catch {
-    // hintUsage is advisory; some wallets resolve permissions on the first call instead.
-  }
   const pub = await readConnectedPublicState(wallet);
   const state: RemitClientState = {
     phase: "connected",
