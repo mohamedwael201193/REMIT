@@ -36,18 +36,18 @@ Pool `01bebd52ad1b243b390c853bbc2c1588d1cf0f487934d54d79f8a590505c105e` · Quote
 
 | What settled | Block | Explorer |
 |---|---|---|
-| Quote REMIT-Q deployed | 2538374 | [04800c4c…08008](https://explorer.1am.xyz/tx/04800c4ca43dd572d77ca1e5cf604702c609ff091ecb567f942ff15e17c08008?network=preprod) |
-| MBBE K=3 pool deployed | 2541620 | [55224e41…61798a](https://explorer.1am.xyz/tx/55224e41e1b68f5cc65286f19e7269b199563158806fc5ae03fe9f536c61798a?network=preprod) |
-| Padding cannot win | 2541757 | [8fac31ab…b92e55](https://explorer.1am.xyz/tx/8fac31ab4a7b76e91f8da95d8bfd0099f0a754daa4641d571dcdd45b59b92e55?network=preprod) |
-| Live K=3 fill | 2542039 | [12306cbe…38cbd20](https://explorer.1am.xyz/tx/12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20?network=preprod) |
-| Mandate created | 2541972 | [308c7b2c…010749](https://explorer.1am.xyz/tx/308c7b2c57a8ab9aeefea4a1c243f5da056e6b5f4dbd4dc234cdb84aa1010749?network=preprod) |
-| Private maker offer | 2548791 | [c303ec61…5265b2](https://explorer.1am.xyz/tx/c303ec61c09d406acfbec24915dd83c0546c1e833329a3e6a2f7de53b15265b2?network=preprod) |
-| RFQ fill 50 of 80 | 2549944 | [5a1200f5…16f00a](https://explorer.1am.xyz/tx/5a1200f5869cb60c81f9ebcb649da45fb47c563bc245c362d36665597b16f00a?network=preprod) |
-| Residual 30 consumed | 2550168 | [5f1203cf…12b99f](https://explorer.1am.xyz/tx/5f1203cf9cdde32192f4a2cdce275ff34529b19bbe24644f6014b1c24f12b99f?network=preprod) |
-| Compact withdraw | 2550510 | [999e2b5b…490fce5](https://explorer.1am.xyz/tx/999e2b5b3a32c7537ebba3ecb9afd7bce77f8ff205f97e361c2be5e35490fce5?network=preprod) |
-| Chrome createMandate | 2551299 | [5172ab71…36df8fa9](https://explorer.1am.xyz/tx/5172ab712e2cb39e5f455dd8cec609765d6fe2225ca0b0e97412cfc436df8fa9?network=preprod) |
-| Chrome revokeMandate | 2551669 | [8ae27d7a…1882f49](https://explorer.1am.xyz/tx/8ae27d7a3930c284a410198234d97ad110f0668af29cf89c42091b3b51882f49?network=preprod) |
-| Chrome deposit | 2551700 | [cdb04c15…05ff2d](https://explorer.1am.xyz/tx/cdb04c15462fad79bcd851ec39604bae32ef3b8f2463eb44aea7e7365c05ff2d?network=preprod) |
+| Quote REMIT-Q deployed | 2538374 | [04800c4c…08008](https://preprod.midnightexplorer.com/transactions/0x04800c4ca43dd572d77ca1e5cf604702c609ff091ecb567f942ff15e17c08008) |
+| MBBE K=3 pool deployed | 2541620 | [55224e41…61798a](https://preprod.midnightexplorer.com/transactions/0x55224e41e1b68f5cc65286f19e7269b199563158806fc5ae03fe9f536c61798a) |
+| Padding cannot win | 2541757 | [8fac31ab…b92e55](https://preprod.midnightexplorer.com/transactions/0x8fac31ab4a7b76e91f8da95d8bfd0099f0a754daa4641d571dcdd45b59b92e55) |
+| Live K=3 fill | 2542039 | [12306cbe…38cbd20](https://preprod.midnightexplorer.com/transactions/0x12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20) |
+| Mandate created | 2541972 | [308c7b2c…010749](https://preprod.midnightexplorer.com/transactions/0x308c7b2c57a8ab9aeefea4a1c243f5da056e6b5f4dbd4dc234cdb84aa1010749) |
+| Private maker offer | 2548791 | [c303ec61…5265b2](https://preprod.midnightexplorer.com/transactions/0xc303ec61c09d406acfbec24915dd83c0546c1e833329a3e6a2f7de53b15265b2) |
+| RFQ fill 50 of 80 | 2549944 | [5a1200f5…16f00a](https://preprod.midnightexplorer.com/transactions/0x5a1200f5869cb60c81f9ebcb649da45fb47c563bc245c362d36665597b16f00a) |
+| Residual 30 consumed | 2550168 | [5f1203cf…12b99f](https://preprod.midnightexplorer.com/transactions/0x5f1203cf9cdde32192f4a2cdce275ff34529b19bbe24644f6014b1c24f12b99f) |
+| Compact withdraw | 2550510 | [999e2b5b…490fce5](https://preprod.midnightexplorer.com/transactions/0x999e2b5b3a32c7537ebba3ecb9afd7bce77f8ff205f97e361c2be5e35490fce5) |
+| Chrome createMandate | 2551299 | [5172ab71…36df8fa9](https://preprod.midnightexplorer.com/transactions/0x5172ab712e2cb39e5f455dd8cec609765d6fe2225ca0b0e97412cfc436df8fa9) |
+| Chrome revokeMandate | 2551669 | [8ae27d7a…1882f49](https://preprod.midnightexplorer.com/transactions/0x8ae27d7a3930c284a410198234d97ad110f0668af29cf89c42091b3b51882f49) |
+| Chrome deposit | 2551700 | [cdb04c15…05ff2d](https://preprod.midnightexplorer.com/transactions/0xcdb04c15462fad79bcd851ec39604bae32ef3b8f2463eb44aea7e7365c05ff2d) |
 
 Public JSON (hashes only, no openings): [hosted `/evidence`](https://remit-api-node.onrender.com/evidence) · [hosted `/chain`](https://remit-api-node.onrender.com/chain) · committed copy `apps/api/preprod-evidence.json`.
 
@@ -337,16 +337,16 @@ Compile (WSL): `compact compile` 0.31.1 → ZKIR + verifier keys (committed) + p
 | Capability | What is proven | Evidence |
 |---|---|---|
 | 7 Compact circuits | Compile + managed artifacts, compiler 0.31.1 | `inspect-managed` |
-| Private mandate | In-wallet create and revoke | [`5172ab71…`](https://explorer.1am.xyz/tx/5172ab712e2cb39e5f455dd8cec609765d6fe2225ca0b0e97412cfc436df8fa9?network=preprod) / [`8ae27d7a…`](https://explorer.1am.xyz/tx/8ae27d7a3930c284a410198234d97ad110f0668af29cf89c42091b3b51882f49?network=preprod) |
-| Private liquidity | Maker offer + encrypted RFQ | [`c303ec61…`](https://explorer.1am.xyz/tx/c303ec61c09d406acfbec24915dd83c0546c1e833329a3e6a2f7de53b15265b2?network=preprod) |
-| Constrained executor | K=3 policy execution | [`12306cbe…`](https://explorer.1am.xyz/tx/12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20?network=preprod) |
+| Private mandate | In-wallet create and revoke | [`5172ab71…`](https://preprod.midnightexplorer.com/transactions/0x5172ab712e2cb39e5f455dd8cec609765d6fe2225ca0b0e97412cfc436df8fa9) / [`8ae27d7a…`](https://preprod.midnightexplorer.com/transactions/0x8ae27d7a3930c284a410198234d97ad110f0668af29cf89c42091b3b51882f49) |
+| Private liquidity | Maker offer + encrypted RFQ | [`c303ec61…`](https://preprod.midnightexplorer.com/transactions/0xc303ec61c09d406acfbec24915dd83c0546c1e833329a3e6a2f7de53b15265b2) |
+| Constrained executor | K=3 policy execution | [`12306cbe…`](https://preprod.midnightexplorer.com/transactions/0x12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20) |
 | ZK policy enforcement | Compact accepts/rejects adversarial cases | `TESTS/security`, `TESTS/privacy` |
-| Partial execution | 50/80 fill | [`5a1200f5…`](https://explorer.1am.xyz/tx/5a1200f5869cb60c81f9ebcb649da45fb47c563bc245c362d36665597b16f00a?network=preprod) |
-| Residual lifecycle | leftover 30 consumed | [`5f1203cf…`](https://explorer.1am.xyz/tx/5f1203cf9cdde32192f4a2cdce275ff34529b19bbe24644f6014b1c24f12b99f?network=preprod) |
+| Partial execution | 50/80 fill | [`5a1200f5…`](https://preprod.midnightexplorer.com/transactions/0x5a1200f5869cb60c81f9ebcb649da45fb47c563bc245c362d36665597b16f00a) |
+| Residual lifecycle | leftover 30 consumed | [`5f1203cf…`](https://preprod.midnightexplorer.com/transactions/0x5f1203cf9cdde32192f4a2cdce275ff34529b19bbe24644f6014b1c24f12b99f) |
 | Replay resistance | consumed openings rejected | Compact sim + operator |
 | Selective audit | one-field verification | `auditRoot` `1bbc1cc2…` |
 | Tamper rejection | forged disclosure rejected | `/audit/verify` `ok:false` |
-| Real custody | deposit and withdraw | [`cdb04c15…`](https://explorer.1am.xyz/tx/cdb04c15462fad79bcd851ec39604bae32ef3b8f2463eb44aea7e7365c05ff2d?network=preprod) / [`999e2b5b…`](https://explorer.1am.xyz/tx/999e2b5b3a32c7537ebba3ecb9afd7bce77f8ff205f97e361c2be5e35490fce5?network=preprod) |
+| Real custody | deposit and withdraw | [`cdb04c15…`](https://preprod.midnightexplorer.com/transactions/0xcdb04c15462fad79bcd851ec39604bae32ef3b8f2463eb44aea7e7365c05ff2d) / [`999e2b5b…`](https://preprod.midnightexplorer.com/transactions/0x999e2b5b3a32c7537ebba3ecb9afd7bce77f8ff205f97e361c2be5e35490fce5) |
 | Wallet reconnect | reload + connector status + hashed vault | Chrome + `TESTS/unit/wallet-reconnect.test.ts` |
 | User isolation | wallet-scoped state | `TESTS/security/isolation.test.ts` |
 | Persistent backend | ciphertext envelopes survive restart | Supabase `persist.backend=supabase` |
@@ -357,7 +357,7 @@ Compile (WSL): `compact compile` 0.31.1 → ZKIR + verifier keys (committed) + p
 
 ## Preprod evidence
 
-The full clickable set is in **On-chain proofs** at the top of this README. Committed copy: `apps/api/preprod-evidence.json`. Explorer: `https://explorer.1am.xyz/tx/<hash>?network=preprod`. v1 pool `e82dea02…` is historical single-offer evidence. It is not the K=3 pool.
+The full clickable set is in **On-chain proofs** at the top of this README. Committed copy: `apps/api/preprod-evidence.json`. Explorer: `https://preprod.midnightexplorer.com/transactions/0x<hash>`. v1 pool `e82dea02…` is historical single-offer evidence. It is not the K=3 pool.
 
 ---
 

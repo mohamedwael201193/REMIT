@@ -370,7 +370,7 @@ export async function buildApp(cfg: ApiConfig) {
       dustGate: "availableCoins>=1",
       keysUrl: "/keys",
       zkirUrl: "/zkir",
-      explorerTx: "https://preprod.midnightexplorer.com/tx/",
+      explorerTx: "https://preprod.midnightexplorer.com/transactions/",
       visibility: EXECUTOR_VISIBILITY.model,
       trust: EXECUTOR_VISIBILITY,
     };

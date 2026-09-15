@@ -73,7 +73,15 @@ describe("public Preprod config for the supplied frontend", () => {
     expect(ws.executions.every((e) => e.attemptedFill == null && e.price == null)).toBe(true);
     expect(ws.offers.every((o) => o.compatibility == null && o.executionScore == null)).toBe(true);
     expect(ws.portfolio.verificationRate).toBeNull();
-    expect(explorerTxUrl("f1")).toContain("f1");
+    expect(explorerTxUrl("f1")).toBe("https://preprod.midnightexplorer.com/transactions/0xf1");
+    expect(
+      explorerTxUrl("8fac31ab4a7b76e91f8da95d8bfd0099f0a754daa4641d571dcdd45b59b92e55"),
+    ).toBe(
+      "https://preprod.midnightexplorer.com/transactions/0x8fac31ab4a7b76e91f8da95d8bfd0099f0a754daa4641d571dcdd45b59b92e55",
+    );
+    expect(explorerTxUrl("0xabc", "https://preprod.midnightexplorer.com/tx/")).toBe(
+      "https://preprod.midnightexplorer.com/transactions/0xabc",
+    );
   });
 
   it("prefers live activeMandates over a historical revoke step", () => {

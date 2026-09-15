@@ -7,7 +7,7 @@ import { contractsDeployed, fetchRemitHealth, type RemitPublicHealth } from "./h
 export { contractsDeployed, fetchRemitHealth };
 export type { RemitPublicHealth };
 
-export const PREPROD_EXPLORER_TX = "https://preprod.midnightexplorer.com/tx/";
+export const PREPROD_EXPLORER_TX = "https://preprod.midnightexplorer.com/transactions/";
 export const PREPROD_INDEXER = "https://indexer.preprod.midnight.network/api/v4/graphql";
 
 export type RemitPublicConfig = {
@@ -163,7 +163,11 @@ function apiRoot(apiUrl: string): string {
 export function explorerTxUrl(hash?: string, base = PREPROD_EXPLORER_TX): string | undefined {
   if (!hash) return undefined;
   const h = hash.replace(/^0x/i, "");
-  return `${base.replace(/\/$/, "")}/${h}`;
+  const root = (base || PREPROD_EXPLORER_TX)
+    .replace(/\/tx\/?$/i, "/transactions/")
+    .replace(/\/transactions\/0x\/?$/i, "/transactions/")
+    .replace(/\/?$/, "/");
+  return `${root}0x${h}`;
 }
 
 export async function fetchRemitConfig(apiUrl: string): Promise<RemitPublicConfig> {

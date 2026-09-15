@@ -36,7 +36,7 @@ function publicEnv(): { key: string; value: string; target: ("production" | "pre
   const pairs: Record<string, string> = {
     NEXT_PUBLIC_MIDNIGHT_NETWORK: "preprod",
     NEXT_PUBLIC_MIDNIGHT_INDEXER_URL: "https://indexer.preprod.midnight.network/api/v4/graphql",
-    NEXT_PUBLIC_MIDNIGHT_EXPLORER_TX: "https://preprod.midnightexplorer.com/tx/",
+    NEXT_PUBLIC_MIDNIGHT_EXPLORER_TX: "https://preprod.midnightexplorer.com/transactions/",
     NEXT_PUBLIC_REMIT_API_URL: apiUrl,
     NEXT_PUBLIC_REMIT_POOL_CONTRACT_ADDRESS: pool,
     NEXT_PUBLIC_REMIT_QUOTE_CONTRACT_ADDRESS: quote,

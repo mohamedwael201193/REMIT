@@ -35,7 +35,7 @@ export function frontPublicEnvFromDeploy(deploy: {
     quote,
     indexer: process.env.MIDNIGHT_INDEXER_URL ?? "https://indexer.preprod.midnight.network/api/v4/graphql",
     network: deploy.network ?? "preprod",
-    explorerTx: "https://preprod.midnightexplorer.com/tx/",
+    explorerTx: "https://preprod.midnightexplorer.com/transactions/",
     keysUrl: `${apiUrl.replace(/\/health$/, "").replace(/\/$/, "")}/keys`,
     zkirUrl: `${apiUrl.replace(/\/health$/, "").replace(/\/$/, "")}/zkir`,
   };

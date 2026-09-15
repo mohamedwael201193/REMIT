@@ -16,7 +16,8 @@ const skipTests = process.env.JUDGE_SKIP_TESTS === "1" || process.env.JUDGE_DEMO
 const skipLive = process.env.JUDGE_SKIP_LIVE === "1";
 const apiBase = process.env.REMIT_PUBLIC_API_URL ?? "https://remit-api-node.onrender.com";
 const frontUrl = process.env.REMIT_PUBLIC_FRONT_URL ?? "https://remit-front.vercel.app";
-const explorer = (hash: string) => `https://explorer.1am.xyz/tx/${hash}?network=preprod`;
+const explorer = (hash: string) =>
+  `https://preprod.midnightexplorer.com/transactions/0x${hash.replace(/^0x/i, "")}`;
 
 type Tone = "GREEN" | "YELLOW" | "RED";
 let failed = false;
