@@ -190,12 +190,62 @@ export function clearWalletVault(win: MidnightWindow = globalThis as MidnightWin
 
 const inflightConnect = new Map<WalletProviderKind, Promise<ConnectedAPI>>();
 
+export const LACE_CONNECT_TIMEOUT_MS = 25_000;
+export const ONEAM_CONNECT_TIMEOUT_MS = 45_000;
+export const LACE_CONNECT_TIMEOUT_MESSAGE = "Lace connection did not complete. Retry.";
+
+export function injectedApiForKind(kind: WalletProviderKind, win: MidnightWindow): InitialAPI {
+  const midnight = win.midnight ?? {};
+  const entry = Object.entries(midnight).find(([rdns, api]) => classify(api.name ?? "", api.rdns ?? rdns) === kind);
+  if (!entry) {
+    throw new Error(kind === "1am" ? "1AM is not injected in this Chrome tab" : "Lace is not injected in this Chrome tab");
+  }
+  requireConnectorV4(entry[1].apiVersion);
+  return entry[1];
+}
+
+/**
+ * Call from the click handler before any await. Lace opens its authorization
+ * popup only if connect(networkId) runs in the same user-gesture turn.
+ * A later finish path may await this promise; it must not start a second connect().
+ */
+export function beginConnect(
+  api: InitialAPI,
+  kind: WalletProviderKind,
+  expectedNetwork: string,
+): Promise<ConnectedAPI> {
+  requireConnectorV4(api.apiVersion);
+  inflightConnect.delete(kind);
+  walletDiag({ event: "T2-connect-start", kind, networkId: expectedNetwork });
+  const started = Date.now();
+  const connectPromise = api.connect(expectedNetwork).then(
+    (wallet) => {
+      walletDiag({ event: "T3-connect-resolved", kind, networkId: expectedNetwork, ms: Date.now() - started, ok: true });
+      return wallet;
+    },
+    (error) => {
+      const { err, code } = sanitizeConnectorError(error);
+      walletDiag({ event: "T3-connect-resolved", kind, networkId: expectedNetwork, ms: Date.now() - started, ok: false, err, code });
+      throw error;
+    },
+  );
+  inflightConnect.set(kind, connectPromise);
+  void connectPromise.finally(() => {
+    if (inflightConnect.get(kind) === connectPromise) inflightConnect.delete(kind);
+  });
+  return connectPromise;
+}
+
+export function resetInflightConnect(): void {
+  inflightConnect.clear();
+}
+
 export async function connectInjectedWallet(
   kind: WalletProviderKind,
   expectedNetwork: string,
   win: MidnightWindow,
+  options?: { timeoutMs?: number },
 ): Promise<ConnectedWallet> {
-  const midnight = win.midnight ?? {};
   const discovered = discoverInjected(win);
   walletDiag({
     event: "T1-discovery",
@@ -206,33 +256,12 @@ export async function connectInjectedWallet(
       has1am: String(discovered.some((w) => w.kind === "1am")),
     },
   });
-  const entry = Object.entries(midnight).find(([rdns, api]) => classify(api.name ?? "", api.rdns ?? rdns) === kind);
-  if (!entry) {
-    throw new Error(kind === "1am" ? "1AM is not injected in this Chrome tab" : "Lace is not injected in this Chrome tab");
-  }
-  const api = entry[1];
-  requireConnectorV4(api.apiVersion);
+  const api = injectedApiForKind(kind, win);
   const lace = kind === "lace";
-  const connectMs = lace ? 25000 : 45000;
+  const connectMs = options?.timeoutMs ?? (lace ? LACE_CONNECT_TIMEOUT_MS : ONEAM_CONNECT_TIMEOUT_MS);
   let connectPromise = inflightConnect.get(kind);
   if (!connectPromise) {
-    walletDiag({ event: "T2-connect-start", kind, networkId: expectedNetwork });
-    const started = Date.now();
-    connectPromise = api.connect(expectedNetwork).then(
-      (wallet) => {
-        walletDiag({ event: "T3-connect-resolved", kind, networkId: expectedNetwork, ms: Date.now() - started, ok: true });
-        return wallet;
-      },
-      (error) => {
-        const { err, code } = sanitizeConnectorError(error);
-        walletDiag({ event: "T3-connect-resolved", kind, networkId: expectedNetwork, ms: Date.now() - started, ok: false, err, code });
-        throw error;
-      },
-    );
-    inflightConnect.set(kind, connectPromise);
-    void connectPromise.finally(() => {
-      if (inflightConnect.get(kind) === connectPromise) inflightConnect.delete(kind);
-    });
+    connectPromise = beginConnect(api, kind, expectedNetwork);
   } else {
     walletDiag({ event: "T2-connect-reuse", kind, networkId: expectedNetwork });
   }
@@ -246,7 +275,7 @@ export async function connectInjectedWallet(
             reject(
               new Error(
                 lace
-                  ? "Lace connect() did not resolve. Approve the Lace popup if it is open, then retry. This is not a proof-server failure."
+                  ? LACE_CONNECT_TIMEOUT_MESSAGE
                   : "1AM connect() did not resolve in this click.",
               ),
             ),
@@ -255,6 +284,8 @@ export async function connectInjectedWallet(
       ),
     ]);
   } catch (error) {
+    if (inflightConnect.get(kind) === connectPromise) inflightConnect.delete(kind);
+    void connectPromise.catch(() => undefined);
     throw error;
   }
 

@@ -352,11 +352,11 @@ Connection and proving are different states:
 
 ### Lace
 
-- Same `connect("preprod")` on click. Lace is **not** in-browser proving.
+- Same `connect("preprod")` on the wallet-tile click, before any other await. Lace is **not** in-browser proving.
 - Reload does **not** auto-call `connect()` (no user gesture → Lace popup is blocked and `connect()` hangs). Click **Reconnect wallet**.
-- In-flight `connect()` is reused; Compact actions do not call `connect()` again.
+- One `connect()` per click. Compact actions reuse `ConnectedAPI` and do not call `connect()` again. A timed-out click does not keep a hung `connect()` for the next click.
 - Compact proofs go to local proof-server **8.1.0** at `http://localhost:6300` (`npm run proof:up`). Witnesses stay local, never Render.
-- If `connect()` does not resolve, the UI stops waiting and reports that Lace did not respond. That is not treated as a proof-server failure.
+- Connecting shows **Waiting for Lace authorization**. If `connect()` does not resolve within 25 seconds, the UI reports **Lace connection did not complete. Retry.** That is not treated as a proof-server failure.
 - If `connect()` succeeds but methods return `Wallet is unavailable` (Lace/connector), the UI says **connected, methods unavailable** — it does not fake a Compact transaction.
 
 Header DUST is a fee meter, not spendable coins.
@@ -447,7 +447,7 @@ A leftover note is spendable only from the namespaced vault that holds its openi
 
 ## Tests
 
-Latest verified full run: **48 files / 195 passed** (`vitest run`; Playwright hosted spec is separate and not the default suite).
+Latest verified full run: **48 files / 200 passed** (`vitest run`; Playwright hosted spec is separate and not the default suite).
 
 Layout:
 
@@ -542,7 +542,7 @@ Expected: local UI on the Next port. Public env is `NEXT_PUBLIC_*` only.
 
 **1AM (primary):** Connect wallet → 1AM → authorize Preprod. Proving is in-browser. This is the judge path.
 
-**Lace (alternate):** Start proof-server first (`npm run proof:up`). Connect wallet → Lace → authorize the Lace popup. Proving is local proof-server 8.1.0, not in-tab WASM. Reload shows Reconnect (click required). If Lace `connect()` hangs or wallet methods return unavailable, REMIT reports that state; it does not invent a Compact tx.
+**Lace (alternate):** Start proof-server first (`npm run proof:up`). Connect wallet → Lace → authorize the Lace popup. Connecting shows “Waiting for Lace authorization”. If it does not finish, retry; REMIT does not invent a Compact tx. Proving is local proof-server 8.1.0, not in-tab WASM. Reload shows Reconnect (click required).
 
 Reload reconnects from connector status + hashed vault. Switching wallets isolates private state.
 

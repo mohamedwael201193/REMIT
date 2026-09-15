@@ -43,7 +43,7 @@ Stack pin: Compact 0.31.1 / language 0.23 / midnight-js 4.1.1 / wallet-sdk 1.2.0
 | Chrome createMandate | `5172ab71…` | 2551299 |
 | Chrome revokeMandate | `8ae27d7a…` | 2551669 |
 
-`auditRoot` `1bbc1cc2…`. UI: https://remit-front.vercel.app. API: https://remit-api-node.onrender.com. Persistence: Postgres ciphertext envelopes, RLS deny-all, no service role in the browser. Wallet reconnect uses connector `connect(networkId)` plus hashed tab vaults. Seven impure circuits. Local tests: 48 files / 195 passed. `npm run judge:proof` reprints committed hashes with explorer URLs.
+`auditRoot` `1bbc1cc2…`. UI: https://remit-front.vercel.app. API: https://remit-api-node.onrender.com. Persistence: Postgres ciphertext envelopes, RLS deny-all, no service role in the browser. Wallet reconnect uses connector `connect(networkId)` plus hashed tab vaults. Seven impure circuits. Local tests: 48 files / 200 passed. `npm run judge:proof` reprints committed hashes with explorer URLs.
 
 In-browser Compact circuits (1AM `getProvingProvider`): createMandate, revokeMandate, deposit, withdraw. Executor `fill` proving stays on operator-controlled proof infrastructure so private witnesses are not sent to a third-party hosted prover. Compact remains the settlement authority.
 

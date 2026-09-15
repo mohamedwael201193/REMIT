@@ -36,7 +36,19 @@ import { LaceMark, OneAmMark, walletMark, walletName } from "@/components/remit/
 import { useRemitStore } from "@/store/remit";
 import { useToast } from "@/hooks/use-toast";
 import { shortAddress } from "@/lib/remit/format";
+import {
+  beginConnect,
+  injectedApiForKind,
+  LACE_CONNECT_TIMEOUT_MESSAGE,
+} from "@/lib/remit/midnight-connector";
 import type { WalletProviderKind } from "@/lib/remit/types";
+
+const CONNECT_NETWORK = process.env.NEXT_PUBLIC_MIDNIGHT_NETWORK ?? "preprod";
+
+function startConnectInClick(kind: WalletProviderKind): void {
+  const api = injectedApiForKind(kind, window);
+  beginConnect(api, kind, CONNECT_NETWORK);
+}
 
 const PROVIDERS: {
   kind: WalletProviderKind;
@@ -62,10 +74,14 @@ export function ConnectWalletDialog() {
     if (!ok) {
       const message = useRemitStore.getState().lastError ?? "Connect must run in this click with 1AM or Lace.";
       const methods = /unavailable for proving/i.test(message);
-      const hung = /did not resolve/i.test(message);
+      const hung = /did not complete|did not resolve/i.test(message);
       toast({
-        title: methods ? "Lace connected — wallet methods unavailable" : hung ? "Lace did not respond" : "Wallet did not connect",
-        description: message,
+        title: methods
+          ? "Lace connected — wallet methods unavailable"
+          : hung && kind === "lace"
+            ? "Lace connection did not complete"
+            : "Wallet did not connect",
+        description: hung && kind === "lace" ? LACE_CONNECT_TIMEOUT_MESSAGE : message,
         variant: "destructive",
       });
     }
@@ -88,7 +104,16 @@ export function ConnectWalletDialog() {
           {PROVIDERS.map((p) => (
             <button
               key={p.kind}
-              onClick={() => connect(p.kind)}
+              onClick={() => {
+                try {
+                  startConnectInClick(p.kind);
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : "Wallet is not injected in this Chrome tab";
+                  toast({ title: "Wallet did not connect", description: message, variant: "destructive" });
+                  return;
+                }
+                void connect(p.kind);
+              }}
               disabled={pending !== null}
             className="group flex min-h-11 w-full items-center gap-4 rounded-xl border border-[rgba(239,235,224,0.12)] bg-[#121c17] p-4 text-left transition-colors hover:border-gold/40 disabled:opacity-60"
             >
@@ -102,7 +127,10 @@ export function ConnectWalletDialog() {
                 </span>
               </span>
               {pending === p.kind ? (
-                <RefreshCcw className="h-4 w-4 animate-spin text-gold" />
+                <span className="flex items-center gap-2 text-[11px] text-gold">
+                  <RefreshCcw className="h-4 w-4 animate-spin" />
+                  {p.kind === "lace" ? "Waiting for Lace authorization" : "Connecting"}
+                </span>
               ) : (
                 <ChevronDown className="h-4 w-4 -rotate-90 text-muted-foreground transition-transform group-hover:text-gold" />
               )}
@@ -157,6 +185,13 @@ export function WalletButton() {
         size="sm"
         onClick={() => {
           if (needsGesture && wallet.provider) {
+            try {
+              startConnectInClick(wallet.provider);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : "Wallet is not injected in this Chrome tab";
+              toast({ title: "Wallet did not connect", description: message, variant: "destructive" });
+              return;
+            }
             void connectWallet(wallet.provider);
             return;
           }
@@ -180,7 +215,7 @@ export function WalletButton() {
         className="h-11 min-w-0 shrink gap-2 border-[rgba(239,235,224,0.16)] bg-transparent px-3 text-[13px] whitespace-normal text-cream/60"
       >
         <RefreshCcw className="h-3.5 w-3.5 animate-spin text-gold" />
-        Connecting…
+        {wallet.provider === "lace" ? "Waiting for Lace authorization" : "Connecting…"}
       </Button>
     );
   }

@@ -34,7 +34,7 @@ export function sanitizeConnectorError(error: unknown): { err: string; code?: st
 export function classifyWalletMethodError(error: unknown): "unavailable" | "rejected" | "timeout" | "other" {
   const { err, code } = sanitizeConnectorError(error);
   const blob = `${err} ${code ?? ""}`.toLowerCase();
-  if (/timeout|did not resolve|timed out/.test(blob)) return "timeout";
+  if (/timeout|did not resolve|did not complete|timed out/.test(blob)) return "timeout";
   if (/rejected|permission/.test(blob)) return "rejected";
   if (/unavailable|disconnected|not initialized|authenticator|shutdown|wallet is unavailable/.test(blob)) {
     return "unavailable";

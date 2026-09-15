@@ -72,7 +72,12 @@ describe("1AM circuit bundle graph", () => {
     expect(connector).not.toMatch(/await .*getConfiguration/);
     expect(connector).toMatch(/inflightConnect/);
     expect(connector).toMatch(/T2-connect-start/);
+    expect(connector).toMatch(/beginConnect/);
+    expect(connector).toMatch(/LACE_CONNECT_TIMEOUT_MESSAGE/);
     expect(connector).toMatch(/methodsReady: false/);
+    const button = readFileSync(resolve("front/src/components/remit/wallet/wallet-button.tsx"), "utf8");
+    expect(button).toMatch(/beginConnect/);
+    expect(button).toMatch(/startConnectInClick/);
     const settings = readFileSync(resolve("front/src/components/remit/app/view-settings.tsx"), "utf8");
     expect(settings).toMatch(/deposits 1 then withdraws/);
   });

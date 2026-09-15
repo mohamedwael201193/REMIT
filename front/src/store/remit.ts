@@ -166,7 +166,10 @@ export const useRemitStore = create<RemitState>((set, get) => ({
   openWalletDialog: (open) => set({ walletDialogOpen: open }),
 
   connectWallet: async (walletProvider) => {
-    set({ wallet: { ...get().wallet, status: "connecting", lastError: null }, lastError: null });
+    set({
+      wallet: { ...get().wallet, provider: walletProvider, status: "connecting", lastError: null },
+      lastError: null,
+    });
     try {
       const previous = get().wallet.address;
       const wallet = await provider.connectWallet(walletProvider);
