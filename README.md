@@ -331,32 +331,46 @@ Live head: `1bbc1cc2aa2cd83de56cb8ea15ec5dfb8dd071cf2fb305980416ed726b81a694`. C
 
 ## Wallet architecture
 
-Connector: DApp Connector **4.0.1**. `connect(networkId)` must run in the click handler. Connected means `getConnectionStatus().status === "connected"` on Preprod. Private vault keys are `SHA-256(network|pool|wallet)`. A different wallet is a different vault.
+Connector: DApp Connector **4.0.1**. `connect(networkId)` must run in the click handler with no prior await. Private vault keys are `SHA-256(network|pool|wallet)`. A different wallet is a different vault.
+
+**Judge default: 1AM.** Lace is an alternate path. Compact settlement does not depend on Lace.
+
+Connection and proving are different states:
+
+| State | Meaning |
+|---|---|
+| **CONNECTED** | `connect(networkId)` resolved. |
+| **CONNECTED / WALLET METHODS UNAVAILABLE** | Connector session exists, but wallet-backed methods (`getUnshieldedAddress`, balance, submit) failed or hung. Compact is not attempted. |
+| **PROVING SERVER UNAVAILABLE** | Lace is connected; local proof-server 8.1.0 at `http://localhost:6300` is not reachable. |
+| **READY FOR PROVING** | 1AM: `getProvingProvider`. Lace: methods ready **and** local proof-server 8.1.0. |
 
 ### 1AM
 
-- Discovery via `window.midnight`, then `connect(networkId)`.
-- `getConnectionStatus()` must report `connected` before the UI says connected.
-- In-browser proving via `getProvingProvider` for user circuits: createMandate, revokeMandate, placeOffer, deposit, withdraw.
-- Preprod. Never asks for a seed.
+- Discovery via `window.midnight`, then `connect(networkId)` in the click.
+- Circuit clicks re-bind `connect(networkId)` so in-tab `getProvingProvider` still works after reload.
+- User circuits prove in the browser. Preprod. Never asks for a seed.
 
 ### Lace
 
-- Same connector connect path. Lace is **not** in-browser proving.
-- Compact proofs go to local proof-server **8.1.0** at `http://localhost:6300` (`npm run proof:up`).
-- Private witnesses stay on the operator/user machine. They are not uploaded to Render.
-- Compact calls fail truthfully if the proof-server is down. Connection can still succeed.
-- Lace Settings → Midnight → Local (`http://localhost:6300`).
+- Same `connect("preprod")` on click. Lace is **not** in-browser proving.
+- Reload does **not** auto-call `connect()` (no user gesture → Lace popup is blocked and `connect()` hangs). Click **Reconnect wallet**.
+- In-flight `connect()` is reused; Compact actions do not call `connect()` again.
+- Compact proofs go to local proof-server **8.1.0** at `http://localhost:6300` (`npm run proof:up`). Witnesses stay local, never Render.
+- If `connect()` does not resolve, the UI stops waiting and reports that Lace did not respond. That is not treated as a proof-server failure.
+- If `connect()` succeeds but methods return `Wallet is unavailable` (Lace/connector), the UI says **connected, methods unavailable** — it does not fake a Compact transaction.
 
 Header DUST is a fee meter, not spendable coins.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Connect: connect(networkId)
+  [*] --> Connect: click connect(networkId)
   Connect --> Identified: connector status connected
+  Identified --> MethodsUnavailable: wallet-backed method failed
   Identified --> Vault: hashed SHA-256(network|pool|wallet)
-  Vault --> Reload: sessionStorage wrap
-  Reload --> Identified: reconnect from real status
+  Vault --> Ready: 1AM getProvingProvider / Lace localhost:6300
+  Ready --> Reload: sessionStorage wrap
+  Reload --> Gesture: Lace requires click
+  Reload --> Identified: 1AM reconnect from real status
   Identified --> Isolated: different wallet, different vault
   Identified --> Disconnect: remit:manual-disconnect
   Disconnect --> [*]
@@ -433,7 +447,7 @@ A leftover note is spendable only from the namespaced vault that holds its openi
 
 ## Tests
 
-Latest verified full run: **47 files / 191 passed** (`vitest run`; Playwright hosted spec is separate and not the default suite).
+Latest verified full run: **48 files / 195 passed** (`vitest run`; Playwright hosted spec is separate and not the default suite).
 
 Layout:
 
@@ -526,9 +540,9 @@ Expected: local UI on the Next port. Public env is `NEXT_PUBLIC_*` only.
 
 ### F. Chrome wallet
 
-**1AM:** Connect wallet → 1AM → authorize Preprod. UI connected only after `getConnectionStatus()`. Proving is in-browser.
+**1AM (primary):** Connect wallet → 1AM → authorize Preprod. Proving is in-browser. This is the judge path.
 
-**Lace:** Start proof-server first. Connect wallet → Lace → authorize Preprod. Proving is local proof-server 8.1.0, not in-tab WASM. Compact calls fail truthfully if `:6300` is down.
+**Lace (alternate):** Start proof-server first (`npm run proof:up`). Connect wallet → Lace → authorize the Lace popup. Proving is local proof-server 8.1.0, not in-tab WASM. Reload shows Reconnect (click required). If Lace `connect()` hangs or wallet methods return unavailable, REMIT reports that state; it does not invent a Compact tx.
 
 Reload reconnects from connector status + hashed vault. Switching wallets isolates private state.
 

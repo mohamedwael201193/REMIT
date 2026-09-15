@@ -269,6 +269,8 @@ export interface WalletState {
   lastError?: string | null;
   provingPath?: "1am-intab" | "lace-http";
   proofServerReady?: boolean | null;
+  /** False when connect() resolved but wallet-backed methods failed or timed out. */
+  methodsReady?: boolean | null;
 }
 
 export interface NewMandateInput {

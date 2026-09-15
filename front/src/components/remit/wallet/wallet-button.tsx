@@ -60,9 +60,12 @@ export function ConnectWalletDialog() {
     const ok = await connectWallet(kind);
     setPending(null);
     if (!ok) {
+      const message = useRemitStore.getState().lastError ?? "Connect must run in this click with 1AM or Lace.";
+      const methods = /unavailable for proving/i.test(message);
+      const hung = /did not resolve/i.test(message);
       toast({
-        title: "Wallet did not connect",
-        description: useRemitStore.getState().lastError ?? "Connect must run in this click with 1AM or Lace.",
+        title: methods ? "Lace connected — wallet methods unavailable" : hung ? "Lace did not respond" : "Wallet did not connect",
+        description: message,
         variant: "destructive",
       });
     }
@@ -168,7 +171,7 @@ export function WalletButton() {
     );
   }
 
-  if (wallet.status === "connecting" || !wallet.address) {
+  if (wallet.status === "connecting") {
     return (
       <Button
         variant="outline"
@@ -197,7 +200,7 @@ export function WalletButton() {
               <LaceMark className="h-6 w-6 shrink-0 rounded-lg" />
             )}
             <span className="font-data min-w-0 truncate text-[12px]">
-              {shortAddress(wallet.address)}
+              {wallet.address ? shortAddress(wallet.address) : wallet.provider === "lace" ? "Lace · connected" : "connected"}
             </span>
           </span>
           {wallet.dustHeader ? (
@@ -221,9 +224,11 @@ export function WalletButton() {
           </p>
           {wallet.provingPath === "lace-http" ? (
             <p className="font-data text-[11px] text-cream/70">
-              {wallet.proofServerReady === false
-                ? "Proof-server not reachable at localhost:6300"
-                : "Proving: local proof-server 8.1.0"}
+              {wallet.methodsReady === false
+                ? "Connected. Wallet session unavailable for proving."
+                : wallet.proofServerReady === false
+                  ? "Connected. Local proof-server required for proving."
+                  : "Proving: local proof-server 8.1.0"}
             </p>
           ) : wallet.provingPath === "1am-intab" ? (
             <p className="font-data text-[11px] text-cream/70">Proving: browser (1AM)</p>

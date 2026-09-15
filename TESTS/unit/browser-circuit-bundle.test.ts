@@ -62,6 +62,7 @@ describe("1AM circuit bundle graph", () => {
     expect(live).not.toMatch(/indexer still reports activeMandates > 0/);
     expect(live).toMatch(/kind === "lace" && this.connected/);
     expect(live).toMatch(/await this.connectWallet\(kind\)/);
+    expect(live).toMatch(/Lace requires a click/);
     expect(live).not.toMatch(/await this.load\(\);\s*await this.ensureProvingSession/);
     const connect = live.slice(live.indexOf("async connectWallet"), live.indexOf("private async ensureProvingSession"));
     expect(connect).toMatch(/connectInjectedWallet/);
@@ -69,6 +70,9 @@ describe("1AM circuit bundle graph", () => {
     const connector = readFileSync(resolve("front/src/lib/remit/midnight-connector.ts"), "utf8");
     expect(connector).not.toMatch(/await wallet\.hintUsage/);
     expect(connector).not.toMatch(/await .*getConfiguration/);
+    expect(connector).toMatch(/inflightConnect/);
+    expect(connector).toMatch(/T2-connect-start/);
+    expect(connector).toMatch(/methodsReady: false/);
     const settings = readFileSync(resolve("front/src/components/remit/app/view-settings.tsx"), "utf8");
     expect(settings).toMatch(/deposits 1 then withdraws/);
   });

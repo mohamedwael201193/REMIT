@@ -50,6 +50,7 @@ const disconnected = (): WalletState => ({
   dustHeader: undefined,
   status: "disconnected",
   lastError: null,
+  methodsReady: null,
 });
 
 function toMandate(m: MappedWorkspace["mandates"][number]): Mandate {
@@ -285,6 +286,9 @@ class LiveRemitProvider implements RemitProvider {
     // Lace: a second connect() has no user-activation and hangs. Reuse ConnectedAPI.
     // 1AM: re-bind on the circuit click so in-tab getProvingProvider still works after reload.
     if (kind === "lace" && this.connected && this.wallet.status === "connected") {
+      if (this.wallet.methodsReady === false) {
+        throw new Error(this.wallet.lastError ?? "Lace connected. Wallet session unavailable for proving.");
+      }
       await assertLaceProofServer("http://localhost:6300");
       return;
     }
@@ -301,6 +305,15 @@ class LiveRemitProvider implements RemitProvider {
     if (isManualDisconnect(window)) return disconnected();
     const kind = rememberedAdapter(window);
     if (!kind) return disconnected();
+    if (kind === "lace") {
+      return {
+        ...disconnected(),
+        provider: "lace",
+        provingPath: "lace-http",
+        methodsReady: false,
+        lastError: "Reconnect wallet — Lace requires a click so the authorization popup can open",
+      };
+    }
     this.wallet = {
       ...disconnected(),
       provider: kind,

@@ -162,7 +162,7 @@ export function ViewSettings() {
           <p className="eyebrow text-muted-foreground">Wallet</p>
 
           <div className="mt-4">
-            {wallet.status === "connected" && wallet.address ? (
+            {wallet.status === "connected" ? (
               <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 items-start gap-4">
                   {wallet.provider === "1am" ? (
@@ -175,9 +175,15 @@ export function ViewSettings() {
                       {wallet.provider === "1am" ? "1AM" : "Lace"} · connected
                       to {wallet.network}
                     </p>
-                    <div className="min-w-0">
-                      <HashChip value={wallet.address} />
-                    </div>
+                    {wallet.address ? (
+                      <div className="min-w-0">
+                        <HashChip value={wallet.address} />
+                      </div>
+                    ) : (
+                      <p className="text-[12.5px] text-clay">
+                        {wallet.lastError ?? "Connected. Wallet session unavailable for proving."}
+                      </p>
+                    )}
                     <p className="font-data min-w-0 break-words text-[12.5px] text-gold">
                       {wallet.dustHeader ?? "header DUST is not spendable coins"}
                     </p>

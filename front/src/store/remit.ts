@@ -170,7 +170,14 @@ export const useRemitStore = create<RemitState>((set, get) => ({
     try {
       const previous = get().wallet.address;
       const wallet = await provider.connectWallet(walletProvider);
-      if (wallet.status !== "connected" || !wallet.address) {
+      if (wallet.status !== "connected") {
+        throw new Error("connector did not report connected");
+      }
+      if (wallet.methodsReady === false) {
+        set({ wallet, walletDialogOpen: false, lastError: wallet.lastError ?? null });
+        return true;
+      }
+      if (!wallet.address) {
         throw new Error("connector did not report connected");
       }
       const identityChanged = Boolean(previous && wallet.address !== previous);

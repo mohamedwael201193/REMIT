@@ -3,6 +3,12 @@
  * Kept browser-local so Next does not bundle compact-runtime / wallet-sdk.
  */
 import type { WalletProviderKind, WalletState } from "./types";
+import {
+  classifyWalletMethodError,
+  sanitizeConnectorError,
+  walletDiag,
+  withBudget,
+} from "./wallet-diag";
 
 type ConnectionStatus = { status: string; networkId?: string };
 type DustBalance = { balance: bigint | number; cap: bigint | number };
@@ -182,48 +188,114 @@ export function clearWalletVault(win: MidnightWindow = globalThis as MidnightWin
   forgetAdapter(win);
 }
 
+const inflightConnect = new Map<WalletProviderKind, Promise<ConnectedAPI>>();
+
 export async function connectInjectedWallet(
   kind: WalletProviderKind,
   expectedNetwork: string,
   win: MidnightWindow,
 ): Promise<ConnectedWallet> {
   const midnight = win.midnight ?? {};
+  const discovered = discoverInjected(win);
+  walletDiag({
+    event: "T1-discovery",
+    kind,
+    flags: {
+      count: String(discovered.length),
+      hasLace: String(discovered.some((w) => w.kind === "lace")),
+      has1am: String(discovered.some((w) => w.kind === "1am")),
+    },
+  });
   const entry = Object.entries(midnight).find(([rdns, api]) => classify(api.name ?? "", api.rdns ?? rdns) === kind);
   if (!entry) {
     throw new Error(kind === "1am" ? "1AM is not injected in this Chrome tab" : "Lace is not injected in this Chrome tab");
   }
   const api = entry[1];
   requireConnectorV4(api.apiVersion);
-  // Official: Lace connect() must run in the click handler with no prior await,
-  // or the popup is blocked and the call hangs.
-  const wallet = await api.connect(expectedNetwork);
-  const status = await wallet.getConnectionStatus();
+  const lace = kind === "lace";
+  const connectMs = lace ? 25000 : 45000;
+  let connectPromise = inflightConnect.get(kind);
+  if (!connectPromise) {
+    walletDiag({ event: "T2-connect-start", kind, networkId: expectedNetwork });
+    const started = Date.now();
+    connectPromise = api.connect(expectedNetwork).then(
+      (wallet) => {
+        walletDiag({ event: "T3-connect-resolved", kind, networkId: expectedNetwork, ms: Date.now() - started, ok: true });
+        return wallet;
+      },
+      (error) => {
+        const { err, code } = sanitizeConnectorError(error);
+        walletDiag({ event: "T3-connect-resolved", kind, networkId: expectedNetwork, ms: Date.now() - started, ok: false, err, code });
+        throw error;
+      },
+    );
+    inflightConnect.set(kind, connectPromise);
+    void connectPromise.finally(() => {
+      if (inflightConnect.get(kind) === connectPromise) inflightConnect.delete(kind);
+    });
+  } else {
+    walletDiag({ event: "T2-connect-reuse", kind, networkId: expectedNetwork });
+  }
+  let wallet: ConnectedAPI;
+  try {
+    wallet = await Promise.race([
+      connectPromise,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                lace
+                  ? "Lace connect() did not resolve. Approve the Lace popup if it is open, then retry. This is not a proof-server failure."
+                  : "1AM connect() did not resolve in this click.",
+              ),
+            ),
+          connectMs,
+        ),
+      ),
+    ]);
+  } catch (error) {
+    throw error;
+  }
+
+  let status: ConnectionStatus = { status: "connected", networkId: expectedNetwork };
+  try {
+    status = await withBudget("T4-getConnectionStatus", 2000, () => wallet.getConnectionStatus());
+  } catch (error) {
+    if (classifyWalletMethodError(error) === "timeout" || classifyWalletMethodError(error) === "unavailable") {
+      return connectedWithoutMethods(kind, expectedNetwork, wallet, win, error);
+    }
+    throw error;
+  }
   if (status.status !== "connected") {
     throw new Error("connector did not report connected");
   }
   if (!networkMatches(expectedNetwork, status.networkId)) {
     throw new Error("wallet network does not match Preprod");
   }
-  const lace = kind === "lace";
+
   let address: string | null = null;
   try {
-    address = (await wallet.getUnshieldedAddress?.())?.unshieldedAddress ?? null;
-  } catch {
-    address = null;
+    address =
+      (await withBudget("T6-getUnshieldedAddress", 3000, () =>
+        wallet.getUnshieldedAddress?.() ?? Promise.reject(new Error("getUnshieldedAddress missing")),
+      ))?.unshieldedAddress ?? null;
+  } catch (error) {
+    return connectedWithoutMethods(kind, status.networkId ?? expectedNetwork, wallet, win, error);
   }
-  if (!address) throw new Error("wallet did not return an unshielded address");
+  if (!address) {
+    return connectedWithoutMethods(
+      kind,
+      status.networkId ?? expectedNetwork,
+      wallet,
+      win,
+      new Error("wallet did not return an unshielded address"),
+    );
+  }
+
   clearManualDisconnect(win);
   rememberAdapter(kind, win);
-  const hint = [
-    "getUnshieldedAddress",
-    "getDustBalance",
-    "balanceUnsealedTransaction",
-    "submitTransaction",
-    "getConnectionStatus",
-    "getShieldedAddresses",
-  ];
-  if (!lace) hint.push("getProvingProvider");
-  void wallet.hintUsage?.(hint).catch(() => undefined);
+  void wallet.hintUsage?.(["getUnshieldedAddress", "balanceUnsealedTransaction", "submitTransaction"]).catch(() => undefined);
   let dustHeader: string | undefined;
   try {
     const d = await Promise.race([
@@ -246,6 +318,37 @@ export async function connectInjectedWallet(
       lastError: null,
       provingPath: lace ? "lace-http" : "1am-intab",
       proofServerReady: lace ? null : true,
+      methodsReady: true,
+    },
+    api: wallet,
+  };
+}
+
+function connectedWithoutMethods(
+  kind: WalletProviderKind,
+  networkId: string,
+  wallet: ConnectedAPI,
+  win: MidnightWindow,
+  error: unknown,
+): ConnectedWallet {
+  const { err } = sanitizeConnectorError(error);
+  const lace = kind === "lace";
+  clearManualDisconnect(win);
+  rememberAdapter(kind, win);
+  return {
+    state: {
+      provider: kind,
+      address: null,
+      network: "Midnight",
+      networkId,
+      dust: null,
+      status: "connected",
+      lastError: lace
+        ? `Lace connected. Wallet session unavailable for proving (${err}).`
+        : `1AM connected. Wallet methods unavailable (${err}).`,
+      provingPath: lace ? "lace-http" : "1am-intab",
+      proofServerReady: lace ? null : false,
+      methodsReady: false,
     },
     api: wallet,
   };
