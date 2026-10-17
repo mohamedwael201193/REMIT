@@ -19,7 +19,7 @@ function resolveIndexerUrl(): string | null {
 describe("live Preprod indexer", () => {
   it("offline invariants hold (no network)", () => {
     expect(() => assertLedger8({ height: 3014589, protocolVersion: 1000300 })).not.toThrow();
-    expect(() => assertLedger8({ height: 1, protocolVersion: 2000000 })).toThrow(/NETWORK_MISMATCH/);
+    expect(() => assertLedger8({ height: 1, protocolVersion: 2000000 })).toThrow(/ledger-9 era/);
     expect(() => requireContractAction(null, "quote")).toThrow(/indexer contractAction/);
     expect(() =>
       requireContractAction({ address: "aa", txHash: undefined, blockHeight: 1 }, "quote"),
