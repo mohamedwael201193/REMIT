@@ -23,6 +23,7 @@ import {
   sanitizePublicDetail,
   stripPublicLeaks,
   type InboxItem,
+  type InboxSnapshot,
 } from "@remit/core";
 import { constructRankedFill, mandateOpeningFromInbox, planFillFromInbox, publicAgentRankView, publicAgentStatusView, agentHttpHasLeakKeys } from "@remit/agent";
 import { createDurableInbox } from "./durable.js";
