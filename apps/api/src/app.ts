@@ -66,7 +66,16 @@ export async function buildApp(cfg: ApiConfig) {
           databaseUrl: cfg.databaseUrl,
         })
       : createDurableInbox({ password: cfg.rfqSk || "test-only-not-for-prod", memory: true });
-  const snap = await durable.load();
+  // Startup must not die on a DB outage (Render crash-loops if the port never
+  // binds). If the durable load fails, start with an empty snapshot; /health
+  // reports persist degraded via durable.ping(), and the service stays up.
+  let snap: InboxSnapshot;
+  try {
+    snap = await durable.load();
+  } catch (e) {
+    console.warn(`[durable] initial load failed (${(e as Error).message}); starting with empty snapshot`);
+    snap = { v: 1, offers: [], mandates: [], nonces: [], receipts: [] };
+  }
   const offers: InboxItem[] = [...snap.offers];
   const mandates: InboxItem[] = [...snap.mandates];
   const receipts = new Map<string, string>(snap.receipts);
