@@ -1,44 +1,61 @@
 # REMIT
 
-Private execution where an agent can choose, but cannot exceed the mandate.
+**Set hard limits for how your money gets quoted. Your agent can negotiate inside them — it can never exceed them. The chain proves every fill stayed inside, without revealing your strategy.**
 
-![REMIT: private mandate, private liquidity, constrained executor, ZK policy, verifiable execution](docs/remit-idea.png)
+*The agent can choose. It cannot exceed.*
 
-```
-PRIVATE MANDATE
-+
-PRIVATE LIQUIDITY
-+
-CONSTRAINED EXECUTOR
-+
-ZK POLICY ENFORCEMENT
-=
-VERIFIABLE EXECUTION
-```
+![REMIT: your limits stay secret; the chain proves every fill stayed inside them](docs/remit-idea.png)
 
 ## Contents
 
-1. [What REMIT is](#what-remit-is)
-2. [On-chain proofs](#on-chain-proofs)
-3. [Why REMIT exists](#why-remit-exists)
-4. [Core idea](#core-idea)
-5. [Architecture](#system-architecture)
-6. [Production persistence](#production-persistence)
-7. [Private vs public state](#private-vs-public-state)
-8. [Compact contracts](#compact-contracts)
-9. [MBBE](#mbbe-k3)
-10. [RFQ](#rfq)
-11. [Residual execution](#residual-lifecycle)
-12. [Selective audit](#selective-audit)
-13. [Wallet architecture](#wallet-architecture)
-14. [Proof architecture](#proof-architecture)
-15. [Preprod evidence](#preprod-evidence)
-16. [Tests](#tests)
-17. [Judge / Local Contract Compilation](#judge--local-contract-compilation)
-18. [Judge: run REMIT locally](#judge-run-remit-locally)
-19. [Judge CLI](#one-command-judge-evidence)
-20. [Security and privacy](#security-verification)
-21. [Wave 1 / Wave 2 / Wave 3](#wave-1---proven-foundation)
+1. [Privacy — what is secret, from whom](#privacy--what-is-secret-from-whom)
+2. [What REMIT is](#what-remit-is)
+3. [On-chain proofs](#on-chain-proofs)
+4. [Why REMIT exists](#why-remit-exists)
+5. [Core idea](#core-idea)
+6. [Architecture](#system-architecture)
+7. [Production persistence](#production-persistence)
+8. [Private vs public state](#private-vs-public-state)
+9. [Compact contracts](#compact-contracts)
+10. [MBBE](#mbbe-k3)
+11. [RFQ](#rfq)
+12. [Residual execution](#residual-lifecycle)
+13. [Selective audit](#selective-audit)
+14. [Wallet architecture](#wallet-architecture)
+15. [Proof architecture](#proof-architecture)
+16. [Preprod evidence](#preprod-evidence)
+17. [Tests](#tests)
+18. [Judge / Local Contract Compilation](#judge--local-contract-compilation)
+19. [Judge: run REMIT locally](#judge-run-remit-locally)
+20. [Judge CLI](#one-command-judge-evidence)
+21. [Security and privacy](#security-verification)
+22. [Wave 1 / Wave 2 / Wave 3](#wave-1---proven-foundation)
+23. [What changed since Wave 1](#what-changed-since-wave-1)
+
+## Privacy — what is secret, from whom
+
+When competing dealers learn your flow, limits, and urgency, they shade their quotes — you pay wider spreads on every fill. On real weekly flow, leaked limits cost a desk basis points per fill, paid out of a real P&L, every week. REMIT's privacy exists so the other side of the quote can't price your desperation.
+
+| Stays secret | Secret FROM WHOM | Why |
+|---|---|---|
+| Your limits: max price, max size, budget left, expiry, who you'll trade with | Everyone — makers, other desks, the public; the executor sees only that a bound exists, never its value | If anyone sees these, they trade against you. Your limits ARE your strategy. |
+| The maker's price and size | Everyone except the executor's ranking step | Seeing this leaks their book. Nobody quotes honestly if their book is public. |
+| Who won the deal, and at what size | Everyone except the two counterparties | Reveals the winner and their pricing power. |
+| Which agent is allowed to act for you | Everyone (binding is by a secret the public commitment never reveals) | If someone can impersonate your agent, your limits are fiction. |
+
+| Goes public | Why |
+|---|---|
+| Tamper-evident receipts (proves no deal was counted twice) | Everyone can verify the books balance without seeing a single price. |
+| One fact opened to YOUR named auditor (their key only — ciphertext on the ledger) | Compliance gets exactly what it needs, nothing else. The world learns a disclosure happened and to whom — the field value stays encrypted. |
+| That a transaction happened, and when | The chain has to see the event to timestamp it. |
+
+**The one question every buyer asks:** *If the agent can't see my limits, how does it stay inside them? And if it can see them, what's actually secret?*
+
+> The executor sees rankings and encrypted quote boxes — enough to pick, never your limit values. The circuit checks the pick against your committed limits and rejects anything outside them. You don't trust the agent's honesty about compliance; you verify it on the ledger.
+
+**Settlement note:** Preprod fills settle in REMIT-Q — a testnet-only faucet token, explicitly NOT a stablecoin, NOT redeemable. The product's settlement leg is asset-agnostic; no token economics are claimed.
+
+The technical privacy boundary (witnesses, commitments, nullifiers, circuits) lives in the sections below and in [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md). Nobody else proved an agent stayed inside someone else's limits and let an auditor check one fact without seeing the book.
 
 ## What REMIT is
 
@@ -269,7 +286,7 @@ creates `remit_envelopes` with RLS enabled and deny-all policies for `anon` / `a
 
 ## MBBE (K=3)
 
-MBBE proves the best eligible candidate among the **K=3 private openings** supplied in the executor's witness (`book()`). This bounded witness-set semantics is deliberate.
+MBBE proves the candidate the executor chose from the **K=3 private openings** in its witness (`book()`) is eligible and non-dominated — every proven fill stays inside your committed limits. K only bounds the witness set: no fill can exceed the bounds, but ranking quality is never proven — only bounds-compliance.
 
 ```mermaid
 sequenceDiagram
@@ -279,7 +296,7 @@ sequenceDiagram
   E->>E: rank K=3 with Compact-identical helpers
   E->>C: witness: slots, chosenIndex, fillBase, mandate
   C->>C: bindSlot x3, slotEligible, notDominated
-  alt selected unique best eligible
+  alt selected eligible, non-dominated
     C->>L: nullify offer, pay notes, residual, auditRoot, fills++
   else ineligible / dominated / padding / replay
     C-->>E: assert fails, no mutation
@@ -288,7 +305,7 @@ sequenceDiagram
 
 Eligibility (simplified): live slot, opposite side, not expired, price inside limit, size inside cap and remaining, counterparty under `cpRoot` (or open), `minFill` respected unless filling the whole offer.
 
-Padding: `live=false` cannot win. All-ineligible fails. A strictly worse eligible slot fails `notDominated`. The executor cannot prefer a dominated candidate without a failed proof.
+Padding: `live=false` cannot win. All-ineligible fails. An eligible slot dominated by another eligible slot fails `notDominated`. The executor cannot push a dominated candidate through without a failed proof — but among non-dominated slots it may choose the worst-priced in-bounds one; choice quality is not proven.
 
 Wave 2 investigates encoding still more of the ranking predicate in-circuit. Wave 2 does not claim a global order book.
 
@@ -734,6 +751,43 @@ No `ownPublicKey()` authentication. No secrets in `VITE_` / `NEXT_PUBLIC_`. No f
 
 ---
 
+## What changed since Wave 1
+
+> **DRAFT (2026-10-17).** Nothing here is claimed before it ships: every item marked **[PENDING]** is specified in the Wave-2 plan but has no commit or on-chain evidence yet. This section finalizes at code-freeze, when each entry names its real commit SHA and explorer-linked tx hash.
+>
+> **Resubmission-eligibility rule:** no Wave-1 (Sep-2026) transaction hashes appear here. Every tx hash in this section must be NEW Wave-2 evidence — old hashes in a "what changed" section = a mere copy = ineligible under the rules. Wave-1 boundary: `origin/main` had zero commits after 2026-09-15; everything below lands after that.
+
+### Added
+
+- **[PENDING]** `disclose(fieldSelector, auditorKey)` — a new selective-audit circuit in `CONTRACT/src/remit_quote.compact` (the quote contract grows 2→3 circuits; the pool is untouched at 7 — its own header forbids an 8th). The field is **encrypted to `auditorKey` in-circuit** and only the ciphertext is disclosed — never plaintext on the transcript (a raw disclose would publish the mandate field to the world). The field commitment is recomputed under the existing `auditRoot` scheme with a Merkle-membership proof vs the on-ledger commitment tree (≤2 historic roots). The ledger-write boundary is the disclosure nullifier `Hash(commitment || auditorKey)` — it kills replayed disclosure *and* gives the circuit its `proof:false` boundary in one write. `fieldSelector`/`auditorKey` are public metadata: observers learn *which* field was opened *to whom* (the world learns a disclosure happened; the field value stays encrypted).
+- **[PENDING]** Simulator suite for `disclose` on compiled artifacts via `@midnight-ntwrk/compact-runtime` (no JS mirrors): happy path + refusal paths (wrong auditor key, forged field, replayed disclosure) + a ciphertext≠plaintext regression test + a circuit-call binding-sync check after artifact regen. The 202-case Wave-1 suite stays green.
+- **[PENDING]** Full-ZK compile of the new circuit — `compact compile` WITHOUT `--skip-zk` on compactc 0.31.1 (lang 0.23); actual verifier-key bytes measured against the ≤8-keys-per-deploy-tx rule (no uncited numbers).
+- **[PENDING]** Inventory-first `proof:false` audit: every circuit in BOTH contracts classified as proving vs pure/view; pure circuits get explicit exemptions with reasons, not cargo-cult ledger writes.
+- **[PENDING]** Public no-wallet verify page: real RPC read of tx status/block + explorer deep-link; every element labeled *linked* vs *verified* — no green-checkmark theater. The "secrets on-chain: 0" counter is cut (it was copy, not telemetry).
+
+### Fixed
+
+- **[PENDING]** Evidence pipeline migrated off the decommissioned Preprod indexer (HTTP 410) to RPC + explorer direct reads (Blockfrost only if a project token is provided).
+- **[PENDING]** Pitch rewritten from infra jargon ("mandate-bound dark RFQ desk", "MBBE K=3") to the constraint-led one-liner — no "AI" in the headline — with the killer-question line answering what the executor can and cannot see, and a buyer-language privacy table that says secret *from whom* per row.
+- **[PENDING]** The "why not a server" answer rewritten as the trust split: the executor is trusted for ranking quality and liveness, but cryptographically UNTRUSTED for bounds — it cannot produce a valid fill outside your committed limits, and anyone can verify that from the ledger without seeing the limits.
+- **[PENDING]** Uniqueness owns the crowded domain: the RFQ venue is Wave-1 lineage; the product is the constraint + the auditor-grade selective disclosure.
+- **[PENDING]** The commercial privacy case named with a cost: competing dealers shading quotes on leaked flow, priced in basis points per fill on real weekly flow, paid out of a real P&L.
+- **[PENDING]** B2B path reduced to one door — a Japanese enterprise piloting agents in procurement/treasury, sold to the compliance owner on provable agent governance; the three-hop "venue → broker desks → enterprise procurement" path is deleted. User zero is the founder's own flow (stated honestly, never as external traction).
+- **[PENDING]** Communication formalities closed: video re-recorded ≤4 min with audio commentary, mission in the first 30 seconds, zero jargon on screen; real PDF deck; `midnightntwrk` GitHub topic verified set. Settlement asset named: Preprod fills settle in REMIT-Q — a testnet-only faucet token, explicitly NOT a stablecoin, NOT redeemable; the product's settlement leg is asset-agnostic and no token economics are claimed.
+
+### Proved
+
+- **[PENDING]** Fresh Preprod deploy of the QUOTE contract only (pool unchanged) + full `disclose` lifecycle, with NEW explorer-linked tx hashes — truth-gated on RPC/explorer read-back, never on submitTx alone. (Honest fallback if the deploy fails: undeployed-first with simulator evidence, stated plainly. Never old hashes.)
+
+### Non-claims — what this wave does NOT change
+
+- The constrained executor is Wave-1 lineage: built on the Wave-1 RFQ engine. New this wave is auditor-grade disclosure that makes mandate compliance legible to an auditor — the `disclose` circuit and the fresh evidence are the heroes; the reframe is not. Repackaging confessed is positioning; repackaging hidden is disqualification.
+- REMIT-Q stays testnet-only and not redeemable; real-value settlement is a Wave-3 gate item, not claimed now.
+- The eight things this circuit does NOT prove (shipped in `docs/HONEST-LIMITS.md`): global best-execution (MBBE proves best-of-K *in this tx*, not global best-ex); honest ranking — the executor can pick the worst in-bounds quote (choice steering is **trusted, not proven**); liveness; disclosure field freshness without a version bind; auditor legitimacy (`auditorKey` is a key, not an identity); maker quote backing (quotes are unbacked off-chain boxes); front-running resistance; mandate sanity (garbage mandate in, compliant fill out).
+- No users, partners, or LOIs are claimed — ever. The BD items above are named plans and stated honestly as such.
+
+---
+
 ## Wave 1 - proven foundation
 
 - Compact pool + quote on 0.31.1 (7 impure pool circuits).
@@ -753,7 +807,7 @@ flowchart LR
 
 ## Wave 2 - hardening and scale
 
-See [PLAN.md](./PLAN.md). In short: stronger best-compliant K relation, unlinkable liquidity discovery, multi-executor delegation, purpose-bound selective audit, richer residual lifecycle, institutional policy templates, privacy metrics, security hardening, judge sandbox, production persistence drills.
+See [PLAN.md](./PLAN.md). In short: stronger in-bounds K=3 relation, unlinkable liquidity discovery, multi-executor delegation, purpose-bound selective audit, richer residual lifecycle, institutional policy templates, privacy metrics, security hardening, judge sandbox, production persistence drills.
 
 ---
 

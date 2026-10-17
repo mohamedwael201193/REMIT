@@ -26,6 +26,7 @@ import {
 } from "@remit/core";
 import { constructRankedFill, mandateOpeningFromInbox, planFillFromInbox, publicAgentRankView, publicAgentStatusView, agentHttpHasLeakKeys } from "@remit/agent";
 import { createDurableInbox } from "./durable.js";
+import { registerVerifyRoutes } from "./verify.js";
 
 export type ApiConfig = {
   cors: string;
@@ -737,6 +738,8 @@ export async function buildApp(cfg: ApiConfig) {
       return reply.code(400).send({ error: publicErrorMessage(err) });
     }
   });
+
+  registerVerifyRoutes(app, { network: cfg.network });
 
   app.setErrorHandler((err, _req, reply) => {
     reply.code(500).send({ error: publicErrorMessage(err) });
