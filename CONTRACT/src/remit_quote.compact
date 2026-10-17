@@ -17,8 +17,23 @@ import CompactStandardLibrary;
 
 export ledger minted: Counter;
 export ledger claims: Set<Bytes<32>>;
+// N1 (Wave 2): replay boundary for selective disclosure. The nullifier
+// Hash(commitment || auditorKey) is this circuit's ledger-write boundary:
+// it kills replayed disclosure AND fixes proof:false in one write (Jay J2/J6).
+export ledger disclosureNullifiers: Set<Bytes<32>>;
 
 witness callerSecret(): Bytes<32>;
+
+// N1 witnesses: the fill's audit seed + all six audit-field values, as
+// committed by remit_pool's fill circuit. The discloser (executor/principal)
+// knows them; the auditor never sees them — only the sealed box.
+witness disclosureSeed(): Bytes<32>;
+witness disclosureSide(): Uint<8>;
+witness disclosureBaseAmount(): Uint<64>;
+witness disclosureQuoteAmount(): Uint<64>;
+witness disclosurePrincipal(): Bytes<32>;
+witness disclosureCounterparty(): Bytes<32>;
+witness disclosureMandateId(): Bytes<32>;
 
 export pure circuit claimTag(sk: Bytes<32>, dayBucket: Uint<64>): Bytes<32> {
   return persistentHash<[Bytes<32>, Bytes<32>, Uint<64>]>([pad(32, "remit:faucet"), sk, dayBucket]);
@@ -36,4 +51,146 @@ export circuit claim(amount: Uint<64>, dayBucket: Uint<64>, to: Either<ContractA
   claims.insert(disclose(tag));
   mintUnshieldedToken(pad(32, "remit:quote"), disclose(amount), disclose(to));
   minted.increment(1);
+}
+
+// ============================================================================
+// N1 — discloseField: selective disclosure to a named auditor (Wave 2).
+//
+// RENAME RULING (compile hazard, verified 2026-10-17): the v2 spec name
+// `disclose` is a RESERVED KEYWORD in Compact 0.31.1 —
+// `export circuit disclose(...)` is a hard parse error
+// ("found keyword disclose looking for an identifier"), not a warning.
+// FINAL NAME: discloseField. Rename mapping for witnesses/tests/docs:
+//   v2-spec `disclose` -> `discloseField` (1:1).
+//
+// BINDING CORRECTION (C5 verification, 2026-10-17 — do NOT "fix" back):
+// the plan's "Merkle-membership proof vs the on-ledger commitment tree"
+// refers to an object that exists on NEITHER ledger: pool's auditRoots is a
+// List<Bytes<32>> (remit_pool.compact L80), not a tree, and ledger 8 has no
+// cross-contract reads (this file's header). So this circuit recomputes the
+// field commitment AND the full auditRootOf IN-CIRCUIT under the pool's
+// exact scheme and DISCLOSES the root value. Whether that root is present
+// in the pool's auditRoots list is OFF-CHAIN-verifiable only (RPC read of
+// the pool contract) — an explicit non-claim, not a circuit assertion.
+//
+// ENCRYPTION (mechanism survey, 2026-10-17): Compact 0.31.1 / language 0.23
+// offers NO in-circuit encryption primitive. The standard library's crypto
+// is hash-only: persistentHash / transientHash / persistentCommit, Merkle
+// ops, jubjubSchnorrVerify (verify-only). No symmetric cipher, no KEM/ECDH,
+// no bitwise ops. A hand-rolled in-circuit "cipher" would be boundary
+// theater — so this circuit implements the HONEST HYBRID:
+//   * OFF-CIRCUIT: the field is sealed to auditorKey with the repo's real,
+//     tested RMTB1 pattern (X25519 ECDH + XChaCha20-Poly1305,
+//     packages/core/src/box.ts). The sealed box is passed in as an opaque
+//     public input and disclosed verbatim; the circuit makes NO claim about
+//     its contents.
+//   * IN-CIRCUIT: authorization + binding + anti-replay (below).
+// The auditor DECRYPTS the box off-chain and recomputes
+// persistentCommit<type>(value, salt) — with the salt carried INSIDE the
+// sealed box — and checks it against the disclosed commitment. A discloser
+// who seals a different value is DETECTED (commitment mismatch against an
+// on-ledger value), not prevented. Ciphertext correctness is
+// trust-on-discloser, detectable-not-preventable. Stated plainly per Jay.
+//
+// Sealed-box layout (fixed, documented for the auditor-side decoder):
+//   plaintext = value32 || salt32 (64 bytes); value32 is the field as
+//   big-endian 32 bytes (Uint<8>/Uint<64> right-aligned, Bytes<32> as-is);
+//   salt32 = fieldSalt(seed, idx) — MUST stay sealed: small fields (side)
+//   are brute-forceable if the salt were public.
+//   box = "RMTB1"(5) || ephPub(32) || nonce(24) || ct(80) = 141 bytes,
+//   disclosed here as Bytes<160> (zero-padded by the driver).
+//
+// PER-disclose() AUDIT TABLE — every disclose() in this circuit:
+//   # | disclosed value              | revealed to      | why it is safe
+//   --|------------------------------|------------------|------------------
+//   1 | auditRoot (recomputed)       | world            | already public on
+//     |                              |                  | the pool ledger
+//     |                              |                  | (auditRoots list);
+//     |                              |                  | links disclosure
+//     |                              |                  | to the fill
+//   2 | field commitment c_selector  | world            | hiding commitment;
+//     |                              |                  | salt stays sealed
+//   3 | fieldSelector (Uint<8>)      | world            | PUBLIC METADATA by
+//     |                              |                  | design: which field
+//     |                              |                  | was opened
+//   4 | auditorKey (Bytes<32>)       | world            | PUBLIC METADATA by
+//     |                              |                  | design: to whom
+//     |                              |                  | (X25519 pubkey, not
+//     |                              |                  | an identity)
+//   5 | sealedBox (RMTB1, Bytes<160>)| world: ciphertext| only the auditorKey
+//     |                              | only; auditor:   | holder decrypts
+//     |                              | plaintext        | (X25519+XChaCha20-
+//     |                              |                  | Poly1305, off-chain)
+//   6 | nullifier                    | world            | Hash(commitment ||
+//     |  Hash(commitment||auditorKey) |                  | auditorKey); replay
+//     |                              |                  | boundary + the
+//     |                              |                  | ledger-write that
+//     |                              |                  | fixes proof:false
+// NEVER disclosed: the field value, the seed, any salt, any secret.
+//
+// What this circuit does NOT prove (non-claims, cf. HONEST-LIMITS.md):
+//  - that the disclosed auditRoot is in the pool's auditRoots list
+//    (off-chain check only); a stale fill's field discloses as cleanly
+//    as a live one's — freshness needs a mandate-version bind (not this wave)
+//  - that auditorKey belongs to a legitimate auditor (a key, not an identity;
+//    key distribution is off-chain and unproven)
+//  - that the sealed box decrypts to the committed field (auditor-detected,
+//    not circuit-prevented — see above)
+//
+// Constraints honored: division-free (no division used); no ownPublicKey();
+// 3rd impure circuit in this contract (claim, quoteColor, discloseField) —
+// the pool stays at 7 verifier keys (untouched per its header).
+// ============================================================================
+export circuit discloseField(
+  fieldSelector: Uint<8>,
+  auditorKey: Bytes<32>,
+  sealedBox: Bytes<160>
+): [] {
+  assert(fieldSelector < 6, "bad field selector");
+
+  // Recompute salts under the pool's fieldSalt scheme (remit_pool L147-151).
+  // Inlined (no cross-contract imports on ledger 8): any drift vs the pool
+  // scheme breaks binding — covered by the N3 binding-sync check.
+  const seed = disclosureSeed();
+  const s0 = persistentHash<[Bytes<32>, Bytes<32>, Uint<8>]>([pad(32, "remit:salt"), seed, 0]);
+  const s1 = persistentHash<[Bytes<32>, Bytes<32>, Uint<8>]>([pad(32, "remit:salt"), seed, 1]);
+  const s2 = persistentHash<[Bytes<32>, Bytes<32>, Uint<8>]>([pad(32, "remit:salt"), seed, 2]);
+  const s3 = persistentHash<[Bytes<32>, Bytes<32>, Uint<8>]>([pad(32, "remit:salt"), seed, 3]);
+  const s4 = persistentHash<[Bytes<32>, Bytes<32>, Uint<8>]>([pad(32, "remit:salt"), seed, 4]);
+  const s5 = persistentHash<[Bytes<32>, Bytes<32>, Uint<8>]>([pad(32, "remit:salt"), seed, 5]);
+
+  // Recompute the six field commitments under the pool fill scheme
+  // (remit_pool fill: persistentCommit<Uint<8>>(side,..),
+  // persistentCommit<Uint<64>>(base,..), persistentCommit<Uint<64>>(quote,..),
+  // persistentCommit<Bytes<32>>(principal/counterparty/mandateId,..)).
+  const c0 = persistentCommit<Uint<8>>(disclosureSide(), s0);
+  const c1 = persistentCommit<Uint<64>>(disclosureBaseAmount(), s1);
+  const c2 = persistentCommit<Uint<64>>(disclosureQuoteAmount(), s2);
+  const c3 = persistentCommit<Bytes<32>>(disclosurePrincipal(), s3);
+  const c4 = persistentCommit<Bytes<32>>(disclosureCounterparty(), s4);
+  const c5 = persistentCommit<Bytes<32>>(disclosureMandateId(), s5);
+
+  // Bind to the auditRoot VALUE by recomputing auditRootOf
+  // (pool L150-152: persistentHash<Vector<6, Bytes<32>>>).
+  const cs: Vector<6, Bytes<32>> = [c0, c1, c2, c3, c4, c5];
+  const root = persistentHash<Vector<6, Bytes<32>>>(cs);
+
+  const commitment = fieldSelector == 0 ? c0
+    : (fieldSelector == 1 ? c1
+    : (fieldSelector == 2 ? c2
+    : (fieldSelector == 3 ? c3
+    : (fieldSelector == 4 ? c4 : c5))));
+
+  // Public transcript: root, commitment, selector, auditorKey, box.
+  const openRoot = disclose(root);
+  const openCommitment = disclose(commitment);
+  const openSelector = disclose(fieldSelector);
+  const openAuditorKey = disclose(auditorKey);
+  const openBox = disclose(sealedBox);
+
+  // Ledger-write boundary + replay kill: nullifier Hash(commitment||auditorKey).
+  const nul = persistentHash<[Bytes<32>, Bytes<32>, Bytes<32>]>([pad(32, "remit:dnull"), commitment, auditorKey]);
+  const openNul = disclose(nul);
+  assert(!disclosureNullifiers.member(openNul), "disclosure already recorded");
+  disclosureNullifiers.insert(openNul);
 }

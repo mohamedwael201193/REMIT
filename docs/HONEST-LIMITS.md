@@ -30,8 +30,9 @@ slashes it, penalizes it, or forces it to act.
 **4. Freshness of a disclosed field — no**, unless the disclosure binds a limit *version*.
 A field from a stale or superseded limit discloses exactly as cleanly as one from a
 live limit. **Not fixed this wave:** we list it rather than version-bind it.
-(Mechanism: the disclosure nullifier binds `fieldCommitment ‖ auditorKey`, not a
-limit version or state nonce.)
+(Mechanism: the `discloseField` circuit's nullifier binds `fieldCommitment ‖ auditorKey`,
+not a limit version or state nonce. `discloseField` is the v2 spec's `disclose`, renamed —
+`disclose` is a reserved keyword in Compact 0.31.1.)
 
 **5. Auditor legitimacy — no.**
 An auditor key is a key, not an identity. Whoever holds the key reads the field.

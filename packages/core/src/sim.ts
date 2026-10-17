@@ -6,6 +6,13 @@ import {
   type CircuitContext,
 } from "@midnight-ntwrk/compact-runtime";
 import { Contract, ledger, pureCircuits, type Mandate, type Offer, type OfferSlot } from "@remit/contracts/pool";
+import {
+  Contract as QuoteContract,
+  ledger as quoteLedger,
+  type Ledger as QuoteLedger,
+  type Witnesses as QuoteWitnesses,
+} from "@remit/contracts/quote";
+import { fromArray } from "./bytes.js";
 import { toArray, randomBytes32 } from "./bytes.js";
 import { RemitError } from "./errors.js";
 import { dumpPublicLedger } from "./privacy.js";
@@ -323,4 +330,107 @@ export function serializedPublicState(sim: Sim): { hex: string; text: string } {
   const text = [q.toString(true), q.state.toString(true), dump].join("\n");
   const buf = Buffer.from(text, "utf8");
   return { hex: buf.toString("hex"), text };
+}
+
+// ---------------------------------------------------------------------------
+// Quote-contract simulator (Wave 2 N1 `discloseField` circuit).
+//
+// Separate from the pool Sim above: discloseField lives on remit_quote, with
+// its own witnesses. Same discipline: no JS mirrors of circuit logic — the
+// generated impureCircuits.discloseField is the circuit under test.
+//
+// Witness alignment note: these witnesses are staged HERE, against the FINAL
+// circuit in CONTRACT/src/remit_quote.compact (disclosureSeed/disclosureSide/
+// disclosureBaseAmount/disclosureQuoteAmount/disclosurePrincipal/
+// disclosureCounterparty/disclosureMandateId + callerSecret). They are
+// deliberately NOT read from quote-witnesses.ts, which is owned by the
+// WITNESS-FIX follow-up worker (see midnight-wave2/status/sequencing-note.md).
+// For the on-chain path see submitDiscloseField in tx.ts.
+// ---------------------------------------------------------------------------
+
+/** Private values staged for one discloseField() call (UNTRUSTED input — asserted in-circuit). */
+export type DiscloseStaged = {
+  callerSk: number[];
+  seed: number[];
+  side: bigint;
+  baseAmount: bigint;
+  quoteAmount: bigint;
+  principal: number[];
+  counterparty: number[];
+  mandateId: number[];
+};
+
+export type DisclosePrivateState = {
+  version: 1;
+  staged?: DiscloseStaged;
+};
+
+function stagedBytes(ps: DisclosePrivateState, name: keyof DiscloseStaged): Uint8Array {
+  const v = ps.staged?.[name];
+  if (!(v instanceof Array)) throw new RemitError("WITNESS_MISSING", `discloseField witness not staged: ${String(name)}`);
+  return fromArray(v as number[]);
+}
+
+function stagedNum(ps: DisclosePrivateState, name: keyof DiscloseStaged): bigint {
+  const v = ps.staged?.[name];
+  if (typeof v !== "bigint") throw new RemitError("WITNESS_MISSING", `discloseField witness not staged: ${String(name)}`);
+  return v;
+}
+
+export const quoteDiscloseWitnesses: QuoteWitnesses<DisclosePrivateState> = {
+  callerSecret: ({ privateState }) => [privateState, stagedBytes(privateState, "callerSk")],
+  disclosureSeed: ({ privateState }) => [privateState, stagedBytes(privateState, "seed")],
+  disclosureSide: ({ privateState }) => [privateState, stagedNum(privateState, "side")],
+  disclosureBaseAmount: ({ privateState }) => [privateState, stagedNum(privateState, "baseAmount")],
+  disclosureQuoteAmount: ({ privateState }) => [privateState, stagedNum(privateState, "quoteAmount")],
+  disclosurePrincipal: ({ privateState }) => [privateState, stagedBytes(privateState, "principal")],
+  disclosureCounterparty: ({ privateState }) => [privateState, stagedBytes(privateState, "counterparty")],
+  disclosureMandateId: ({ privateState }) => [privateState, stagedBytes(privateState, "mandateId")],
+};
+
+export type QuoteSim = {
+  contract: QuoteContract<DisclosePrivateState>;
+  ctx: CircuitContext<DisclosePrivateState>;
+  ps: DisclosePrivateState;
+};
+
+export function bootQuoteDisclose(): QuoteSim {
+  const contract = new QuoteContract(quoteDiscloseWitnesses);
+  const ps: DisclosePrivateState = { version: 1 };
+  const ctor = createConstructorContext(ps, CPK);
+  // remit_quote has no explicit constructor: initialState takes only the context.
+  const built = contract.initialState(ctor);
+  const ctx = createCircuitContext(ADDR, CPK, built.currentContractState, built.currentPrivateState);
+  return { contract, ctx, ps: built.currentPrivateState };
+}
+
+export function quotePublicLedger(qsim: QuoteSim): QuoteLedger {
+  return quoteLedger(qsim.ctx.currentQueryContext.state);
+}
+
+export function callQuoteCircuit(
+  qsim: QuoteSim,
+  run: (ctx: CircuitContext<DisclosePrivateState>) => { context: CircuitContext<DisclosePrivateState> },
+): QuoteSim {
+  const ctx: CircuitContext<DisclosePrivateState> = { ...qsim.ctx, currentPrivateState: qsim.ps };
+  const out = run(ctx);
+  return { ...qsim, ctx: out.context, ps: out.context.currentPrivateState };
+}
+
+/**
+ * Run the generated discloseField(fieldSelector, auditorKey, sealedBox)
+ * circuit in the simulator. Witnesses are staged (UNTRUSTED input — asserted
+ * in-circuit), then the real generated binding executes.
+ */
+export function discloseField(
+  qsim: QuoteSim,
+  fieldSelector: bigint,
+  auditorKey: Uint8Array,
+  sealedBox: Uint8Array,
+  staged: DiscloseStaged,
+): QuoteSim {
+  const ps: DisclosePrivateState = { ...qsim.ps, staged };
+  return callQuoteCircuit({ ...qsim, ps }, (ctx) =>
+    qsim.contract.impureCircuits.discloseField(ctx, fieldSelector, auditorKey, sealedBox),
+  );
 }

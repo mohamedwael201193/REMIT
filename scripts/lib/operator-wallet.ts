@@ -1,5 +1,114 @@
 import { WebSocket } from "ws";
-(globalThis as unknown as { WebSocket: typeof WebSocket }).WebSocket = WebSocket;
+import { connect as netConnect } from "node:net";
+import { connect as tlsConnect } from "node:tls";
+import { Agent as HttpsAgent } from "node:https";
+
+/**
+ * The wallet SDK opens graphql-ws subscriptions with the global WebSocket
+ * (the `ws` package), which does not honor HTTPS_PROXY. This VM has no direct
+ * egress — everything goes through the runtime egress proxy — so raw `ws`
+ * connections fail at the TLS handshake. When a proxy is configured, install
+ * a subclass that tunnels wss:// through the proxy with an HTTP CONNECT
+ * tunnel; otherwise use the raw `ws` WebSocket unchanged.
+ *
+ * Implementation note: the tunnel MUST go through a custom https.Agent
+ * (instance-assigned createConnection). Passing `createConnection` in the
+ * `ws` constructor options does not work — `ws` writes the handshake eagerly
+ * to the returned socket instead of waiting for the async CONNECT+TLS.
+ */
+function egressProxyUrl(): URL | null {
+  const raw =
+    process.env.HTTPS_PROXY || process.env.https_proxy || process.env.ALL_PROXY || process.env.all_proxy;
+  if (!raw) return null;
+  try {
+    return new URL(raw);
+  } catch {
+    return null;
+  }
+}
+
+function proxyBypassed(hostname: string): boolean {
+  const noProxy = process.env.NO_PROXY || process.env.no_proxy;
+  if (!noProxy) return false;
+  const host = hostname.toLowerCase();
+  return noProxy
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .some((entry) => {
+      const e = entry.startsWith(".") ? entry.slice(1) : entry;
+      return host === e || host.endsWith(`.${e}`);
+    });
+}
+
+/** https.Agent whose sockets are TLS-over-HTTP-CONNECT through the egress proxy. */
+function proxyTunnelAgent(): HttpsAgent {
+  const proxy = egressProxyUrl();
+  if (!proxy) throw new Error("proxyTunnelAgent without proxy");
+  const proxyHost = proxy.hostname;
+  const proxyPort = Number(proxy.port) || 3128;
+  const auth = proxy.username
+    ? `Proxy-Authorization: Basic ${Buffer.from(
+        `${decodeURIComponent(proxy.username)}:${decodeURIComponent(proxy.password)}`,
+      ).toString("base64")}\r\n`
+    : "";
+  const agent = new HttpsAgent({ keepAlive: false });
+  agent.createConnection = (
+    options: { hostname?: string; host?: string },
+    oncreate: (err: Error | null, socket?: unknown) => void,
+  ) => {
+    const targetHost = options.hostname || options.host;
+    if (!targetHost) {
+      oncreate(new Error("proxy tunnel: no target host"));
+      return undefined as never;
+    }
+    if (proxyBypassed(targetHost)) {
+      const direct = tlsConnect({ host: targetHost, port: 443, servername: targetHost });
+      direct.on("secureConnect", () => oncreate(null, direct));
+      direct.on("error", (e: Error) => oncreate(e));
+      return direct as never;
+    }
+    const sock = netConnect({ host: proxyHost, port: proxyPort });
+    let head = "";
+    const onData = (chunk: Buffer) => {
+      head += chunk.toString("latin1");
+      if (!head.includes("\r\n\r\n")) return;
+      sock.removeListener("data", onData);
+      if (!/^HTTP\/1\.[01] 200/.test(head)) {
+        oncreate(new Error(`proxy CONNECT failed: ${head.split("\r\n")[0]}`));
+        sock.destroy();
+        return;
+      }
+      const tls = tlsConnect({ socket: sock, servername: targetHost }, () => oncreate(null, tls));
+      tls.on("error", (e: Error) => oncreate(e));
+    };
+    sock.on("data", onData);
+    sock.on("error", (e: Error) => oncreate(e));
+    sock.on("connect", () => {
+      sock.write(`CONNECT ${targetHost}:443 HTTP/1.1\r\nHost: ${targetHost}:443\r\n${auth}\r\n`);
+    });
+    // Return undefined (not the raw socket): Node's agent would otherwise
+    // assign the request to the pre-CONNECT socket immediately and write the
+    // handshake into it. Returning undefined makes it wait for the async
+    // oncreate(null, tlsSocket) after the tunnel is established.
+    return undefined as never;
+  };
+  return agent;
+}
+
+class ProxyTunnelWebSocket extends WebSocket {
+  constructor(url: string | URL, protocols?: string | string[]) {
+    if (!egressProxyUrl()) {
+      super(url, protocols);
+      return;
+    }
+    super(url, protocols, { agent: proxyTunnelAgent() });
+  }
+}
+
+(globalThis as unknown as { WebSocket: typeof WebSocket }).WebSocket = (
+  egressProxyUrl() ? ProxyTunnelWebSocket : WebSocket
+) as typeof WebSocket;
 
 import { config as loadEnv } from "dotenv";
 import { resolve, dirname } from "node:path";
@@ -8,11 +117,14 @@ import * as Rx from "rxjs";
 import { mnemonicToSeedSync } from "@scure/bip39";
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { unshieldedToken, ZswapSecretKeys, DustSecretKey } from "@midnight-ntwrk/midnight-js-protocol/ledger";
+import { LedgerParameters } from "@midnight-ntwrk/ledger-v8";
 import {
   HDWallet,
   Roles,
   WalletFacade,
   UnshieldedWallet,
+  ShieldedWallet,
+  DustWallet,
   createKeystore,
   PublicKey,
   NoOpTransactionHistoryStorage,
@@ -318,10 +430,14 @@ function deriveKeys(seed: Buffer) {
 /**
  * One exclusive operator WalletFacade (deployments/operator-wallet.lock).
  * Jobs restore serializeState from wallet-cache/operator — the same snapshot
- * Preprod deploy / MBBE lifecycle used. Never startWithSecretKeys / genesis.
- * HTTP rank on Render is not a facade. Between processes, persistence is
+ * Preprod deploy / MBBE lifecycle used. Between processes, persistence is
  * serializeState restore (compatible with a long-lived worker that holds
  * this facade in RAM).
+ *
+ * Genesis cold start is refused UNLESS REMIT_WALLET_COLD_START=1 and no cache
+ * exists (first-ever sync on a fresh tree). Steady-state jobs must never
+ * discard DUST progress with a fresh replay.
+ * HTTP rank on Render is not a facade.
  */
 export async function openOperatorWallet() {
   acquireOperatorWalletLock();
@@ -358,29 +474,55 @@ export async function openOperatorWallet() {
   const dustConfig = {
     ...shieldedConfig,
     costParameters: { additionalFeeOverhead: 300_000_000_000_000n, feeBlocksMargin: 5 },
+    // Larger apply batches: each WASM applyUpdate call has high fixed overhead,
+    // so batching 50 events/call (vs the default 10) materially speeds the cold replay.
+    batchUpdates: { size: 50, timeout: 25, spacing: 4 },
   };
 
   const configuration = { ...shieldedConfig, ...unshieldedConfig, ...dustConfig };
-  requireOperatorWalletCache();
-  const shieldedState = readFileSync(WALLET_CACHE.shielded, "utf8");
-  const unshieldedState = readFileSync(WALLET_CACHE.unshielded, "utf8");
-  const dustState = readFileSync(WALLET_CACHE.dust, "utf8");
-  console.log("opening operator wallet restore serializeState");
+  const allowColdStart = process.env.REMIT_WALLET_COLD_START === "1";
   let wallet: WalletFacade;
-  try {
+  let restored = false;
+  if (cachePresent()) {
+    const shieldedState = readFileSync(WALLET_CACHE.shielded, "utf8");
+    const unshieldedState = readFileSync(WALLET_CACHE.unshielded, "utf8");
+    const dustState = readFileSync(WALLET_CACHE.dust, "utf8");
+    console.log("opening operator wallet restore serializeState");
+    try {
+      wallet = await WalletFacade.init({
+        configuration,
+        shielded: () => restoreSyncShieldedWallet(shieldedConfig).restore(shieldedState),
+        unshielded: () => UnshieldedWallet(unshieldedConfig).restore(unshieldedState),
+        dust: () => restoreSyncDustWallet(dustConfig).restore(dustState),
+      });
+    } catch (e) {
+      throw new Error(
+        `serializeState restore failed at ${OPERATOR_WALLET_CACHE_REL}; refusing genesis replay: ${e instanceof Error ? e.message : "error"}`,
+      );
+    }
+    const restoredOffset = dustOffsetOf(dustState);
+    console.log("restored operator wallet from serializeState cache (same wallet) dustOffset", restoredOffset);
+    restored = true;
+  } else if (allowColdStart) {
+    // First-ever sync on this tree: no cache exists, so cold-replay the ledgers
+    // from genesis on the SAME operator wallet. This env-gated path is the only
+    // one that may cold-start; steady-state jobs still refuse genesis replay.
+    // Uses the plain builders (not the restore rewind-skipping wrappers):
+    // a cold start has strictly increasing event ids, so rewinds are impossible
+    // and the wrapper's per-event singleton apply would be 4x slower.
+    console.log("no serializeState cache and REMIT_WALLET_COLD_START=1 — cold ledger replay from genesis");
     wallet = await WalletFacade.init({
       configuration,
-      shielded: () => restoreSyncShieldedWallet(shieldedConfig).restore(shieldedState),
-      unshielded: () => UnshieldedWallet(unshieldedConfig).restore(unshieldedState),
-      dust: () => restoreSyncDustWallet(dustConfig).restore(dustState),
+      shielded: () => ShieldedWallet(shieldedConfig).startWithSecretKeys(shieldedSecretKeys),
+      unshielded: () =>
+        UnshieldedWallet(unshieldedConfig).startWithPublicKey(PublicKey.fromKeyStore(unshieldedKeystore)),
+      dust: () =>
+        DustWallet(dustConfig).startWithSecretKey(dustSecretKey, LedgerParameters.initialParameters().dust),
     });
-  } catch (e) {
-    throw new Error(
-      `serializeState restore failed at ${OPERATOR_WALLET_CACHE_REL}; refusing genesis replay: ${e instanceof Error ? e.message : "error"}`,
-    );
+  } else {
+    requireOperatorWalletCache(); // throws: serializeState cache missing at wallet-cache/operator
+    throw new Error("unreachable");
   }
-  const restoredOffset = dustOffsetOf(dustState);
-  console.log("restored operator wallet from serializeState cache (same wallet) dustOffset", restoredOffset);
   await wallet.start(shieldedSecretKeys, dustSecretKey);
   const persistTimer = setInterval(() => {
     void persistOperatorWallet(wallet);
@@ -404,7 +546,7 @@ export async function openOperatorWallet() {
     proofServer,
     persistTimer,
     onHalt,
-    restored: true as const,
+    restored,
   };
   } catch (e) {
     releaseOperatorWalletLock();

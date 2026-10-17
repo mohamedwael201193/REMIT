@@ -2,6 +2,13 @@ import type * as __compactRuntime from '@midnight-ntwrk/compact-runtime';
 
 export type Witnesses<PS> = {
   callerSecret(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
+  disclosureSeed(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
+  disclosureSide(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, bigint];
+  disclosureBaseAmount(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, bigint];
+  disclosureQuoteAmount(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, bigint];
+  disclosurePrincipal(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
+  disclosureCounterparty(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
+  disclosureMandateId(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
 }
 
 export type ImpureCircuits<PS> = {
@@ -13,6 +20,10 @@ export type ImpureCircuits<PS> = {
                 left: { bytes: Uint8Array },
                 right: { bytes: Uint8Array }
               }): __compactRuntime.CircuitResults<PS, []>;
+  discloseField(context: __compactRuntime.CircuitContext<PS>,
+                fieldSelector_0: bigint,
+                auditorKey_0: Uint8Array,
+                sealedBox_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
 }
 
 export type ProvableCircuits<PS> = {
@@ -24,6 +35,10 @@ export type ProvableCircuits<PS> = {
                 left: { bytes: Uint8Array },
                 right: { bytes: Uint8Array }
               }): __compactRuntime.CircuitResults<PS, []>;
+  discloseField(context: __compactRuntime.CircuitContext<PS>,
+                fieldSelector_0: bigint,
+                auditorKey_0: Uint8Array,
+                sealedBox_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
 }
 
 export type PureCircuits = {
@@ -42,11 +57,21 @@ export type Circuits<PS> = {
                 left: { bytes: Uint8Array },
                 right: { bytes: Uint8Array }
               }): __compactRuntime.CircuitResults<PS, []>;
+  discloseField(context: __compactRuntime.CircuitContext<PS>,
+                fieldSelector_0: bigint,
+                auditorKey_0: Uint8Array,
+                sealedBox_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
 }
 
 export type Ledger = {
   readonly minted: bigint;
   claims: {
+    isEmpty(): boolean;
+    size(): bigint;
+    member(elem_0: Uint8Array): boolean;
+    [Symbol.iterator](): Iterator<Uint8Array>
+  };
+  disclosureNullifiers: {
     isEmpty(): boolean;
     size(): bigint;
     member(elem_0: Uint8Array): boolean;

@@ -22,8 +22,8 @@
 **Cryptographic — trust no one:**
 
 - No valid fill can settle outside the principal's committed limits. The circuit rejects it.
-- Consumed openings cannot be replayed; each disclosure is bound to one `(commitment, auditorKey)` pair, so disclosures can't be replayed either.
-- Forged audit disclosures fail — the auditor only verifies, never learns the book.
+- Consumed openings cannot be replayed; each disclosure is bound to one `(commitment, auditorKey)` pair by the `discloseField` circuit's nullifier, so disclosures can't be replayed either.
+- Tamper-evidence, not prevention: a discloser *can* publish a dishonest sealed box — the `discloseField` circuit sees only opaque bytes. The auditor detects it: decrypt the box → `(value, salt)` → recompute `persistentCommit` → compare to the on-ledger disclosed commitment. The evidence (commitment, box, nullifier) is already on the ledger. The auditor learns exactly the one opened field, never the rest of the book.
 
 **Trusted — role trust, not cryptographic:**
 

@@ -63,27 +63,57 @@ witnesses inside the circuit and on the prover's machine.
 | 27 | `claim` (L35–36) | A claim tag: `persistentHash("remit:faucet", secretKey, dayBucket)` | Everyone | One claim per user per day. The tag is one-way: no one learns whose secret it is. |
 | 28 | `claim` (L37) | Minted **amount** and **destination address** of REMIT-Q | Everyone | Minting an unshielded test token is a public event — the chain must see what was minted and for whom. |
 
-## 4. The new `disclose` circuit (Wave 2 — remit_quote, 3rd circuit)
+## 4. The `discloseField` circuit (Wave 2 — remit_quote, 3rd circuit)
 
-**Status: SPECIFIED, not yet compiled.** The row below describes the v2 design exactly;
-where an implementation detail is not yet pinned it is marked **TBD**.
+**Status: IMPLEMENTED by CONTRACT-1 — compiled clean under `--skip-zk` (compactc 0.31.1,
+language 0.23); `contract-info.json` shows `discloseField` `proof: true` and the ledger
+gains `disclosureNullifiers: Set<Bytes<32>>`. Full-ZK compile, simulator suite, and
+Preprod deploy are still open (Gates N2/N3).**
+
+**Rename mapping (final, not cosmetic):**
+
+| Spec name | Final circuit name | Why |
+|---|---|---|
+| v2-spec `disclose(fieldSelector, auditorKey)` | `discloseField(fieldSelector, auditorKey, sealedBox)` | `disclose` is a **reserved keyword** in Compact 0.31.1 — `export circuit disclose(...)` fails at parse time with `found keyword "disclose" looking for an identifier` (hard error, zero tolerance). |
+
+The builtin `disclose(x)` calls inside `claim` (`disclose(tag)`, `disclose(amount)`,
+`disclose(to)`) are untouched — they are the primitive, not the circuit.
+
+**Honest hybrid (documented, not hidden).** Compact 0.31.1 has NO in-circuit encryption
+primitive — the standard library is hash-only (`persistentHash` / `persistentCommit`,
+Merkle-tree ops, verify-only signatures; no symmetric cipher, no KEM/ECDH). So the
+circuit does **not** encrypt the field in-circuit. Instead: the field is sealed
+OFF-circuit with the repo's real, tested RMTB1 pattern (X25519 + XChaCha20-Poly1305,
+`packages/core/src/box.ts`), passed in as an opaque `sealedBox: Bytes<160>`. The circuit
+does **authorization + binding + anti-replay**; the seal does the confidentiality. A
+hand-rolled in-circuit "cipher" would be boundary theater.
 
 | # | Circuit | What is revealed | To whom | Why (buyer language) |
 |---|---|---|---|---|
-| 29 | `disclose(fieldSelector, auditorKey)` | **Ciphertext only.** The selected field is encrypted to `auditorKey` *inside the circuit*; only the ciphertext lands on the transcript. | Only the holder of `auditorKey` can read the field value | Compliance gets exactly one fact, nothing else — the world learns a disclosure happened, never the value. |
-| 30 | `disclose(...)` | A disclosure nullifier: `Hash(fieldCommitment ‖ auditorKey)` — written to the ledger | Everyone | Tamper-evident receipt that this field was opened to this auditor, and can never be replayed or double-counted. |
-| 31 | `disclose(...)` | **Public metadata:** `fieldSelector` (which field was opened) and `auditorKey` (to whom) | Everyone | Observers learn *that* a disclosure happened and *to whom* — a relationship graph. For compliance use this is arguably the point, but it is not hidden. |
-| 32 | `disclose(...)` | **Binding:** the field's commitment is recomputed under the existing `auditRoot` scheme and proved a member of the on-ledger commitment tree (≤2 historic roots) | Everyone (as a proof) | Stops the discloser from "disclosing" a fabricated field: the opened fact must be a real field of a real on-ledger commitment. |
+| 29 | `discloseField(...)` | **Sealed box — opaque ciphertext bytes.** The selected field's `value ‖ salt`, sealed off-circuit to the auditor; only the bytes land on the transcript | Everyone sees the bytes; only the holder of `auditorKey` can open them | The auditor gets exactly one fact, nothing else — the world learns a disclosure happened, never the value. |
+| 30 | `discloseField(...)` | A disclosure nullifier: `persistentHash(pad(32,"remit:dnull"), commitment, auditorKey)` — inserted into the new `disclosureNullifiers` ledger set | Everyone | Tamper-evident receipt that this field was opened to this auditor. A second disclosure of the same (field, auditor) pair reverts — replay is dead, and the write is what keeps the compiler generating proofs (the `proof:false` fix). |
+| 31 | `discloseField(...)` | **Public metadata:** `fieldSelector` (which of the 6 fields) and `auditorKey` (to whom) | Everyone | Observers learn *that* a disclosure happened and *to whom* — a relationship graph. For compliance use this is arguably the point, but it is not hidden. |
+| 32 | `discloseField(...)` | **Binding:** the circuit recomputes all six field commitments and the full `auditRootOf` IN-CIRCUIT under the pool's exact scheme, then discloses the field commitment and the root VALUE | Everyone (as a proof) | Stops the discloser from "disclosing" a fabricated field — the opened fact is tied to the disclosed root value. **Non-claim:** the pool's `auditRoots` is a `List<Bytes<32>>`, not a Merkle tree — no tree exists on either ledger to prove membership against, so no Merkle-membership proof is claimed. Whether the root is present in the pool's list is verifiable OFF-CHAIN only (RPC read). |
 
-**Leak the fixed design still carries (stated, not hidden):** the ciphertext leaks its
+**The auditor's verification story — detect, not prevent.** The auditor decrypts the
+sealed box → recovers `(value, salt)` → recomputes `persistentCommit` under the pool's
+field-salt scheme → compares it to the on-ledger disclosed commitment. The circuit
+cannot see inside the box, so it cannot prevent a dishonest box — but if the discloser
+published one, the values don't match, and the evidence (disclosed commitment, sealed
+box, nullifier) is already on the ledger. Dishonesty is **detected** via on-ledger
+evidence, not prevented in-circuit. The salt stays sealed for a reason: `side`
+(buy/sell) is brute-forceable if its salt were public. Sealed-box layout:
+`RMTB1(5) ‖ ephPub(32) ‖ nonce(24) ‖ ct(80)` = 141 bytes inside `Bytes<160>`; plaintext =
+`value32 ‖ salt32`.
+
+**Selector encoding:** `fieldSelector` is `Uint<8>`, asserted `< 6`; the six openable
+fields are side, fill size, fill price, principal, maker, mandate id.
+
+**Leak the fixed design still carries (stated, not hidden):** the sealed box leaks its
 *occurrence, approximate size, and timing* — correlatable with fill/mandate
 transactions. Anyone watching the transcript can see *when* disclosures happen and
 *how often*. This is a known, accepted leak of the transcript model, listed here so no
 judge has to find it.
-
-**TBD (honest):** the exact `fieldSelector` encoding (which fields are openable) and the
-in-circuit encryption construction are TBD — they will be pinned in the circuit spec
-before compile, and this table will be updated to match. Nothing here is invented.
 
 ## 5. Boundary summary — the whole product in one view
 
@@ -108,4 +138,4 @@ before compile, and this table will be updated to match. Nothing here is invente
 - **Nullifier:** a one-way tag derived from a spent object. Reveals only that the object was used; prevents double-spend.
 - **Merkle root / HistoricMerkleTree:** a short public fingerprint of a whole tree of commitments. Checking a root proves "this commitment exists in the tree" without naming which one.
 - **`disclose(x)`:** the Compact primitive that moves `x` from inside the circuit onto the public transaction transcript. Everything in the tables above.
-- **auditRoot:** one commitment over six sealed fill fields, pushed per fill. The receipt that lets the new `disclose` circuit open *one field* of a *real* fill without opening the rest.
+- **auditRoot:** one commitment over six sealed fill fields, pushed per fill. The receipt that lets the new `discloseField` circuit open *one field* of a *real* fill without opening the rest.
