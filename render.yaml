@@ -10,6 +10,8 @@ services:
       - key: MIDNIGHT_NETWORK
         value: preprod
       - key: MIDNIGHT_INDEXER_URL
-        value: https://indexer.preprod.midnight.network/api/v4/graphql
+        value: https://midnight-preprod.blockfrost.io/api/v0
+      - key: BLOCKFROST_PROJECT_ID
+        sync: false
       - key: REMIT_API_CORS_ORIGIN
         value: "*"
