@@ -19,6 +19,25 @@ function assertLeakFree(label: string, payload: unknown): void {
   expect(agentHttpHasLeakKeys(payload), `${label}: agentHttpHasLeakKeys`).toEqual([]);
 }
 
+// Render free-tier services sleep after inactivity; the first request wakes
+// them (HTTP 502/503 or a hung socket while waking). Retry with backoff so a
+// cold start does not fail the leak scan. The scan itself is NOT weakened:
+// once the service responds, every assertion below still runs.
+async function fetchWithColdStartRetry(url: string, attempts = 3): Promise<Response> {
+  let lastErr: unknown = new Error("no attempts made");
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+      if (res.status === 502 || res.status === 503) throw new Error(`cold start (HTTP ${res.status})`);
+      return res;
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 10_000));
+    }
+  }
+  throw lastErr;
+}
+
 describe("hosted /evidence and /agent/status omit leak keys", () => {
   it("local GET /evidence after a poisoned POST drops fillBase/fillQuote/chosenIndex", async () => {
     const rec = rfqKeyPair();
@@ -61,7 +80,7 @@ describe("hosted /evidence and /agent/status omit leak keys", () => {
   });
 
   it("Render /evidence and /agent/status omit leak keys and keep the MBBE fill", async () => {
-    const evidenceRes = await fetch(`${API}/evidence`);
+    const evidenceRes = await fetchWithColdStartRetry(`${API}/evidence`);
     expect(evidenceRes.ok).toBe(true);
     const evidence = await evidenceRes.json();
     assertLeakFree("hosted-evidence", evidence);
@@ -76,11 +95,11 @@ describe("hosted /evidence and /agent/status omit leak keys", () => {
       expect(livePool).not.toBe(V1_POOL);
     }
 
-    const statusRes = await fetch(`${API}/agent/status`);
+    const statusRes = await fetchWithColdStartRetry(`${API}/agent/status`);
     expect(statusRes.ok).toBe(true);
     const status = await statusRes.json();
     expect(status.httpSubmit).toBe(false);
     expect(status.globalBest).toBe(false);
     assertLeakFree("hosted-status", status);
-  }, 90_000);
+  }, 180_000);
 });

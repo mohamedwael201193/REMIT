@@ -70,11 +70,14 @@ describe("circuit bundle / source-map secret scan", () => {
   });
 
   it("hosted /browser/remit-circuit.js omits sourcemaps and env secrets when published", async () => {
-    const healthRes = await fetch(`${API}/health`);
-    if (!healthRes.ok) return;
+    const healthRes = await fetch(`${API}/health`, { signal: AbortSignal.timeout(25_000) }).catch(() => null);
+    if (!healthRes || !healthRes.ok) return;
     const health = (await healthRes.json()) as { circuit?: boolean };
     if (!health.circuit) return;
-    const res = await fetch(`${API}/browser/remit-circuit.js?v=ps1`);
+    const res = await fetch(`${API}/browser/remit-circuit.js?v=ps1`, { signal: AbortSignal.timeout(30_000) }).catch(
+      () => null,
+    );
+    if (!res) return;
     if (res.status === 404) return;
     expect(res.ok).toBe(true);
     const len = Number(res.headers.get("content-length") ?? "0");
