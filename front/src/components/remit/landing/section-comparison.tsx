@@ -32,25 +32,25 @@ type Step = {
 const TRADITIONAL: Step[] = [
   {
     icon: UserRound,
-    title: "Trader hands rules to a broker",
-    detail: "Instructions travel through people and systems you don't control.",
+    title: "Team briefs the purchasing agent",
+    detail: "The limits live in a doc or a prompt — readable, but not enforceable.",
     leak: true,
   },
   {
     icon: ScanEye,
-    title: "Broker sees the whole strategy",
-    detail: "Limits, budget, urgency: all visible to the intermediary.",
+    title: "The agent spends as you",
+    detail: "On the payment rails the agent is you: no boundary a counterparty or an auditor can check.",
     leak: true,
   },
   {
     icon: Eye,
-    title: "Market reads the signals",
-    detail: "Order flow betrays intent long before the fill completes.",
+    title: "Suppliers read the mandate",
+    detail: "Limits, flow, urgency: visible to whoever the flow passes through. Quotes get shaded against them.",
     leak: true,
   },
   {
     icon: Handshake,
-    title: "You trust the intermediary",
+    title: "You trust the agent",
     detail: "Compliance is a promise, not a proof. Verification is after the fact.",
     leak: true,
   },
@@ -59,18 +59,18 @@ const TRADITIONAL: Step[] = [
 const REMIT: Step[] = [
   {
     icon: FileLock2,
-    title: "Principal seals a private mandate",
-    detail: "Asset, side, caps, counterparties and expiry: encrypted rules.",
+    title: "Procurement seals a spending mandate",
+    detail: "Spending limit, eligible suppliers, per-order caps and expiry: encrypted rules, one commitment on-chain.",
   },
   {
     icon: Eye,
-    title: "Counterparties quote a hidden envelope",
-    detail: "Offers arrive privately. Nobody learns who else is bidding.",
+    title: "Suppliers quote a hidden envelope",
+    detail: "Quotes arrive sealed. Nobody learns the mandate or anyone's pricing.",
   },
   {
     icon: Bot,
-    title: "Executor chooses, but cannot exceed",
-    detail: "The agent is free to pick the best offer inside the boundary.",
+    title: "The purchasing agent chooses, but cannot exceed",
+    detail: "The agent matches quotes freely — inside the boundary it can never cross.",
   },
   {
     icon: Landmark,
@@ -108,7 +108,7 @@ function FlowColumn({
               : "font-data text-[11px] font-medium uppercase tracking-[0.22em] text-sage"
           }
         >
-          {isRemit ? "REMIT" : "Traditional execution"}
+          {isRemit ? "REMIT" : "The unbounded agent"}
         </p>
         {isRemit ? (
           <ProofSeal className="h-9 w-9" tone="gold" />
@@ -188,11 +188,11 @@ export function SectionComparison() {
           eyebrow="The core difference"
           title={
             <>
-              Same delegation.{" "}
+              Same agent.{" "}
               <Accent>Different trust.</Accent>
             </>
           }
-          lede="Both paths hand execution to someone, or something, else. Only one of them can prove, after the fact and without disclosure, that every rule was respected."
+          lede="Both paths hand purchasing to an agent. Only one of them can prove, after the fact and without disclosure, that every limit was respected."
         />
 
         <div className="mx-auto mt-14 grid max-w-5xl gap-6 lg:grid-cols-2 lg:gap-8">

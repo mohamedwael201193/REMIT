@@ -87,8 +87,8 @@ export function SectionPrivacy() {
           {...line(0.1)}
           className="font-display mt-8 text-balance text-[clamp(1.7rem,3.8vw,3rem)] font-semibold leading-[1.15]"
         >
-          Private rules <span className="text-gold">+</span> private orders{" "}
-          <span className="text-gold">+</span> private execution
+          Sealed limits <span className="text-gold">+</span> sealed quotes{" "}
+          <span className="text-gold">+</span> sealed matching
         </motion.p>
 
         <DrawArrow delay={0.25} />
@@ -97,7 +97,7 @@ export function SectionPrivacy() {
           {...line(0.45)}
           className="font-display text-balance text-[clamp(2rem,4.6vw,3.6rem)] font-semibold italic leading-[1.12] text-gold"
         >
-          Zero-knowledge policy enforcement
+          Zero-knowledge mandate enforcement
         </motion.p>
 
         <DrawArrow delay={0.6} />
@@ -111,9 +111,10 @@ export function SectionPrivacy() {
 
         <Reveal delay={1}>
           <p className="mt-10 max-w-xl text-pretty text-[15px] leading-relaxed text-cream/55">
-            Privacy is not decoration. Privacy is what stops the market from
-            trading against you, and what lets a stranger verify your agent
-            behaved, without ever seeing why.
+            Privacy is not decoration. Privacy is what stops suppliers from
+            trading against your mandate — shading quotes once they learn your
+            limits — and what lets a stranger verify your agent stayed inside
+            them, without ever seeing why.
           </p>
         </Reveal>
       </div>

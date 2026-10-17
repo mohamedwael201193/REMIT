@@ -7,23 +7,24 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: "REMIT — Private execution infrastructure",
+  title: "REMIT — Provable spending limits for autonomous purchasing agents",
   description:
-    "REMIT is a privacy-first dark-pool trading protocol. Delegate execution to an agent inside a private mandate — Midnight proves the fill obeyed the mandate before value moves.",
+    "REMIT is mandate governance for agent purchasing: a procurement or treasury team seals a spending mandate, the agent matches quotes inside the limits, and Midnight proves the fill obeyed the mandate before value moves.",
   keywords: [
     "REMIT",
-    "private execution",
-    "dark pool",
-    "mandates",
+    "agent governance",
+    "spending mandates",
+    "procurement",
+    "autonomous purchasing",
     "zero-knowledge",
     "Midnight",
   ],
   authors: [{ name: "REMIT" }],
   icons: { icon: "/remit-mark.svg" },
   openGraph: {
-    title: "REMIT — Trade on your rules. Without revealing the rules.",
+    title: "REMIT — Provable spending limits for autonomous purchasing agents",
     description:
-      "A dark pool where the trader's rules are as private as the trade, and just as enforced.",
+      "The agent can choose. It cannot exceed. A sealed spending mandate, enforced in zero knowledge, audited one field at a time.",
     siteName: "REMIT",
     type: "website",
   },

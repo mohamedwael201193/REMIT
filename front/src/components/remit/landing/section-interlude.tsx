@@ -23,15 +23,15 @@ export function SectionInterlude() {
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
             <p className="eyebrow justify-center text-[#8c6a1f]">
-              The private exchange
+              The sealed mandate
             </p>
           </Reveal>
           <Reveal delay={0.08}>
             <p className="font-display mt-6 text-balance text-[clamp(1.65rem,3.6vw,2.7rem)] font-semibold leading-[1.14]">
-              The old desk ran on whispered rules and{" "}
-              <em className="italic text-[#b5522e]">prayed nobody was listening.</em>{" "}
-              The sealed desk{" "}
-              <Accent>has nothing to overhear.</Accent>
+              The old flow whispered the limits to the agent and{" "}
+              <em className="italic text-[#b5522e]">hoped it stayed inside them.</em>{" "}
+              The sealed mandate{" "}
+              <Accent>doesn&apos;t hope — it proves.</Accent>
             </p>
           </Reveal>
         </div>
@@ -69,10 +69,10 @@ export function SectionInterlude() {
               <div className="mt-2.5 flex items-start justify-between gap-2 px-1">
                 <div>
                   <p className="font-data text-[9.5px] font-medium uppercase tracking-[0.2em] text-[#b5522e]">
-                    fig. 1 · the old desk
+                    fig. 1 · the old flow
                   </p>
                   <p className="mt-1 text-[11.5px] leading-snug text-[#5d6a61]">
-                    Every rule on display, every eye invited.
+                    Every limit on display, every eye invited.
                   </p>
                 </div>
                 <Eye className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#b5522e]/70" aria-hidden="true" />

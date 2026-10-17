@@ -52,16 +52,16 @@ export function LandingCta() {
         </Reveal>
         <Reveal delay={0.08}>
           <h2 className="font-display mt-8 text-balance text-[clamp(2.6rem,6.4vw,5.2rem)] font-semibold leading-[1.02]">
-            Delegate the trade.
+            Give the agent the mandate.
             <br />
-            <Accent>Keep the trust.</Accent>
+            <Accent>Keep the proof.</Accent>
           </h2>
         </Reveal>
         <Reveal delay={0.16}>
           <p className="mx-auto mt-6 max-w-xl text-pretty text-[15.5px] leading-relaxed text-cream/60">
-            Open the workspace, seal a mandate, and watch a constrained
-            executor fill inside the boundary. Midnight proves the fill before
-            value moves.
+            Open the workspace, seal a spending mandate, and watch a
+            constrained purchasing agent match quotes inside the boundary.
+            Midnight proves the fill before value moves.
           </p>
         </Reveal>
         <Reveal delay={0.24}>
@@ -140,8 +140,8 @@ export function LandingFooter() {
           <div>
             <Wordmark />
             <p className="mt-4 max-w-xs text-[13.5px] leading-relaxed text-cream/50">
-              A dark pool where the trader&apos;s rules are as private as the
-              trade, and just as enforced.
+              Provable spending limits for autonomous purchasing agents —
+              the agent can choose, it cannot exceed.
             </p>
             <div className="mt-6 flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-mint" aria-hidden="true" />
@@ -180,7 +180,7 @@ export function LandingFooter() {
 
         <div className="mt-12 flex flex-col items-start justify-between gap-5 border-t border-[rgba(239,235,224,0.08)] pt-7 sm:flex-row sm:items-center">
           <p className="text-[12px] text-cream/40">
-            © {new Date().getFullYear()} REMIT. Delegate the trade. Keep the trust.
+            © {new Date().getFullYear()} REMIT. The agent can choose. It cannot exceed.
           </p>
           <div className="flex items-center gap-4 text-cream/45">
             <a href="https://github.com/mohamedwael201193/REMIT#readme" target="_blank" rel="noreferrer" aria-label="Documentation" className="transition-colors hover:text-gold">

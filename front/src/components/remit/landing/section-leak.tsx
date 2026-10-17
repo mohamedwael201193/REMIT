@@ -44,7 +44,7 @@ const LEAKS = [
   {
     n: "05",
     icon: Users,
-    field: "Preferred counterparties",
+    field: "Eligible suppliers",
     consequence: "Your relationships get repriced behind your back.",
   },
 ];
@@ -60,11 +60,11 @@ export function SectionLeak() {
               eyebrow="Why privacy matters"
               title={
                 <>
-                  Every order tells{" "}
+                  Every mandate tells{" "}
                   <Accent>a story.</Accent>
                 </>
               }
-              lede="Traditional execution asks you to hand your strategy to an intermediary, and to the market. Every field an operator can see is a field the market can trade against."
+              lede="When a purchasing agent buys for your firm, every mandate field the market can see is a field suppliers can trade against. Once dealers learn your limits, your flow and your urgency, they shade their quotes — and you pay wider spreads on every fill, out of a real P&L, every week."
             />
 
             <ol className="mt-12 space-y-0">
@@ -152,8 +152,8 @@ export function SectionLeak() {
                     ))}
                   </div>
                   <p className="mt-6 text-pretty text-[13.5px] leading-relaxed text-cream/65">
-                    The mandate, the strategy, the offers, the amounts and the
-                    counterparties stay private. The chain only ever sees that
+                    The mandate terms, the quotes, the amounts and the
+                    suppliers stay private. The chain only ever sees that
                     the rules were obeyed.
                   </p>
                 </div>

@@ -87,19 +87,21 @@ export function LandingHero() {
 
       <div className="relative z-[2] mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col items-center px-4 pb-40 pt-24 text-center sm:px-8">
         <p className="hero-copy eyebrow text-gold">
-          Private execution on Midnight
+          Provable agent spending limits · Midnight
         </p>
 
         <h1 className="hero-copy font-display mt-5 max-w-6xl text-balance text-[clamp(3rem,5vw,5.5rem)] font-semibold leading-[1.05] tracking-[-0.015em]">
-          Trade on your rules.
-          <br />
-          Without revealing{" "}
-          <em className="pb-1 italic leading-[1.1] text-gold">the rules.</em>
+          Provable spending limits for autonomous purchasing agents —{" "}
+          <em className="pb-1 italic leading-[1.1] text-gold">
+            the agent can choose, it cannot exceed.
+          </em>
         </h1>
 
         <p className="hero-copy mx-auto mt-6 max-w-2xl text-pretty text-[1.05rem] leading-relaxed text-cream/72 sm:text-lg">
-          Private execution where an agent can choose, but cannot exceed the
-          mandate. Compact proves the fill before value moves.
+          A procurement or treasury team seals the mandate — spending limit,
+          eligible suppliers, per-order caps. The purchasing agent matches
+          quotes inside those limits. Midnight proves the fill before value
+          moves.
         </p>
 
         <div className="hero-copy mt-8 flex w-full flex-col items-center justify-center gap-3 sm:flex-row">

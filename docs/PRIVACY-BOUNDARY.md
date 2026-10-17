@@ -1,22 +1,69 @@
-# PRIVACY-BOUNDARY.md — what leaves the circuit, and to whom
+# PRIVACY-BOUNDARY.md — what stays hidden, who sees what, and why
 
-> **Reading guide.** This document answers one question per row: *when this contract reveals a value, who can see it, and why is that reveal necessary?*
-> "Public" means: visible in clear on the transaction transcript to anyone with an RPC endpoint — the whole world, including competitors.
-> Technical terms (witness, commitment, nullifier) are defined once in the Appendix, never in the tables above it.
+> **Reading guide.** This document answers the buyer's question — *"which parts of
+> this require privacy?"* — in commercial language first (§1–2), then proves every
+> row with the exact on-chain disclosures the circuits make (§3–5). "Public" means:
+> visible in clear on the transaction transcript to anyone with an RPC endpoint —
+> the whole world, including your competitors.
+> Technical terms (witness, commitment, nullifier) are defined once in the Appendix,
+> never in the tables above it.
 
-**Scope:** `CONTRACT/src/remit_pool.compact` (7 `export circuit`s, 2 deploy circuits) and
-`CONTRACT/src/remit_quote.compact` (`claim`, `quoteColor`). Source of truth is the
-`.compact` source; line numbers below are current as of this write.
+**Scope:** `CONTRACT/src/remit_pool.compact` (7 `export circuit`s) and
+`CONTRACT/src/remit_quote.compact` (`quoteColor`, `claim`, `discloseField`).
+Source of truth is the `.compact` source; line numbers below are current as of
+this write.
 
-## 1. The trust split (why this boundary exists)
+## 1. The commercial answer — for the procurement / treasury officer
 
-The executor is **trusted for ranking quality and liveness** — it can pick the worst
-in-bounds quote, it can stall, it can abort. It is **cryptographically untrusted for
-bounds** — it cannot produce a valid fill outside your committed limits, and anyone can
-verify that from the ledger without seeing the limits. This document shows exactly
-where each secret stops and each public fact begins.
+Your purchasing agent negotiates against professional counterparties. When those
+counterparties learn your mandate — your limits, your urgency, your flow — they
+shade their quotes and you pay wider spreads on every fill. That is a basis-point
+cost on real volume, paid out of a real P&L, every week. Privacy here is not
+ideology; it is the difference between your limits being *your strategy* and your
+limits being *your counterparties' pricing input*.
 
-## 2. remit_pool — per-`disclose()` table
+The boundary REMIT draws is three-sided:
+
+- **What the company hides from suppliers and the market:** the mandate terms
+  (max price, max size, budget left, expiry, who you'll trade with), the makers'
+  quotes, and who won at what size. If anyone sees these, they trade against you.
+  Your limits ARE your strategy.
+- **What the auditor / compliance owner sees:** exactly one fact at a time,
+  encrypted to their key, replay-protected by a nullifier. They see what they need
+  to sign off on — never the book.
+- **What the world sees:** tamper-evident receipts — commitments, nullifiers,
+  counters, audit roots. Anyone can verify the agent stayed inside its committed
+  limits without seeing the limits.
+
+**The trust split:** the executor is trusted for ranking quality and liveness —
+it can pick the worst in-bounds quote, it can stall, it can abort. It is
+cryptographically untrusted for bounds — it cannot produce a valid fill outside
+your committed limits, and anyone can verify that from the ledger without seeing
+the limits.
+
+**Why not a server:** a server would have to *hold* your mandate to check it.
+Here the mandate never leaves your private state, and anyone verifies compliance
+from commitments alone.
+
+**Compliance evidence, not promises:** position limits, exposure caps, value
+thresholds — the control parameters regulators expect agents to carry — are the
+things REMIT proves, on-chain, per fill. The proof is the audit artifact your
+governance committee can check without a seat at the negotiating table.
+
+## 2. The buyer-language privacy table
+
+| What | Hidden from | Visible to | Why (buyer language) |
+|---|---|---|---|
+| Mandate terms: max price, max size, budget remaining, expiry, who you'll trade with | Everyone — suppliers, other desks, the public; the executor sees only that a bound exists, never its value | Nobody, as values | If suppliers learn your limits, they price to them. This is the strategy; it never leaves your private state. |
+| The quote book: makers' prices and sizes | Everyone except the executor's ranking step | The executor, which sees them to rank (trusted for ranking quality — not proven; see HONEST-LIMITS.md #2) | Nobody quotes honestly if their book is public. |
+| Spend patterns: who won, at what size, at what price, and how often | Everyone except the two counterparties | The two counterparties | Reveals the winner's pricing power and your cadence — the things a supplier prices against. |
+| Which agent may act for you | Everyone (binding is by secret preimage; only the commitment is public) | — | If someone can impersonate your agent, your limits are fiction. |
+| One disclosed field (side / fill size / fill price / principal / maker / mandate id) | The world sees only ciphertext bytes | The named auditor (key-holder) — one field, nothing else | The auditor checks exactly one fact. Observers learn *that* a disclosure happened and *to whom* — the field selector and auditor key are public metadata, a relationship graph, stated honestly, not hidden. |
+| Commitments, nullifiers, Merkle roots, audit roots, counters | — (public by design) | Everyone | The compliance record: anyone can verify the books balance and the agent stayed inside its mandate — without seeing a single price. |
+| Unshielded token movements (deposits, withdrawals, mints) | — (public by design) | Everyone | The chain must see the move to execute it. Withdrawals are the loudest event on the transcript. |
+| Transaction timing and graph shape | — (public by design) | Everyone | The chain timestamps events; correlatable by anyone watching. |
+
+## 3. remit_pool — per-`disclose()` table
 
 Every `disclose(x)` places `x` in the clear on the transaction transcript. Values that
 are private inputs (witnesses) stay private because they are never disclosed — only
@@ -31,7 +78,7 @@ their *commitments* and *nullifiers* are.
 | 5 | `bindSlot` (L285) | A Merkle-tree root for the offers tree | Everyone | Same as #2, for offers instead of notes. |
 | 6 | `deposit` (L291–292) | Asset id (0 or 1) and amount; the token colour | Everyone | An unshielded deposit *moves* a public token into the pool — the chain must see the move to execute it. |
 | 7 | `withdraw` (L299–302) | Asset id, amount, and the **destination address** | Everyone | An unshielded withdrawal moves a public token *to a specific address* — the chain must see where to send it. **This is the loudest row in the table: withdrawals are fully public.** |
-| 8 | `placeOffer` (L322) | An offer commitment | Everyone | Sealed envelope for the maker's offer. The price and size stay secret; only the executor's ranking step learns them (see §4). |
+| 8 | `placeOffer` (L322) | An offer commitment | Everyone | Sealed envelope for the maker's offer. The price and size stay secret; only the executor's ranking step learns them (see §2). |
 | 9 | `cancelOffer` (L334) | Offers-tree root | Everyone | Proves the cancelled offer existed without naming it. |
 | 10 | `cancelOffer` (L336–337) | Offer nullifier | Everyone | Proves this offer was cancelled/used once and only once. |
 | 11 | `createMandate` (L356) | A mandate commitment | Everyone | Sealed envelope for your limits. Your max price, max size, budget, and expiry stay secret — the chain sees only that *a bound exists*. |
@@ -49,26 +96,42 @@ their *commitments* and *nullifiers* are.
 | 23 | `fill` (L471) | Residual-offer commitment | Everyone | The unfilled part of the offer goes back on the book as a fresh sealed envelope. |
 | 24 | `fill` (L477) | New mandate-state commitment (remaining − fill size) | Everyone | Updated sealed budget for the next fill. |
 | 25 | `fill` (L489) | The audit root (one commitment over six sealed fields: side, fill size, fill price, principal, maker, mandate id) | Everyone | **Tamper-evident receipt**: everyone can verify no deal was counted twice and that fills chain correctly — without seeing a single price. |
-| 26 | `fill` (L443–444) | *Via `bindSlot` ×3:* offers-tree roots for the three candidate slots | Everyone | Proves all three ranked quotes existed on the book. **What the roots don't reveal: the quote values — but the executor, which did the ranking off-circuit, saw them (see §4).** |
+| 26 | `fill` (L443–444) | *Via `bindSlot` ×3:* offers-tree roots for the three candidate slots | Everyone | Proves all three ranked quotes existed on the book. **What the roots don't reveal: the quote values — but the executor, which did the ranking off-circuit, saw them (see §2).** |
 
 **What is NEVER disclosed in the pool contract:** your limit values (`limitNum/limitDen`,
 `maxFillBase`, `expiry`, counterparty list), the maker's price and size, the note
 contents (asset, amount, owner), any secret key or preimage. These exist only as
 witnesses inside the circuit and on the prover's machine.
 
-## 3. remit_quote — per-`disclose()` table
+## 4. remit_quote — per-`disclose()` table
 
 | # | Circuit (line) | What is revealed | To whom | Why (buyer language) |
 |---|---|---|---|---|
 | 27 | `claim` (L35–36) | A claim tag: `persistentHash("remit:faucet", secretKey, dayBucket)` | Everyone | One claim per user per day. The tag is one-way: no one learns whose secret it is. |
 | 28 | `claim` (L37) | Minted **amount** and **destination address** of REMIT-Q | Everyone | Minting an unshielded test token is a public event — the chain must see what was minted and for whom. |
 
-## 4. The `discloseField` circuit (Wave 2 — remit_quote, 3rd circuit)
+## 5. The `discloseField` circuit (Wave 2 — remit_quote, 3rd circuit)
 
-**Status: IMPLEMENTED by CONTRACT-1 — compiled clean under `--skip-zk` (compactc 0.31.1,
-language 0.23); `contract-info.json` shows `discloseField` `proof: true` and the ledger
-gains `disclosureNullifiers: Set<Bytes<32>>`. Full-ZK compile, simulator suite, and
-Preprod deploy are still open (Gates N2/N3).**
+**Status: SHIPPED in the Wave-2 build (commit `efda26c`).** Full-ZK compile,
+simulator suite, and measured artifacts are complete — proof in
+[`docs/COMPILE-PROOF.md`](./COMPILE-PROOF.md). Preprod deploy of the new circuit
+is pending the Wave-2 lifecycle run (N4) and is **not** claimed here.
+
+**Wave-2 evidence for `discloseField`:**
+- Source: `CONTRACT/src/remit_quote.compact`, pinned sha256
+  `52e5369e23e4424835827963bd857ff41ba903612939379da6ce7b6b9fb5b9af`
+  (measured, COMPILE-PROOF.md §1). Pool contract unchanged, pinned
+  `b0b1da28ffb29f7ff10072a2d342a2906b148542146ed74f08210579ea3bd60d`.
+- Full-ZK compile, no `--skip-zk`: compactc 0.31.1, language 0.23.0, runtime
+  0.16.0, ledger 8 — 10/10 proving circuits, 10 verifier keys + 10 prover keys
+  + 10 ZKIR binaries.
+- `discloseField` artifacts: ZKIR sha256
+  `a8689e972425777bcfde64802a8e96a0f9e8f403f01b5cf580ecc2ab4f90500c`;
+  verifier key exactly **2119 bytes** (committed to git); prover key
+  **19,518,477 bytes** (gitignored by design, fetched at deploy).
+- Tests: 4 new files, 35 cases — `TESTS/unit/disclose-sim.test.ts` (8),
+  `TESTS/unit/disclose-refusal.test.ts` (10), `TESTS/unit/c4-disclose-smoke.test.ts`
+  (7), `TESTS/privacy/disclose-leak.test.ts` (10).
 
 **Rename mapping (final, not cosmetic):**
 
@@ -115,7 +178,7 @@ transactions. Anyone watching the transcript can see *when* disclosures happen a
 *how often*. This is a known, accepted leak of the transcript model, listed here so no
 judge has to find it.
 
-## 5. Boundary summary — the whole product in one view
+## 6. Boundary summary — the whole product in one view
 
 | Stays secret | Secret from whom | Why |
 |---|---|---|

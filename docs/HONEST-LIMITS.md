@@ -9,18 +9,35 @@
 
 ## The eight non-claims
 
-**1. Best execution — no.**
-We prove best-of-3 *in this transaction*, not best price in the market. If a better
-quote existed off the book, or arrived a block later, the proof says nothing about it.
+**1. Best execution — two different claims, one proven, one not.**
+
+**(A) Relative best-execution: PROVEN.** The circuit proves the filled quote was best
+among the K=3 committed book slots *in this transaction* — `notDominated` × 3 over a
+`strictlyBetter` total order (price cross-multiplication + fillable-base tie-break +
+commitment lex-order tie-break). If a better quote existed off the book, or arrived a
+block later, the proof says nothing about it.
 (Mechanism: MBBE over the three committed book slots.)
+
+**(B) Set completeness: NOT proven.** The executor chooses *which* quotes enter the
+three slots. The circuit cannot prove the book was complete — a better quote omitted
+from the book is invisible to the proof. A bigger K, or a ranking commitment over an
+executor-chosen set, would not change this: the gap is *which quotes compete*, not how
+they compare. This is the steering hole, named precisely. A completeness construction
+exists (count-pinned full-book proof: commitment-sorted book, per-slot Merkle binding,
+distinctness via `bytesLt`, live-count folded and asserted equal to `openOffers`) — it
+requires a pool rewrite and is Wave-3 work, not this wave.
+
+(Taro's lottery test, decomposed: *were all tickets in the drum?* — unproven;
+*was the winner drawn fairly from the drum?* — proven; *was the draw held at a fair
+time?* — unprovable in one tx; residual timing trust, listed in #3.)
 
 **2. Honest ranking and steering — no.**
 The executor can fill the *worst* in-bounds quote and the proof still verifies.
 Griefing *within* your limits is trusted, not proven: the bounds are cryptographic,
-the quality of the pick is not. This is the known steering hole — disclosed, not closed
-this wave.
-(Mechanism: `chosenIndex` is an executor-supplied witness; the circuit checks the
-chosen slot is eligible and undominated, never that it is optimal for you.)
+the quality of the pick is not. This is non-claim #1(B) restated at the ranking step —
+`chosenIndex` is an executor-supplied witness; the circuit checks the chosen slot is
+eligible and undominated, never that the book was complete or that the pick is optimal
+for you. Disclosed, not closed this wave; a choice-integrity proof is Wave 3.
 
 **3. Liveness — no.**
 The executor can abort, stall, or simply never fill. Nothing in either contract
@@ -70,11 +87,14 @@ verified auditor, backed quotes, front-running proof, sane limits — we explici
 not claim. What we *do* claim: the executor cannot produce a valid fill outside your
 committed limits, and anyone can verify that from the ledger without seeing the limits.
 
+"Inside the limits" is the whole product. Nothing in any slide, line, or voiceover —
+here or elsewhere — implies choice-integrity: no "best deal", no "fair", no "unrigged".
+
 ## "Not fixed this wave" ledger
 
 | # | Non-claim | Fixed? |
 |---|---|---|
-| 1 | Best execution | No — by design; best-of-K-in-tx is the product's scope. |
+| 1 | Best execution | **Split:** (A) relative best-execution proven at K=3 (MBBE, in-tx). (B) Set completeness — no; the executor chooses the book. Completeness construction exists, is scoped, and is Wave 3. |
 | 2 | Honest ranking / steering | No — disclosed, not closed. Choice-integrity proof is Wave 3. |
 | 3 | Liveness | No — no slashing/bond mechanism this wave. |
 | 4 | Disclosure freshness | No — listed, not version-bound. |

@@ -16,12 +16,15 @@ export function LandingEvidence() {
     <section className="relative bg-ink text-cream">
       <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
         <h2 className="font-display text-balance text-[clamp(2rem,4vw,3.4rem)] font-semibold leading-[1.05]">
-          Private mandate. Private liquidity. Provable execution.
+          Sealed mandate. Sealed quotes. Provable limits.
         </h2>
         <p className="mt-4 max-w-[62ch] text-[15.5px] leading-relaxed text-cream/65">
-          REMIT is live on Preprod. Compact proves each fill against a mandate
-          the public ledger never contains. The workspace reads indexer-backed
-          evidence with no wallet required.
+          REMIT is the compliance layer for autonomous purchasing. A
+          procurement or treasury team seals a spending mandate — limits,
+          eligible suppliers, caps. The agent matches quotes inside those
+          limits; Compact proves every fill. The auditor checks one field,
+          never the book. Live on Preprod, with indexer-backed evidence and no
+          wallet required.
         </p>
         <dl className="mt-10 grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-[rgba(239,235,224,0.1)] bg-[rgba(239,235,224,0.08)] sm:grid-cols-2 lg:grid-cols-4">
           {ITEMS.map((item) => (

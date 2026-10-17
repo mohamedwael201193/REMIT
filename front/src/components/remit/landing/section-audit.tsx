@@ -14,9 +14,9 @@ import { Accent, EASE, Reveal, SectionHeading } from "@/components/remit/primiti
 import { PlateFrame, SpecimenStamp } from "./plates";
 
 const FACTS = [
-  { id: "fill", label: "Fill amount", value: "SEALED · illustration, not a live opening" },
-  { id: "policy", label: "Price limit satisfied", value: "Boolean fact · illustration" },
-  { id: "cp", label: "Counterparty authorized", value: "On-chain maker (illustration)" },
+  { id: "notional", label: "Executed notional", value: "SEALED · illustration, not a live fill" },
+  { id: "limit", label: "Within spending limit", value: "Boolean fact · illustration" },
+  { id: "supplier", label: "Eligible supplier", value: "On-chain supplier (illustration)" },
   { id: "time", label: "Execution timestamp", value: "SEALED · not a live clock" },
 ];
 
@@ -48,7 +48,7 @@ export function SectionAudit() {
                   <Accent>reading the book.</Accent>
                 </>
               }
-              lede="An auditor can confirm a single fact about an execution (the fill amount, the policy result, the counterparty class, the timestamp) without ever receiving the mandate behind it."
+              lede="The compliance owner decrypts exactly one mandate field — say, the executed notional — and verifies it against the on-chain commitment and nullifier. The mandate itself never changes hands."
             />
 
             <Reveal delay={0.1}>
@@ -60,8 +60,8 @@ export function SectionAudit() {
                   <div>
                     <p className="text-[14.5px] font-semibold">Private</p>
                     <p className="mt-0.5 text-[13.5px] leading-relaxed text-[#5d6a61]">
-                      The mandate, the strategy, hidden amounts, private
-                      counterparties and risk limits. Sealed. Always.
+                      The mandate terms, hidden amounts, supplier identities
+                      and spending limits. Sealed. Always.
                     </p>
                   </div>
                 </div>
@@ -72,8 +72,8 @@ export function SectionAudit() {
                   <div>
                     <p className="text-[14.5px] font-semibold">Disclosed</p>
                     <p className="mt-0.5 text-[13.5px] leading-relaxed text-[#5d6a61]">
-                      Exactly one verified fact, on request, with a proof
-                      behind it. The rest stays sealed.
+                      Exactly one verified mandate field, on request, with its
+                      proof and nullifier behind it. The rest stays sealed.
                     </p>
                   </div>
                 </div>
@@ -182,7 +182,8 @@ export function SectionAudit() {
                   </div>
                   <p className="mt-5 text-[12.5px] leading-relaxed text-cream/50">
                     The auditor never receives the complete mandate. Each
-                    disclosure carries its own proof, and nothing else.
+                    disclosure carries its own proof and nullifier — a replayed
+                    disclosure collides on the ledger — and nothing else.
                   </p>
                 </div>
               </div>

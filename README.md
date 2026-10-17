@@ -1,10 +1,24 @@
 # REMIT
 
-**Set hard limits for how your money gets quoted. Your agent can negotiate inside them — it can never exceed them. The chain proves every fill stayed inside, without revealing your strategy.**
+**Provable spending limits for autonomous purchasing agents — the agent can choose, it cannot exceed.**
 
 *The agent can choose. It cannot exceed.*
 
 ![REMIT: your limits stay secret; the chain proves every fill stayed inside them](docs/remit-idea.png)
+
+## Verdict first
+
+Companies are deploying autonomous purchasing agents, and the first question every compliance owner asks is the same: **prove it cannot exceed its limits.** REMIT is the constraint layer that answers it — demonstrated through a mandate-bound execution venue on Midnight:
+
+- a **mandate-bound executor** operating inside committed spending bounds,
+- **sealed RFQ matching** that proves bounds-compliance of every fill,
+- **nullifier-bound selective disclosure** so a named auditor can check exactly one fact without ever seeing the book.
+
+**Proven (shipped, verifiable today):** the mandate-bound executor and sealed matching on Midnight Preprod · the `discloseField` circuit, full-ZK compiled on the pinned Compact 0.31.1 toolchain with simulator + refusal tests green (CI green) · 202+ simulator tests on compiled artifacts · refusal paths (over-cap, bad price, replay, forged disclosure) enforced by Compact, not by UI.
+
+**Not proven (disclosed, not closed):** that the *choice* was the best available — the executor may pick the worst in-bounds quote and the proof still verifies. Choice steering is **trusted, not proven**; best-execution binding is a Wave-3 research item. Nothing here claims procurement fairness, fair award, or unriggability — see the eight non-claims in [docs/HONEST-LIMITS.md](docs/HONEST-LIMITS.md).
+
+**Not claimed, anywhere:** no users, pilots, LOIs, or partnerships. The 2026 regulatory context below is context for the problem, never an endorsement of this project.
 
 ## Contents
 
@@ -29,8 +43,10 @@
 19. [Judge: run REMIT locally](#judge-run-remit-locally)
 20. [Judge CLI](#one-command-judge-evidence)
 21. [Security and privacy](#security-verification)
-22. [Wave 1 / Wave 2 / Wave 3](#wave-1---proven-foundation)
-23. [What changed since Wave 1](#what-changed-since-wave-1)
+22. [DECK-NARRATIVE](#deck-narrative)
+23. [Honest ledger — real vs plan](#honest-ledger--real-vs-plan)
+24. [Wave 1 / Wave 2 / Wave 3](#wave-1---proven-foundation)
+25. [What changed since Wave 1](#what-changed-since-wave-1)
 
 ## Privacy — what is secret, from whom
 
@@ -59,7 +75,13 @@ The technical privacy boundary (witnesses, commitments, nullifiers, circuits) li
 
 ## What REMIT is
 
-REMIT is a mandate-bound dark RFQ desk on Midnight. A principal seals trading rules the public ledger never contains. Counterparties quote privately. A constrained executor may choose among the private candidates it is given. Compact proves the fill obeyed the mandate before value moves. Selective audit can later open one authorized fact without opening the book.
+REMIT is a **constraint layer for autonomous purchasing agents** — demonstrated through a mandate-bound RFQ venue on Midnight. The product is the constraint, not the venue:
+
+- **Mandate-bound executor.** A principal seals a spending mandate (max notional, price bounds, counterparty set, expiry) as a private commitment. The purchasing agent negotiates freely *inside* it; Compact will not settle a fill outside it. The mandate never leaves the firm's private state, and anyone verifies compliance from commitments alone.
+- **Sealed RFQ matching.** Counterparties quote into sealed boxes. The executor ranks a private K=3 candidate set, and the circuit proves the fill was best-of-K *among sealed candidates in this transaction* and inside the mandate. When competing dealers learn your flow, limits, and urgency, they shade their quotes — you pay wider spreads on every fill. On real weekly flow, leaked limits cost a desk basis points per fill, paid out of a real P&L, every week.
+- **Nullifier-bound selective disclosure.** The `discloseField` circuit (`CONTRACT/src/remit_quote.compact`, full-ZK compiled, CI green) encrypts exactly one mandate field in-circuit to the auditor's key, binds it by recomputation to the on-chain mandate commitment, and writes a disclosure nullifier that kills replay. The compliance owner checks one fact — e.g. the executed notional — without seeing the book; the world learns only that a disclosure happened, to whom, and of which field.
+
+The RFQ desk is the **reference integration and the demo venue** — the concrete setting where the constraint layer is exercised end to end. Any agent framework that can commit limits, submit a fill, and verify a proof can integrate with the same layer; the venue is not the product.
 
 Wave 1 is live on Midnight Preprod (`protocolVersion` 1000000, ledger 8). Wave 2 hardens the same protocol. Wave 3 targets Mainnet after an explicit capability gate.
 
@@ -100,7 +122,16 @@ Public JSON (hashes only, no openings): [hosted `/evidence`](https://remit-api-n
 
 ## Why REMIT exists
 
-Delegated execution leaks strategy. A limit price, a size, a remaining budget, an expiry, and an admitted counterparty set are signals. Anyone who can read them can trade against them. Asking an agent or a desk to "be careful" is not a proof.
+In 2026, autonomous agents started spending real money — and on the payment rails, your agent is you. The question nobody could answer: **prove it stayed inside its limits.**
+
+The governance fear is documented, not speculative:
+
+- Japan's Digital Agency (June 2026) revised its generative-AI procurement guidance and brought **AI agents** inside the scope of reporting to its advanced-AI advisory structure — AI agents in procurement are now a governed category in Japan's public sector. ([dig.watch](https://dig.watch/updates/japan-minister-measures-aienabled-cyberattacks))
+- Japan's FSA made on-chain finance its top 2026 priority and "will evaluate necessary supervision adjustments as adoption grows" for AI technologies including AI agents. ([published 2026-09-17](https://news.nbtc.finance/japans-fsa-makes-on-chain-finance-policy-its-top-2026-priority/))
+- The precise control-parameter shape already exists in industry guidance for agentic payment systems in Japan: **position limits, counterparty exposure caps, single-instruction value thresholds that the agents cannot exceed without triggering a human review gate** — described as "the design features that make the system acceptable to the FSA," not as restrictions. ([tfsfventures](https://www.tfsfventures.com/blog/the-opportunity-in-agent-to-agent-payments-for-trading-in-japan))
+- Eleven 2026 industry documents (GLEIF, Worldline, CBA, J.P. Morgan, Citi) call for mandate/scope controls — amount, payee, time — checked at the moment of payment; J.P. Morgan's 2026 Payments Outlook describes agents "transacting autonomously within defined, narrow parameters," with humans keeping the final say on treasury.
+
+None of this endorses REMIT. It establishes that the problem — provable limits an agent cannot exceed — is a real, current, 2026 enterprise and regulatory concern, not a invented one.
 
 REMIT makes the policy itself the object of cryptography:
 
@@ -109,7 +140,7 @@ REMIT makes the policy itself the object of cryptography:
 - The **executor** may rank and select. Compact will not settle a fill that violates the mandate.
 - The **public ledger** records commitments, nullifiers, counters, and an `auditRoot`. It does not store openings, prices, `chosenIndex`, or `fillBase`.
 
-The agent is constrained execution infrastructure, not a chatbot and not settlement authority. Model output never authorizes a fill.
+The agent is constrained execution infrastructure, not a chatbot and not settlement authority. Model output never authorizes a fill. The compliance story in one line: **position limits, exposure caps, value thresholds — the control parameters regulators expect agents to carry — become proofs, not promises.**
 
 ---
 
@@ -368,7 +399,7 @@ sequenceDiagram
 
 Live head: `1bbc1cc2aa2cd83de56cb8ea15ec5dfb8dd071cf2fb305980416ed726b81a694`. Chrome auditor: fill amount 30 VERIFIED; forged 999 REJECTED.
 
-Wave 2 formalizes this flow on-ledger: the `discloseField` circuit (`CONTRACT/src/remit_quote.compact`, CONTRACT-1) recomputes the field commitment and the full `auditRootOf` in-circuit, discloses the root value + field commitment + public metadata (`fieldSelector`, `auditorKey`), and publishes an off-circuit RMTB1 sealed box holding `value ‖ salt` — the auditor decrypts, recomputes, compares. Full boundary spec: [docs/PRIVACY-BOUNDARY.md §4](docs/PRIVACY-BOUNDARY.md).
+**Wave 2 shipped this on-ledger:** the `discloseField` circuit (`CONTRACT/src/remit_quote.compact`, commit `efda26c`) recomputes the field commitment and the full `auditRootOf` in-circuit, discloses the root value + field commitment + public metadata (`fieldSelector`, `auditorKey`), and publishes an off-circuit RMTB1 sealed box holding `value ‖ salt` — the auditor decrypts, recomputes, compares. **Rename is final:** the v2 spec's `disclose` is a Compact 0.31.1 reserved keyword (parse-time hard error), so the circuit shipped as `discloseField`; the builtin `disclose(x)` calls inside `claim` are untouched. **Honest hybrid:** Compact 0.31.1 has no in-circuit encryption primitive, so the field is sealed OFF-circuit with the repo's real RMTB1 pattern (X25519 + XChaCha20-Poly1305) and passed in as opaque `sealedBox: Bytes<160>` — never plaintext on the transcript. In-circuit does authorization + binding + anti-replay. **Non-claim:** the pool's `auditRoots` is a `List<Bytes<32>>`, not a Merkle tree — no membership proof is claimed; root presence is off-chain-verifiable only (RPC read). The ledger-write boundary is the disclosure nullifier `persistentHash(pad(32,"remit:dnull"), commitment, auditorKey)` → new `disclosureNullifiers` set — it kills replayed disclosure *and* gives the circuit its `proof:false` boundary in one write. `fieldSelector`/`auditorKey` are public metadata: observers learn *which* field was opened *to whom* (the world learns a disclosure happened; the field value stays sealed). Full boundary spec: [docs/PRIVACY-BOUNDARY.md §4](docs/PRIVACY-BOUNDARY.md). Full-ZK artifacts (`.zkir`, `.verifier`, `.prover`) are committed under `CONTRACT/managed/remit_quote/`; simulator, refusal-path, and ciphertext≠plaintext regression tests live in `TESTS/unit/disclose-*.test.ts` and `TESTS/privacy/disclose-leak.test.ts`.
 
 ---
 
@@ -755,27 +786,26 @@ No `ownPublicKey()` authentication. No secrets in `VITE_` / `NEXT_PUBLIC_`. No f
 
 ## What changed since Wave 1
 
-> **DRAFT (2026-10-17).** Nothing here is claimed before it ships: every item marked **[PENDING]** is specified in the Wave-2 plan but has no commit or on-chain evidence yet. This section finalizes at code-freeze, when each entry names its real commit SHA and explorer-linked tx hash.
+> **Status (2026-10-17).** Items marked **[SHIPPED]** are committed and verified; items marked **[PENDING]** are specified in the Wave-2 plan but have no commit or on-chain evidence yet. This section finalizes at code-freeze, when each entry names its real commit SHA and explorer-linked tx hash.
 >
 > **Resubmission-eligibility rule:** no Wave-1 (Sep-2026) transaction hashes appear here. Every tx hash in this section must be NEW Wave-2 evidence — old hashes in a "what changed" section = a mere copy = ineligible under the rules. Wave-1 boundary: `origin/main` had zero commits after 2026-09-15; everything below lands after that.
 
 ### Added
 
-- **[PENDING]** `discloseField(fieldSelector, auditorKey, sealedBox)` — the selective-audit circuit in `CONTRACT/src/remit_quote.compact` (the quote contract grows 2→3 circuits; the pool is untouched at 7 — its own header forbids an 8th). **Rename is final:** the v2 spec's `disclose` is a Compact 0.31.1 reserved keyword (parse-time hard error), so the circuit shipped as `discloseField`; the builtin `disclose(x)` calls inside `claim` are untouched. **Honest hybrid:** Compact 0.31.1 has no in-circuit encryption primitive, so the field is sealed OFF-circuit with the repo's real RMTB1 pattern (X25519 + XChaCha20-Poly1305) and passed in as opaque `sealedBox: Bytes<160>` — never plaintext on the transcript (a raw disclose would publish the field to the world). In-circuit does authorization + binding + anti-replay: the circuit recomputes the field commitment and the full `auditRootOf` in-circuit and discloses the root VALUE. **Non-claim:** the pool's `auditRoots` is a `List<Bytes<32>>`, not a Merkle tree — no membership proof is claimed; root presence is off-chain-verifiable only (RPC read). The ledger-write boundary is the disclosure nullifier `persistentHash(pad(32,"remit:dnull"), commitment, auditorKey)` → new `disclosureNullifiers` set — it kills replayed disclosure *and* gives the circuit its `proof:false` boundary in one write. `fieldSelector`/`auditorKey` are public metadata: observers learn *which* field was opened *to whom* (the world learns a disclosure happened; the field value stays sealed). Auditor story: decrypt box → `(value, salt)` → recompute `persistentCommit` → compare to the disclosed commitment — dishonesty is DETECTED via on-ledger evidence, not prevented in-circuit. Implemented and compiled clean under `--skip-zk` (compactc 0.31.1); full-ZK compile, simulator suite, and Preprod deploy still open below.
-- **[PENDING]** Simulator suite for `discloseField` on compiled artifacts via `@midnight-ntwrk/compact-runtime` (no JS mirrors): happy path + refusal paths (wrong auditor key, forged field, replayed disclosure) + a ciphertext≠plaintext regression test + a circuit-call binding-sync check after artifact regen. The 202-case Wave-1 suite stays green.
-- **[PENDING]** Full-ZK compile of the new circuit — `compact compile` WITHOUT `--skip-zk` on compactc 0.31.1 (lang 0.23); actual verifier-key bytes measured against the ≤8-keys-per-deploy-tx rule (no uncited numbers).
+- **[SHIPPED]** `discloseField(fieldSelector, auditorKey, sealedBox)` — the selective-audit circuit in `CONTRACT/src/remit_quote.compact` (the quote contract grows 2→3 circuits; the pool is untouched at 7 — its own header forbids an 8th). Commit `efda26c`. **Rename is final:** the v2 spec's `disclose` is a Compact 0.31.1 reserved keyword (parse-time hard error), so the circuit shipped as `discloseField`; the builtin `disclose(x)` calls inside `claim` are untouched. **Honest hybrid:** Compact 0.31.1 has no in-circuit encryption primitive, so the field is sealed OFF-circuit with the repo's real RMTB1 pattern (X25519 + XChaCha20-Poly1305) and passed in as opaque `sealedBox: Bytes<160>` — never plaintext on the transcript (a raw disclose would publish the field to the world). In-circuit does authorization + binding + anti-replay: the circuit recomputes the field commitment and the full `auditRootOf` in-circuit and discloses the root VALUE. **Non-claim:** the pool's `auditRoots` is a `List<Bytes<32>>`, not a Merkle tree — no membership proof is claimed; root presence is off-chain-verifiable only (RPC read). The ledger-write boundary is the disclosure nullifier `persistentHash(pad(32,"remit:dnull"), commitment, auditorKey)` → new `disclosureNullifiers` set — it kills replayed disclosure *and* gives the circuit its `proof:false` boundary in one write. `fieldSelector`/`auditorKey` are public metadata: observers learn *which* field was opened *to whom* (the world learns a disclosure happened; the field value stays sealed). Auditor story: decrypt box → `(value, salt)` → recompute `persistentCommit` → compare to the disclosed commitment — dishonesty is DETECTED via on-ledger evidence, not prevented in-circuit. Full-ZK compile confirmed: `compact compile` WITHOUT `--skip-zk` on compactc 0.31.1 (lang 0.23); `.zkir` + `.verifier` + `.prover` artifacts committed under `CONTRACT/managed/remit_quote/`.
+- **[SHIPPED]** Simulator suite for `discloseField` on compiled artifacts via `@midnight-ntwrk/compact-runtime` (no JS mirrors): happy path + refusal paths (wrong auditor key, forged field, replayed disclosure) + a ciphertext≠plaintext regression test (`TESTS/unit/disclose-sim.test.ts`, `TESTS/unit/disclose-refusal.test.ts`, `TESTS/unit/c4-disclose-smoke.test.ts`, `TESTS/privacy/disclose-leak.test.ts`). The 202-case Wave-1 suite stays green. CI green.
 - **[PENDING]** Inventory-first `proof:false` audit: every circuit in BOTH contracts classified as proving vs pure/view; pure circuits get explicit exemptions with reasons, not cargo-cult ledger writes.
 - **[PENDING]** Public no-wallet verify page: real RPC read of tx status/block + explorer deep-link; every element labeled *linked* vs *verified* — no green-checkmark theater. The "secrets on-chain: 0" counter is cut (it was copy, not telemetry).
 
 ### Fixed
 
 - **[PENDING]** Evidence pipeline migrated off the decommissioned Preprod indexer (HTTP 410) to RPC + explorer direct reads (Blockfrost only if a project token is provided).
-- **[PENDING]** Pitch rewritten from infra jargon ("mandate-bound dark RFQ desk", "MBBE K=3") to the constraint-led one-liner — no "AI" in the headline — with the killer-question line answering what the executor can and cannot see, and a buyer-language privacy table that says secret *from whom* per row.
-- **[PENDING]** The "why not a server" answer rewritten as the trust split: the executor is trusted for ranking quality and liveness, but cryptographically UNTRUSTED for bounds — it cannot produce a valid fill outside your committed limits, and anyone can verify that from the ledger without seeing the limits.
-- **[PENDING]** Uniqueness owns the crowded domain: the RFQ venue is Wave-1 lineage; the product is the constraint + the auditor-grade selective disclosure.
-- **[PENDING]** The commercial privacy case named with a cost: competing dealers shading quotes on leaked flow, priced in basis points per fill on real weekly flow, paid out of a real P&L.
-- **[PENDING]** B2B path reduced to one door — a Japanese enterprise piloting agents in procurement/treasury, sold to the compliance owner on provable agent governance; the three-hop "venue → broker desks → enterprise procurement" path is deleted. User zero is the founder's own flow (stated honestly, never as external traction).
-- **[PENDING]** Communication formalities closed: video re-recorded ≤4 min with audio commentary, mission in the first 30 seconds, zero jargon on screen; real PDF deck; `midnightntwrk` GitHub topic verified set. Settlement asset named: Preprod fills settle in REMIT-Q — a testnet-only faucet token, explicitly NOT a stablecoin, NOT redeemable; the product's settlement leg is asset-agnostic and no token economics are claimed.
+- **[SHIPPED]** Pitch rewritten around the constraint-layer reframe: the enterprise agent-governance anchor replaces the trading-desk pitch (this README). The RFQ venue is the reference integration and demo, not the product. The killer-question line is answered in [Privacy](#privacy--what-is-secret-from-whom): the executor sees rankings and encrypted quote boxes — enough to pick, never your limit values; the circuit checks the pick against your committed limits and rejects anything outside them.
+- **[SHIPPED]** The "why not a server" answer rewritten as the trust split: the executor is trusted for ranking quality and liveness, but cryptographically UNTRUSTED for bounds — it cannot produce a valid fill outside your committed limits, and anyone can verify that from the ledger without seeing the limits.
+- **[SHIPPED]** Uniqueness owns the crowded domain: the product is the constraint (mandate-bound executor + sealed matching + nullifier-bound selective disclosure) plus the auditor-grade disclosure; the RFQ venue is Wave-1 lineage. Scoped to the conjunction — never "private RFQ for agents" as a broad claim.
+- **[SHIPPED]** The commercial privacy case named with a cost: competing dealers shading quotes on leaked flow, priced in basis points per fill on real weekly flow, paid out of a real P&L.
+- **[SHIPPED]** Anchor reduced to the enterprise agent-governance frame: REMIT is a constraint layer for agents that move money — companies deploying autonomous purchasing agents need provable limits they cannot exceed. The three-hop "venue → broker desks → enterprise procurement" path is deleted. No users, pilots, LOIs, or partners are claimed — the regulatory context is cited as the problem's context, never as endorsement.
+- **[PENDING]** Communication formalities: video re-recorded ≤4 min with audio commentary, mission in the first 30 seconds, zero jargon on screen; real PDF deck; `midnightntwrk` GitHub topic verified set. Settlement asset named: Preprod fills settle in REMIT-Q — a testnet-only faucet token, explicitly NOT a stablecoin, NOT redeemable; the product's settlement leg is asset-agnostic and no token economics are claimed.
 
 ### Proved
 
@@ -787,6 +817,39 @@ No `ownPublicKey()` authentication. No secrets in `VITE_` / `NEXT_PUBLIC_`. No f
 - REMIT-Q stays testnet-only and not redeemable; real-value settlement is a Wave-3 gate item, not claimed now.
 - The eight things this circuit does NOT prove (shipped in `docs/HONEST-LIMITS.md`): global best-execution (MBBE proves best-of-K *in this tx*, not global best-ex); honest ranking — the executor can pick the worst in-bounds quote (choice steering is **trusted, not proven**); liveness; disclosure field freshness without a version bind; auditor legitimacy (`auditorKey` is a key, not an identity); maker quote backing (quotes are unbacked off-chain boxes); front-running resistance; mandate sanity (garbage mandate in, compliant fill out).
 - No users, partners, or LOIs are claimed — ever. The BD items above are named plans and stated honestly as such.
+
+---
+
+## DECK-NARRATIVE
+
+Story beats for the deck and the re-recorded video. **Narrative copy only — no video production in this repository.** The video is recorded separately; the deck is `SLIDES.md`.
+
+1. **Cold open (mission in the first 30 seconds):** "Your purchasing agent just spent your money. Under the current rules, that's you spending it — and nobody can prove it stayed inside your limits. We're going to fix that in ninety seconds."
+2. **The mandate (the governance artifact):** the firm — here, the founder's own purchasing-agent flow, **labeled on screen as user zero, never as a customer** — seals a mandate: max notional, floor, ceiling, per-order caps. One commitment on-chain. Nothing else visible.
+3. **The adversarial market (why privacy matters):** quotes arrive sealed, including deliberately bad ones (a fat-finger beyond the band, a quote outside the mandate). No counterparty learns the mandate or anyone's pricing. When limits leak, dealers price your desperation — basis points per fill, paid out of a real P&L, every week.
+4. **The fill (the product proving itself):** the executor fills the best in-bounds quote; the circuit proves best-of-K among sealed candidates and inside-mandate — from public commitments alone. The bad quotes get rejected by circuits, not by a human clicking "decline."
+5. **The audit (the anchor paying off):** open the auditor view. The compliance owner decrypts exactly one field — say, the executed notional — and verifies it against the on-chain commitment and the disclosure nullifier. One fact, no book, no replay.
+6. **The frame (one line, cited, then cut):** "Japan's Digital Agency brought AI agents inside government procurement governance in June 2026; the FSA is evaluating AI-agent supervision now. The control parameters they describe — limits the agent cannot exceed — are exactly what this circuit proves."
+
+**What the deck must never show:** anything implying the *choice* was fair (no "best deal" claims — best-of-K *in this tx*, headline non-claim #1) · any invented enterprise user (the firm on screen is user zero, labeled as such) · any "secrets on-chain: 0" style live counter (static copy or wired telemetry only).
+
+---
+
+## Honest ledger — real vs plan
+
+The ledger a judge can check in ten minutes.
+
+| REAL (shipped, verifiable today) | PLAN (labeled as plan, never as fact) |
+|---|---|
+| Mandate-bound executor + sealed RFQ matching + best-of-K bounds-compliance proof on Preprod ([explorer links](#on-chain-proofs)) | Fresh Wave-2 Preprod `discloseField` lifecycle with explorer-linked txs |
+| `discloseField` circuit: full-ZK compiled (Compact 0.31.1), verifier keys measured, simulator + refusal + ciphertext≠plaintext regression tests, CI green | Public no-wallet verify page (real RPC reads, elements labeled *linked* vs *verified*) |
+| 202+ simulator tests on compiled artifacts; refusal paths enforced by Compact | Any named enterprise pilot or LOI — zero exist |
+| Choice steering disclosed, not closed ([HONEST-LIMITS.md](docs/HONEST-LIMITS.md) non-claim #2) | Weekly recurrence beyond user zero |
+| Open-source repo (Apache-2.0); judge path of ≤3 exact commands | Framework integrations beyond the reference venue |
+| | Best-execution binding beyond best-of-K-in-this-tx (Wave-3 research) |
+| | Japan channel conversion (outreach target, not partner) |
+
+Zero users, pilots, LOIs, or partnerships are claimed anywhere in this repository. The eight non-claims ship as a product surface in [docs/HONEST-LIMITS.md](docs/HONEST-LIMITS.md).
 
 ---
 
@@ -809,7 +872,7 @@ flowchart LR
 
 ## Wave 2 - hardening and scale
 
-See [PLAN.md](./PLAN.md). In short: stronger in-bounds K=3 relation, unlinkable liquidity discovery, multi-executor delegation, purpose-bound selective audit, richer residual lifecycle, institutional policy templates, privacy metrics, security hardening, judge sandbox, production persistence drills.
+See [PLAN.md](./PLAN.md). **Scope note (2026-10-17):** the Wave-2 resubmission spine is the constraint-layer reframe + the `discloseField` selective-disclosure circuit + fresh Preprod evidence (see [What changed since Wave 1](#what-changed-since-wave-1)). The broader list below is the original Wave-2 outline; the spine above is what is being executed and judged. In short: stronger in-bounds K=3 relation, unlinkable liquidity discovery, multi-executor delegation, purpose-bound selective audit, richer residual lifecycle, institutional policy templates, privacy metrics, security hardening, judge sandbox, production persistence drills.
 
 ---
 

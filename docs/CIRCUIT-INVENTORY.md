@@ -17,7 +17,9 @@ instead of a ritual `sequence.increment(1)`.
 `CONTRACT/src/remit_quote.compact` — implemented, compiled clean under `--skip-zk`
 (compactc 0.31.1, language 0.23); `contract-info.json` shows `discloseField`
 `proof: true` and the ledger gains `disclosureNullifiers: Set<Bytes<32>>`. Full-ZK
-compile + verifier-key byte measurement are still open (Gate N2).
+compile + verifier-key byte measurement are CLOSED (Gate N2, 2026-10-17):
+10/10 circuits compiled, all verifier keys exactly 2119 B — see
+docs/COMPILE-PROOF.md for the full measurement table.
 
 ---
 
@@ -142,12 +144,18 @@ commitment, box, and nullifier already on the ledger.
   (documented edge); `claim` `proof: true` with three boundaries.
 - **Current `proof:false` risk: NONE.** No circuit is presented as proven while the
   compiler skips its proof.
-- Open items (not circuit changes — handoffs): full-ZK compile + verifier-key bytes
-  (Gate N2); simulator suite incl. ciphertext≠plaintext regression and refusal paths
-  (wrong key, forged field, replayed disclosure) (Gate N3); binding-sync check
-  between the inlined field-salt scheme and the pool's scheme (N3); the witness
-  declarations in `remit_quote.compact` must match `packages/core/src/quote-witnesses.ts`
-  (CONTRACT-2) before the managed artifacts regen; root provenance via off-chain RPC
+- Closed gates (2026-10-17): full-ZK compile + verifier-key bytes (Gate N2 —
+  docs/COMPILE-PROOF.md); simulator suite incl. ciphertext≠plaintext regression
+  and refusal paths (wrong key, forged field, replayed disclosure) (Gate N3 —
+  disclose-sim 7/7, disclose-refusal 7/7, c4-disclose-smoke 5/5, disclose-leak 5/5);
+  binding-sync check between the inlined field-salt scheme and the pool's scheme
+  (N3 — assertCircuitBindingsSynced in packages/core/src/tx.ts); witness
+  declarations in `remit_quote.compact` match `packages/core/src/quote-witnesses.ts`
+  (CONTRACT-2/CONTRACT-4).
+- Still open (not circuit changes): root provenance via off-chain RPC
+  (documented non-claim — pool auditRoots is a List, presence verifiable
+  off-chain only); fresh Preprod deploy of the quote contract (gated on DUST
+  wallet sync).
   cross-check vs pool `auditRoots` (explicit non-claim — no cross-contract reads on
   ledger 8).
 

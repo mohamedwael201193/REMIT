@@ -1,11 +1,11 @@
 "use client";
 
 const FACTS = [
-  { title: "Discover", label: "Private liquidity, no public tape" },
-  { title: "Policy", label: "A sealed mandate is the boundary" },
+  { title: "Mandate", label: "The team seals the spending mandate" },
+  { title: "Match", label: "The agent picks quotes inside the limits" },
   { title: "Prove", label: "Compact checks the fill first" },
   { title: "Settle", label: "Value moves only after the proof" },
-  { title: "Audit", label: "One authorized fact, not the book" },
+  { title: "Audit", label: "One disclosed fact, never the book" },
 ];
 
 export function LandingFacts() {

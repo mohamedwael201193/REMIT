@@ -34,7 +34,7 @@ type Stage = "idle" | "checking" | "rejected" | "verified";
 const CHECKS = [
   { label: "Within price limit", detail: `${usd(ATTEMPT_PRICE)} ≤ $1.0002 limit` },
   { label: "Within size limit", detail: "" }, // dynamic
-  { label: "Counterparty allowed", detail: "Allow-listed maker (illustration)" },
+  { label: "Eligible supplier allowed", detail: "Allow-listed supplier (illustration)" },
   { label: "Mandate active", detail: "Sealed example · Compact-enforced cap" },
 ];
 
@@ -110,7 +110,7 @@ export function SectionEnforcement() {
               <Accent>The agent cannot exceed.</Accent>
             </>
           }
-          lede="Illustration. Teaching cap only. Seal a boundary, drive the executor, and watch Compact refuse a fill that crosses it. Live Preprod fills are in the workspace."
+          lede="Illustration. Teaching cap only. A treasury team seals a spending mandate — drive the purchasing agent and watch Compact refuse a fill that crosses it. Live Preprod fills are in the workspace."
         />
 
         <Reveal delay={0.1} className="mx-auto mt-14 max-w-5xl">
@@ -129,12 +129,12 @@ export function SectionEnforcement() {
 
               <dl className="mt-6 space-y-3.5 text-[13px]">
                 {[
-                  ["Asset", "tNIGHT (illustration)"],
+                  ["Mandate for", "Supplies (illustration)"],
                   ["Side", "Buy"],
                   ["Limit price", "Sealed"],
                   ["Total budget", "Sealed"],
                   ["Expiry", "Sealed"],
-                  ["Executor", "Constrained executor"],
+                  ["Executor", "Purchasing agent"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex items-baseline justify-between gap-4">
                     <dt className="uppercase tracking-[0.12em] text-[#5d6a61] text-[10.5px]">{k}</dt>
@@ -408,10 +408,10 @@ export function SectionEnforcement() {
 
         <Reveal delay={0.15}>
           <p className="mx-auto mt-10 max-w-2xl text-center text-pretty text-[15px] leading-relaxed text-cream/60">
-            The executor stays free to choose the offer, the moment and the
-            size, up to the boundary.{" "}
+            The purchasing agent stays free to choose the quote, the moment
+            and the size, up to the boundary.{" "}
             <span className="text-gold">Cryptography defines where it stops.</span>{" "}
-            The market only ever sees the result.
+            Suppliers only ever see the result.
           </p>
         </Reveal>
       </div>

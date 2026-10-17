@@ -113,11 +113,14 @@ export default function VerifyPage() {
           Verify a transaction.
         </h1>
         <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-[#3d4a43]">
-          No wallet needed. Paste a Midnight Preprod transaction hash and this page reads the
-          chain directly — through the public node RPC and our public verify API. Every fact
-          below is labeled <em className="font-display-wonk">verified</em> or{" "}
-          <em className="font-display-wonk">linked</em>, so you can see exactly what was checked
-          and what is merely a pointer.
+          This is the auditor&apos;s surface: anyone can check that an
+          agent&apos;s fill stayed inside its sealed spending mandate, without
+          ever seeing the mandate itself. Paste a Midnight Preprod transaction
+          hash and this page reads the chain directly — through the public node
+          RPC and our public verify API. Every fact below is labeled{" "}
+          <em className="font-display-wonk">verified</em> or{" "}
+          <em className="font-display-wonk">linked</em>, so you can see exactly
+          what was checked and what is merely a pointer.
         </p>
 
         {/* ── Input ────────────────────────────────────────────── */}
@@ -288,7 +291,7 @@ export default function VerifyPage() {
             {/* ── Disclose panel ─────────────────────────────────── */}
             <div className="mt-6 rounded-2xl border border-[rgba(140,106,31,0.35)] bg-[#fbf8f0] p-5 sm:p-6">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="font-display text-xl text-[#1a231e]">Disclosure record</h2>
+                <h2 className="font-display text-xl text-[#1a231e]">Auditor disclosure record</h2>
                 <LabelChip label={disclose ? "verified" : "unverified"} />
               </div>
               {disclose ? (

@@ -12,30 +12,30 @@ import { CornerTicks } from "./plates";
 const ROLES = [
   {
     icon: UserRound,
-    title: "Principal",
-    line: "Sets the rules. Keeps them private.",
-    sees: ["Own mandates", "Own budget", "Own fills"],
+    title: "Procurement team",
+    line: "Sets the spending mandate. Keeps it private.",
+    sees: ["Own mandates", "Own budgets", "Own fills"],
     tone: "gold" as const,
   },
   {
     icon: Bot,
-    title: "Executor",
-    line: "Executes inside the mandate. Nothing more.",
-    sees: ["Openings it was given", "The boundary", "Not the maker's full book"],
+    title: "Purchasing agent",
+    line: "Chooses quotes inside the mandate. Nothing more.",
+    sees: ["Quotes it was given", "The boundary", "Not the suppliers' books"],
     tone: "sage" as const,
   },
   {
     icon: Handshake,
-    title: "Counterparty",
-    line: "Quotes privately. Settles trustlessly.",
-    sees: ["The envelope", "Own fills", "Not the principal"],
+    title: "Suppliers",
+    line: "Quote privately. Settle trustlessly.",
+    sees: ["The envelope", "Own fills", "Not the buyer's mandate"],
     tone: "sage" as const,
   },
   {
     icon: SearchCheck,
     title: "Auditor",
-    line: "Verifies one fact at a time.",
-    sees: ["Proof status", "Disclosed facts", "Never the mandate"],
+    line: "Verifies one disclosed field at a time.",
+    sees: ["Proof status", "Disclosed fields", "Never the mandate"],
     tone: "mint" as const,
   },
 ];
@@ -53,7 +53,7 @@ export function SectionRoles() {
               Four parties. <Accent>One boundary.</Accent>
             </>
           }
-          lede="Every role sees exactly what it needs, and not a field more."
+          lede="A team sets the spending limits, an agent buys inside them, and an auditor checks one fact — without ever receiving the mandate."
         />
 
         {/* the council — engraved banner above the cards */}

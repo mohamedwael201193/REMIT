@@ -14,20 +14,20 @@ import { Accent, Reveal, SectionHeading } from "@/components/remit/primitives";
 
 const FAQS = [
   {
-    q: "What exactly is a mandate?",
-    a: "A private set of trading rules: allowed asset, side, per-fill cap, limit price, total budget, admitted counterparties, and an expiry, sealed before execution begins. The executor operates inside it. The market never reads it. The chain proves it was respected.",
+    q: "What exactly is a spending mandate?",
+    a: "A private set of purchasing rules: the spending limit, eligible suppliers, per-fill cap, limit price, total budget, and an expiry, sealed before execution begins. The purchasing agent operates inside it. Suppliers never read it. The chain proves it was respected.",
   },
   {
     q: "Can the agent exceed the mandate?",
-    a: "No. A fill that breaks any rule (size over the cap, price past the limit, a counterparty outside the admitted set, a lapsed expiry) is rejected before settlement. No value moves. You can try it yourself in the enforcement illustration above.",
+    a: "No. A fill that breaks any rule (size over the cap, a supplier outside the eligible set, a lapsed expiry) is rejected before settlement. No value moves. You can try it yourself in the enforcement illustration above.",
   },
   {
     q: "What does the public actually see?",
-    a: "The minimum verifiable result: that a fill happened inside a proven policy, referenced by a proof and a receipt. Not the amounts, not the identities, not the limits, not the relationships.",
+    a: "The minimum verifiable result: that a fill happened inside a proven mandate, referenced by a proof and a receipt. Not the amounts, not the identities, not the limits, not the relationships.",
   },
   {
     q: "What can an auditor see?",
-    a: "Exactly one verified fact at a time (a fill amount, a policy result, a counterparty class, or a timestamp), and only what you choose to disclose. The mandate itself is never handed over.",
+    a: "Exactly one disclosed field at a time (the executed notional, a policy result, a supplier class, or a timestamp), encrypted to their key in-circuit and bound to the on-chain commitment by a nullifier that kills replay. The mandate itself is never handed over.",
   },
   {
     q: "Which wallets does REMIT work with?",
@@ -36,6 +36,10 @@ const FAQS = [
   {
     q: "What happens when I revoke the executor?",
     a: "Revocation is part of the mandate state. Once revoked, no further fill can settle under that authorization, while every past receipt remains independently verifiable.",
+  },
+  {
+    q: "Is this live, or a demo?",
+    a: "REMIT runs on Midnight Preprod: real Compact circuits, real ledger writes, real simulator tests. The demo venue is the founder's own purchasing-agent flow — user zero, labeled as such. There are no pilot customers and no LOIs; the real-world anchor is the documented enterprise agent-governance problem, not a claimed client.",
   },
 ];
 
