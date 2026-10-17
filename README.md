@@ -71,7 +71,7 @@ When competing dealers learn your flow, limits, and urgency, they shade their qu
 
 **Settlement note:** Preprod fills settle in REMIT-Q — a testnet-only faucet token, explicitly NOT a stablecoin, NOT redeemable. The product's settlement leg is asset-agnostic; no token economics are claimed.
 
-The technical privacy boundary (witnesses, commitments, nullifiers, circuits) lives in the sections below and in [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md). Nobody else proved an agent stayed inside someone else's limits and let an auditor check one fact without seeing the book.
+The technical privacy boundary (witnesses, commitments, nullifiers, circuits) lives in the sections below and in [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md). The conjunction — a mandate-bound executor, sealed K=3 matching, and nullifier-bound one-field disclosure — is what no one else has shipped: an agent proved inside someone else's limits, with one-fact auditor checks and no book visibility.
 
 ## What REMIT is
 
@@ -79,7 +79,7 @@ REMIT is a **constraint layer for autonomous purchasing agents** — demonstrate
 
 - **Mandate-bound executor.** A principal seals a spending mandate (max notional, price bounds, counterparty set, expiry) as a private commitment. The purchasing agent negotiates freely *inside* it; Compact will not settle a fill outside it. The mandate never leaves the firm's private state, and anyone verifies compliance from commitments alone.
 - **Sealed RFQ matching.** Counterparties quote into sealed boxes. The executor ranks a private K=3 candidate set, and the circuit proves the fill was best-of-K *among sealed candidates in this transaction* and inside the mandate. When competing dealers learn your flow, limits, and urgency, they shade their quotes — you pay wider spreads on every fill. On real weekly flow, leaked limits cost a desk basis points per fill, paid out of a real P&L, every week.
-- **Nullifier-bound selective disclosure.** The `discloseField` circuit (`CONTRACT/src/remit_quote.compact`, full-ZK compiled, CI green) encrypts exactly one mandate field in-circuit to the auditor's key, binds it by recomputation to the on-chain mandate commitment, and writes a disclosure nullifier that kills replay. The compliance owner checks one fact — e.g. the executed notional — without seeing the book; the world learns only that a disclosure happened, to whom, and of which field.
+- **Nullifier-bound selective disclosure.** The `discloseField` circuit (`CONTRACT/src/remit_quote.compact`, full-ZK compiled, CI green) discloses exactly one mandate field to the auditor's key: the field is sealed OFF-circuit (RMTB1: X25519 + XChaCha20-Poly1305 — Compact 0.31.1 has no in-circuit encryption primitive) and passed in as an opaque box; in-circuit does authorization + binding (recomputed field commitment and audit-root value) + anti-replay via a disclosure nullifier. The compliance owner checks one fact — e.g. the executed notional — without seeing the book; the world learns only that a disclosure happened, to whom, and of which field.
 
 The RFQ desk is the **reference integration and the demo venue** — the concrete setting where the constraint layer is exercised end to end. Any agent framework that can commit limits, submit a fill, and verify a proof can integrate with the same layer; the venue is not the product.
 
@@ -292,7 +292,7 @@ creates `remit_envelopes` with RLS enabled and deny-all policies for `anon` / `a
 
 `CONTRACT/src/remit_pool.compact` — pragma `>= 0.22 && <= 0.23`, toolchain **0.31.1**. Seven impure circuits. Do not add an eighth.
 
-`CONTRACT/src/remit_quote.compact` — REMIT-Q faucet. Separate contract. No cross-contract calls.
+`CONTRACT/src/remit_quote.compact` — REMIT-Q faucet (`claim`), read-only color (`quoteColor`), selective disclosure (`discloseField`). Separate contract. No cross-contract calls.
 
 ### Pool circuits
 
@@ -479,7 +479,7 @@ Verifier keys and ZKIR are committed. Prover keys are gitignored (`CONTRACT/mana
 |---|---|---|
 | 7 Compact circuits | Compile + managed artifacts, compiler 0.31.1 | `inspect-managed` |
 | Private mandate | In-wallet create and revoke | [`5172ab71…`](https://preprod.midnightexplorer.com/transactions/0x5172ab712e2cb39e5f455dd8cec609765d6fe2225ca0b0e97412cfc436df8fa9) / [`8ae27d7a…`](https://preprod.midnightexplorer.com/transactions/0x8ae27d7a3930c284a410198234d97ad110f0668af29cf89c42091b3b51882f49) |
-| Private liquidity | Maker offer + encrypted RFQ | [`c303ec61…`](https://preprod.midnightexplorer.com/transactions/0xc303ec61c09d406acfbec24915dd83c0546c1e833329a3e6a2f7de53b15265b2) |
+| Sealed quotes | Maker offer + encrypted RFQ | [`c303ec61…`](https://preprod.midnightexplorer.com/transactions/0xc303ec61c09d406acfbec24915dd83c0546c1e833329a3e6a2f7de53b15265b2) |
 | Constrained executor | K=3 policy execution | [`12306cbe…`](https://preprod.midnightexplorer.com/transactions/0x12306cbe24823f1ac39f0a1db3ee23214cc84d44cb8014b1d2f84d67838cbd20) |
 | ZK policy enforcement | Compact accepts/rejects adversarial cases | `TESTS/security`, `TESTS/privacy` |
 | Partial execution | 50/80 fill | [`5a1200f5…`](https://preprod.midnightexplorer.com/transactions/0x5a1200f5869cb60c81f9ebcb649da45fb47c563bc245c362d36665597b16f00a) |
@@ -520,7 +520,7 @@ A leftover note is spendable only from the namespaced vault that holds its openi
 
 ## Tests
 
-Latest verified full run: **48 files / 202 passed** (`vitest run`; Playwright hosted spec is separate and not the default suite).
+Latest verified full run: **51 files · 224 passed, 1 skipped** (unit + privacy + security + integration suites, measured 2026-10-17; the single failing test is the live-Supabase persist test — the old `DATABASE_URL` tenant is dead pending the new connection string; Playwright hosted spec is separate and not the default suite).
 
 Layout:
 
@@ -613,7 +613,7 @@ This matches the official Midnight compile shape (`compact compile <source> <out
 **Sources**
 
 - `CONTRACT/src/remit_pool.compact` — 7 impure circuits: `deposit`, `withdraw`, `placeOffer`, `cancelOffer`, `createMandate`, `revokeMandate`, `fill`
-- `CONTRACT/src/remit_quote.compact` — REMIT-Q faucet (`claim`)
+- `CONTRACT/src/remit_quote.compact` — REMIT-Q faucet (`claim`), `quoteColor`, `discloseField` (3 proving circuits)
 
 **Outputs** (after a **full** compile)
 
@@ -625,7 +625,7 @@ CONTRACT/managed/remit_pool/
   keys/*.verifier            # 7 pool verifier keys
   zkir/*.zkir                # 7 pool ZKIR files
 CONTRACT/managed/remit_quote/
-  … same layout for claim / quoteColor
+  … same layout for claim / quoteColor / discloseField
 ```
 
 `--skip-zk` writes bindings, `compiler/`, and `zkir/`. It does **not** write `keys/`. Do not call that a full ZK compile.
@@ -719,7 +719,7 @@ Then quote circuits. Last npm wrapper line: `compile complete`.
 
 A checkout is fully compiled only after this step succeeds and the files below exist.
 
-### Verify the 7 circuits
+### Verify the 10 circuits (7 pool + 3 quote)
 
 Host Node (Windows or Unix):
 
@@ -730,9 +730,11 @@ node scripts/inspect-managed.mjs
 Expected after a **full** compile:
 
 - `compilerVersion` **`0.31.1`**
-- pool verifier count **7**
+- pool verifier count **7**, quote verifier count **3**
 - `CONTRACT/managed/remit_pool/keys/`: `deposit`, `withdraw`, `placeOffer`, `cancelOffer`, `createMandate`, `revokeMandate`, `fill` — each `.verifier` and `.prover`
 - `CONTRACT/managed/remit_pool/zkir/` — the same 7 names as `.zkir`
+- `CONTRACT/managed/remit_quote/keys/`: `claim`, `quoteColor`, `discloseField` — each `.verifier` and `.prover`
+- `CONTRACT/managed/remit_quote/zkir/` — the same 3 names as `.zkir`
 - `CONTRACT/managed/remit_pool/contract/index.js` and `CONTRACT/managed/remit_quote/contract/index.js`
 
 `.prover` files are gitignored (large). Full compile regenerates them. Hosted user-circuit provers: `GET https://remit-api-node.onrender.com/keys`.
@@ -794,8 +796,8 @@ No `ownPublicKey()` authentication. No secrets in `VITE_` / `NEXT_PUBLIC_`. No f
 
 - **[SHIPPED]** `discloseField(fieldSelector, auditorKey, sealedBox)` — the selective-audit circuit in `CONTRACT/src/remit_quote.compact` (the quote contract grows 2→3 circuits; the pool is untouched at 7 — its own header forbids an 8th). Commit `efda26c`. **Rename is final:** the v2 spec's `disclose` is a Compact 0.31.1 reserved keyword (parse-time hard error), so the circuit shipped as `discloseField`; the builtin `disclose(x)` calls inside `claim` are untouched. **Honest hybrid:** Compact 0.31.1 has no in-circuit encryption primitive, so the field is sealed OFF-circuit with the repo's real RMTB1 pattern (X25519 + XChaCha20-Poly1305) and passed in as opaque `sealedBox: Bytes<160>` — never plaintext on the transcript (a raw disclose would publish the field to the world). In-circuit does authorization + binding + anti-replay: the circuit recomputes the field commitment and the full `auditRootOf` in-circuit and discloses the root VALUE. **Non-claim:** the pool's `auditRoots` is a `List<Bytes<32>>`, not a Merkle tree — no membership proof is claimed; root presence is off-chain-verifiable only (RPC read). The ledger-write boundary is the disclosure nullifier `persistentHash(pad(32,"remit:dnull"), commitment, auditorKey)` → new `disclosureNullifiers` set — it kills replayed disclosure *and* gives the circuit its `proof:false` boundary in one write. `fieldSelector`/`auditorKey` are public metadata: observers learn *which* field was opened *to whom* (the world learns a disclosure happened; the field value stays sealed). Auditor story: decrypt box → `(value, salt)` → recompute `persistentCommit` → compare to the disclosed commitment — dishonesty is DETECTED via on-ledger evidence, not prevented in-circuit. Full-ZK compile confirmed: `compact compile` WITHOUT `--skip-zk` on compactc 0.31.1 (lang 0.23); `.zkir` + `.verifier` + `.prover` artifacts committed under `CONTRACT/managed/remit_quote/`.
 - **[SHIPPED]** Simulator suite for `discloseField` on compiled artifacts via `@midnight-ntwrk/compact-runtime` (no JS mirrors): happy path + refusal paths (wrong auditor key, forged field, replayed disclosure) + a ciphertext≠plaintext regression test (`TESTS/unit/disclose-sim.test.ts`, `TESTS/unit/disclose-refusal.test.ts`, `TESTS/unit/c4-disclose-smoke.test.ts`, `TESTS/privacy/disclose-leak.test.ts`). The 202-case Wave-1 suite stays green. CI green.
-- **[PENDING]** Inventory-first `proof:false` audit: every circuit in BOTH contracts classified as proving vs pure/view; pure circuits get explicit exemptions with reasons, not cargo-cult ledger writes.
-- **[PENDING]** Public no-wallet verify page: real RPC read of tx status/block + explorer deep-link; every element labeled *linked* vs *verified* — no green-checkmark theater. The "secrets on-chain: 0" counter is cut (it was copy, not telemetry).
+- **[SHIPPED]** Inventory-first `proof:false` audit: every circuit in BOTH contracts classified as proving vs pure/view; pure circuits get explicit exemptions with reasons, not cargo-cult ledger writes. (`docs/CIRCUIT-INVENTORY.md`, committed 2026-10-17.)
+- **[SHIPPED]** Public no-wallet verify page: real RPC read of chain tip + first-party `/verify/tx` API for per-tx block inclusion + explorer deep-link; every element labeled *linked* vs *verified* — no green-checkmark theater. The "secrets on-chain: 0" counter is cut (it was copy, not telemetry). (In tree: `front/src/app/verify/page.tsx`; hosted deploy pending.)
 
 ### Fixed
 

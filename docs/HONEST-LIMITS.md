@@ -4,8 +4,9 @@
 > more than the circuits prove. This document is the anti-pitch: eight things REMIT
 > does *not* claim, stated plainly, so a judge never has to catch us. Each item names
 > the limit in buyer language first; the mechanism lives in one line at the end.
-> Headlines here never use the word "mandate" — that word lives in the contract code
-> and the appendix of PRIVACY-BOUNDARY.md.
+> Headlines in this document avoid the word "mandate" — that word lives in the
+> contract code and the appendix of PRIVACY-BOUNDARY.md. The one exception is
+> the approved pitch one-liner quoted verbatim below.
 
 ## The eight non-claims
 
@@ -80,8 +81,8 @@ circuit judges the limits themselves.)
 
 ## What this means for the pitch
 
-The honest one-liner is: *"Set hard limits for how your money gets quoted. Your agent
-can negotiate inside them — it can never exceed them."* Full stop. Everything after
+The approved one-liner is: *"Provable spending limits for autonomous purchasing
+agents — the agent can choose, it cannot exceed."* Full stop. Everything after
 "full stop" in a competitor's pitch — best price, fair ranking, guaranteed fill,
 verified auditor, backed quotes, front-running proof, sane limits — we explicitly do
 not claim. What we *do* claim: the executor cannot produce a valid fill outside your

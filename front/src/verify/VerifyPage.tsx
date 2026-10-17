@@ -113,10 +113,10 @@ export default function VerifyPage() {
           Verify a transaction.
         </h1>
         <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-[#3d4a43]">
-          This is the auditor&apos;s surface: anyone can check that an
-          agent&apos;s fill stayed inside its sealed spending mandate, without
-          ever seeing the mandate itself. Paste a Midnight Preprod transaction
-          hash and this page reads the chain directly — through the public node
+          This is the auditor&apos;s surface: paste a Midnight Preprod transaction
+          hash and confirm its on-chain record — inclusion, block, and any
+          auditor-disclosure entry — without ever seeing the underlying mandate
+          itself. This page reads the chain directly — through the public node
           RPC and our public verify API. Every fact below is labeled{" "}
           <em className="font-display-wonk">verified</em> or{" "}
           <em className="font-display-wonk">linked</em>, so you can see exactly
@@ -303,10 +303,11 @@ export default function VerifyPage() {
                     field value is <strong>NOT visible</strong>.
                   </p>
                   <p className="mt-2 text-[14px] leading-relaxed text-[#5d6a61]">
-                    (verified: ciphertext only — the ledger carries the encrypted disclosure and
-                    its nullifier; no field plaintext is present on the ledger. The disclose
-                    circuit encrypts the field to the auditor&apos;s key in-circuit, so only the
-                    auditor can read it.)
+                    (verified: ciphertext only — the ledger carries the sealed disclosure box and
+                    its nullifier; no field plaintext is present on the ledger. The field is sealed
+                    to the auditor&apos;s key off-circuit (RMTB1); the circuit authorizes the
+                    disclosure, binds it to the on-chain commitment, and kills replay — so only
+                    the auditor can read the value.)
                   </p>
                   <dl className="mt-4">
                     <div className="grid gap-1 border-t border-[rgba(26,35,30,0.1)] py-3 sm:grid-cols-[180px_1fr] sm:gap-4">

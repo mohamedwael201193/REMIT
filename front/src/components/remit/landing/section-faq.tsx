@@ -27,7 +27,7 @@ const FAQS = [
   },
   {
     q: "What can an auditor see?",
-    a: "Exactly one disclosed field at a time (the executed notional, a policy result, a supplier class, or a timestamp), encrypted to their key in-circuit and bound to the on-chain commitment by a nullifier that kills replay. The mandate itself is never handed over.",
+    a: "Exactly one disclosed field at a time (the executed notional, a policy result, a supplier class, or a timestamp), sealed to their key off-circuit (RMTB1) and bound to the on-chain commitment by a nullifier that kills replay. The mandate itself is never handed over.",
   },
   {
     q: "Which wallets does REMIT work with?",

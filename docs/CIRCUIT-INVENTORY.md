@@ -72,7 +72,7 @@ verifier keys, and inherit the caller's proof. No separate audit needed.
 
 ---
 
-## 2. `remit_quote` — 2 PROVING circuits, 1 PURE/VIEW circuit
+## 2. `remit_quote` — 3 PROVING circuits, 1 PURE/VIEW circuit
 
 Ledger: `minted` (Counter), `claims` (Set<Bytes<32>>).
 
@@ -141,7 +141,8 @@ commitment, box, and nullifier already on the ledger.
 - remit_pool: 7/7 PROVING circuits `proof: true` with named ledger-write
   boundaries. 22 PURE circuits legitimately `proof: false` with explicit exemptions.
 - remit_quote: `claimTag` legitimately pure; `quoteColor` read-only but `proof: true`
-  (documented edge); `claim` `proof: true` with three boundaries.
+  (documented edge); `claim` `proof: true` with three boundaries; `discloseField`
+  `proof: true` with one boundary (`disclosureNullifiers.insert`).
 - **Current `proof:false` risk: NONE.** No circuit is presented as proven while the
   compiler skips its proof.
 - Closed gates (2026-10-17): full-ZK compile + verifier-key bytes (Gate N2 —
