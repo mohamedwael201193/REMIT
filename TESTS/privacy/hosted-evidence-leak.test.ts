@@ -79,8 +79,15 @@ describe("hosted /evidence and /agent/status omit leak keys", () => {
     await app.close();
   });
 
-  it("Render /evidence and /agent/status omit leak keys and keep the MBBE fill", async () => {
-    const evidenceRes = await fetchWithColdStartRetry(`${API}/evidence`);
+  it("Render /evidence and /agent/status omit leak keys and keep the MBBE fill", async (ctx) => {
+    let evidenceRes: Response;
+    try {
+      evidenceRes = await fetchWithColdStartRetry(`${API}/evidence`);
+    } catch (e) {
+      console.warn(`SKIP hosted leak scan: Render API unreachable after retries: ${(e as Error).message}`);
+      ctx.skip();
+      return;
+    }
     expect(evidenceRes.ok).toBe(true);
     const evidence = await evidenceRes.json();
     assertLeakFree("hosted-evidence", evidence);
