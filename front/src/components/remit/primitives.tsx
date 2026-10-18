@@ -535,11 +535,14 @@ export function EmptyState({
 export function ErrorState({
   title = "Sync interrupted",
   description = "The workspace could not reach the protocol surface. Your mandates remain sealed.",
+  detail,
   onRetry,
   className,
 }: {
   title?: string;
   description?: string;
+  /** Technical reason (e.g. the fetch error) shown small so failures are diagnosable. */
+  detail?: string | null;
   onRetry?: () => void;
   className?: string;
 }) {
@@ -559,6 +562,11 @@ export function ErrorState({
         <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
           {description}
         </p>
+        {detail ? (
+          <p className="mx-auto max-w-md break-words pt-1 font-mono text-[11px] leading-relaxed text-muted-foreground/70">
+            {detail}
+          </p>
+        ) : null}
       </div>
       {onRetry ? (
         <Button variant="outline" size="sm" onClick={onRetry} className="mt-1">

@@ -91,29 +91,39 @@ class LiveRemitProvider implements RemitProvider {
   private wallet: WalletState = disconnected();
   private connected: ConnectedAPI | null = null;
   private cache: MappedWorkspace | null = null;
+  /** Dedupes the parallel get*() calls of one sync tick into a single load. */
+  private inflight: Promise<MappedWorkspace> | null = null;
 
   constructor(private readonly cfg: LiveConfig) {}
 
   private async load(): Promise<MappedWorkspace> {
-    const config = await fetchRemitConfig(this.cfg.apiUrl);
-    if (!config.live || config.pool !== this.cfg.pool || config.quote !== this.cfg.quote) {
-      throw new Error("API does not yet expose indexer-backed pool and quote addresses");
+    if (this.inflight) return this.inflight;
+    this.inflight = (async () => {
+      const config = await fetchRemitConfig(this.cfg.apiUrl);
+      if (!config.live || config.pool !== this.cfg.pool || config.quote !== this.cfg.quote) {
+        throw new Error("API does not yet expose indexer-backed pool and quote addresses");
+      }
+      if (config.network !== "preprod" && this.cfg.network === "preprod") {
+        throw new Error("API network is not Preprod");
+      }
+      const [chain, evidence, agent] = await Promise.all([
+        fetchRemitChain(this.cfg.apiUrl),
+        fetchRemitEvidence(this.cfg.apiUrl),
+        fetchRemitAgentStatus(this.cfg.apiUrl).catch(() => null),
+      ]);
+      this.cache = mapPublicWorkspace({
+        chain,
+        evidence,
+        principalName: this.wallet.address ?? "",
+        lastSettlement: agent?.last ?? null,
+      });
+      return this.cache;
+    })();
+    try {
+      return await this.inflight;
+    } finally {
+      this.inflight = null;
     }
-    if (config.network !== "preprod" && this.cfg.network === "preprod") {
-      throw new Error("API network is not Preprod");
-    }
-    const [chain, evidence, agent] = await Promise.all([
-      fetchRemitChain(this.cfg.apiUrl),
-      fetchRemitEvidence(this.cfg.apiUrl),
-      fetchRemitAgentStatus(this.cfg.apiUrl).catch(() => null),
-    ]);
-    this.cache = mapPublicWorkspace({
-      chain,
-      evidence,
-      principalName: this.wallet.address ?? "",
-      lastSettlement: agent?.last ?? null,
-    });
-    return this.cache;
   }
 
   async getPortfolio(): Promise<PortfolioSnapshot> {

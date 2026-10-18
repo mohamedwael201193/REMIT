@@ -90,18 +90,16 @@ export function LandingHero() {
           Provable agent spending limits · Midnight
         </p>
 
-        <h1 className="hero-copy font-display mt-5 max-w-6xl text-balance text-[clamp(3rem,5vw,5.5rem)] font-semibold leading-[1.05] tracking-[-0.015em]">
-          Provable spending limits for autonomous purchasing agents —{" "}
+        <h1 className="hero-copy font-display mt-5 max-w-5xl text-balance text-[clamp(3rem,5vw,5.5rem)] font-semibold leading-[1.05] tracking-[-0.015em]">
+          The agent can choose,{" "}
           <em className="pb-1 italic leading-[1.1] text-gold">
-            the agent can choose, it cannot exceed.
+            it cannot exceed.
           </em>
         </h1>
 
-        <p className="hero-copy mx-auto mt-6 max-w-2xl text-pretty text-[1.05rem] leading-relaxed text-cream/72 sm:text-lg">
-          A procurement or treasury team seals the mandate — spending limit,
-          eligible suppliers, per-order caps. The purchasing agent matches
-          quotes inside those limits. Midnight proves the fill before value
-          moves.
+        <p className="hero-copy mx-auto mt-6 max-w-xl text-pretty text-[1.05rem] leading-relaxed text-cream/72 sm:text-lg">
+          Sealed spending limits for autonomous purchasing agents — proven on
+          Midnight before value moves.
         </p>
 
         <div className="hero-copy mt-8 flex w-full flex-col items-center justify-center gap-3 sm:flex-row">

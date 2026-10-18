@@ -10,6 +10,7 @@ import {
   FileLock2,
   Inbox,
   LayoutDashboard,
+  Loader2,
   SearchCheck,
   Settings,
   Menu,
@@ -18,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Wordmark } from "@/components/remit/brand";
 import { ConnectWalletDialog, WalletButton } from "@/components/remit/wallet/wallet-button";
 import { ErrorState } from "@/components/remit/primitives";
@@ -157,15 +159,43 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+function SyncLoadingState() {
+  return (
+    <div className="flex flex-col gap-6 py-10" role="status" aria-label="Syncing workspace">
+      <div className="flex flex-col items-center justify-center gap-3 text-center">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/40 bg-gold/10 text-gold">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </span>
+        <p className="font-display text-lg font-semibold">Syncing workspace</p>
+        <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+          Reaching Midnight Preprod — first load can take a few seconds while
+          the API wakes up.
+        </p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-28 rounded-xl" />
+      </div>
+      <Skeleton className="h-64 rounded-xl" />
+    </div>
+  );
+}
+
 function ViewContent() {
   const appView = useRemitStore((s) => s.appView);
   const syncStatus = useRemitStore((s) => s.syncStatus);
   const syncWorkspace = useRemitStore((s) => s.syncWorkspace);
+  const lastError = useRemitStore((s) => s.lastError);
+
+  if (syncStatus === "loading") {
+    return <SyncLoadingState />;
+  }
 
   if (syncStatus === "error") {
     return (
       <div className="py-10">
-        <ErrorState onRetry={() => void syncWorkspace()} />
+        <ErrorState detail={lastError} onRetry={() => void syncWorkspace()} />
       </div>
     );
   }
